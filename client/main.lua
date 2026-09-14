@@ -1,0 +1,203 @@
+--- The client half's plumbing: the export-call helper, the command channel, and the two
+--- capabilities that only exist on the client -- noclip and map travel -- applied when an
+--- ACL-gated server command says so. It holds no authority and asserts none.
+
+OpxAdmin = OpxAdmin or {}
+
+local Text = OpxAdmin.Text
+
+local Client = {}
+OpxAdmin.Client = Client
+
+local RESOURCE = GetCurrentResourceName()
+Client.RESOURCE = RESOURCE
+
+--- The dispatcher acknowledges a queued command on the same event as the command's own
+--- answer, and only its English wording tells the two apart. See opx77_chat/docs/unknowns.md.
+local QUEUE_ACK = "' queued by resource "
+
+--- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
+--- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
+local lastMs = 0
+---@return integer
+function Client.nowMs()
+  local read, seconds = pcall(Open77.time.monotonic)
+  if read and type(seconds) == "number" and seconds == seconds and
+    seconds >= 0 and seconds < math.huge then
+    lastMs = math.floor(seconds * 1000)
+  end
+  return lastMs
+end
+
+---@param resource string
+---@return boolean
+function Client.running(resource)
+  local read, state = pcall(GetResourceState, resource)
+  return read and state == "running"
+end
+
+--- One call to another resource's client export; coroutine only. The third return says
+--- whether the target answered at all, because a refusal is authoritative and a call that
+--- never landed says nothing.
+---@param resource string
+---@param name string
+---@return table|nil result, string|nil reason, boolean answered
+function Client.call(resource, name, ...)
+  if not Client.running(resource) then return nil, "not_running", false end
+  if Open77.exports == nil then return nil, "not_dispatched", false end
+  -- the wrapping stops here: `await` below yields, and a yield is not safe under a pcall
+  local dispatched, promise, reason = pcall(Open77.exports.call, resource, name, ...)
+  if not dispatched then return nil, tostring(promise), false end
+  -- tested for presence, never for its Lua type: the host's promise is userdata, not a table
+  if not promise then return nil, tostring(reason or "not_dispatched"), false end
+  local result, callError = promise:await()
+  if callError then return nil, tostring(callError), false end
+  if type(result) ~= "table" then return nil, "malformed_answer", true end
+  if result.ok == false then return nil, tostring(result.error or "refused"), true end
+  return result, nil, true
+end
+
+--- Soft dependencies already reported, so a missing one costs one line, not one per click.
+local reported = {}
+
+--- Whether a soft dependency is up; says so once when it is not.
+---@param resource string
+---@return boolean
+function Client.need(resource)
+  if Client.running(resource) then return true end
+  if not reported[resource] then
+    reported[resource] = true
+    Open77.log.warn(("%s is not running; the staff menu cannot use it"):format(resource))
+  end
+  return false
+end
+
+--- A toast of this resource's own, when opx77_notify is up. Best-effort.
+---@param key string
+---@param params? table
+---@param kind? string
+function Client.toast(key, params, kind)
+  if not Client.running("opx77_notify") then return end
+  CreateThread(function()
+    Client.call("opx77_notify", "show", {
+      id = "opx77_admin", replace = true, type = kind or "info",
+      title = locale("admin.toast.title"), message = locale(key, params), durationMs = 5000,
+    })
+  end)
+end
+
+-- ---------------------------------------------------------------------------
+-- The command channel
+-- ---------------------------------------------------------------------------
+
+--- Command name -> when the menu sent it, so its answer can be put under the list.
+local awaiting = {}
+
+--- Send one command line exactly as the chat box would. The server resolves `command.<first
+--- token>` against this player's ACL before any handler runs, so this is not a door into
+--- anything: it is the same door, used by a menu instead of a keyboard.
+---@param tokens string[]
+---@return boolean sent
+function Client.execute(tokens)
+  local clean = {}
+  for _, token in ipairs(type(tokens) == "table" and tokens or {}) do
+    -- the transport refuses control characters and a token past 256 bytes outright
+    local word = Text.clean(token, 256)
+    if word then
+      for piece in word:gmatch("%S+") do clean[#clean + 1] = Text.bytes(piece, 256) end
+    end
+  end
+  if #clean == 0 or #clean > 32 then return false end
+  local sent, reason = TriggerServerEvent("open77:command:execute", table.unpack(clean))
+  if not sent then
+    Open77.log.warn(("command %s not sent: %s"):format(clean[1], tostring(reason)))
+    return false
+  end
+  awaiting[clean[1]:lower()] = Client.nowMs()
+  return true
+end
+
+--- The server's answer to a command this player ran. Other resources share the event, and so
+--- does the dispatcher's queue acknowledgement: only a line answering a command this menu sent
+--- in the last fifteen seconds goes under the list. The chat box shows every answer anyway.
+RegisterNetEvent("open77:command:result", function(raw, accepted, message)
+  if type(raw) ~= "string" or type(message) ~= "string" then return end
+  if accepted == true and message:find(QUEUE_ACK, 1, true) then return end
+  local name = (raw:match("^/?(%S+)") or ""):lower()
+  local sentAt = awaiting[name]
+  if sentAt == nil or Client.nowMs() - sentAt > 15000 then return end
+  local Menu = OpxAdmin.Menu
+  if Menu then Menu.status(message, accepted == true) end
+end)
+
+-- ---------------------------------------------------------------------------
+-- Travel
+-- ---------------------------------------------------------------------------
+
+---@param name string
+---@return function|nil
+local function travelNative(name)
+  local travel = Open77.travel
+  if type(travel) ~= "table" or type(travel[name]) ~= "function" then return nil end
+  return travel[name]
+end
+
+--- Whether map travel is armed here: a picked point is only sent back while it is.
+local mapArmed = false
+
+--- Whether this resource switched noclip on, so its stop only undoes its own switch.
+local noclipOn = false
+
+---@param name string
+---@param value any
+local function applyTravel(name, value)
+  local native = travelNative(name)
+  if native == nil then
+    Open77.log.warn(("Open77.travel.%s is not in this client build"):format(name))
+    Client.toast("admin.client.travelMissing", nil, "error")
+    return false
+  end
+  local ok, reason = native(value)
+  if not ok then Open77.log.warn(("%s refused: %s"):format(name, tostring(reason))) end
+  return ok == true
+end
+
+--- Delegated from an ACL-gated server command. Any client resource can raise this name
+--- locally, which buys it nothing it could not do with its own travel grant; the clipboard
+--- write is kept to the one line shape the server sends.
+RegisterNetEvent("opx77_admin:travel", function(action, value)
+  if action == "noclip" then
+    if applyTravel("setNoclip", value == true) then noclipOn = value == true end
+  elseif action == "speed" then
+    local speed = Text.finite(value)
+    if speed and speed >= 0.1 and speed <= 500 then applyTravel("setNoclipSpeed", speed) end
+  elseif action == "mapPick" then
+    mapArmed = value == true and applyTravel("setMapPick", true)
+    if value ~= true then applyTravel("setMapPick", false) end
+  elseif action == "copy" then
+    if type(value) ~= "string" or #value > 160 or not value:match("^{ NAME = ") then return end
+    local clipboard = Open77.clipboard
+    if type(clipboard) == "table" and type(clipboard.setText) == "function" then
+      pcall(clipboard.setText, value)
+    end
+  end
+end)
+
+--- A point double-clicked on the world map, raised by the host while map picking is armed. It
+--- goes back as a command line, so the ACL is resolved again on every jump.
+AddEventHandler("open77:map:picked", function(x, y, z)
+  if not mapArmed then return end
+  x, y, z = Text.finite(x), Text.finite(y), Text.finite(z)
+  if x == nil or y == nil or z == nil then return end
+  Client.execute({ "opx77.admin.self.maptravel", ("%.3f"):format(x), ("%.3f"):format(y),
+                   ("%.3f"):format(z) })
+end)
+
+AddEventHandler("onClientResourceStop", function(name)
+  if name ~= RESOURCE then return end
+  -- fail safe: nothing is left flying, or with a map that teleports, once this code is gone
+  if noclipOn and travelNative("setNoclip") then pcall(Open77.travel.setNoclip, false) end
+  noclipOn = false
+  if mapArmed and travelNative("setMapPick") then pcall(Open77.travel.setMapPick, false) end
+  mapArmed = false
+end)
