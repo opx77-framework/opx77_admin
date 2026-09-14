@@ -267,6 +267,7 @@ OpxAdmin.Locale.register("fr", {
   ["admin.menu.world"]               = "Monde",
   ["admin.menu.server"]              = "Serveur",
   ["admin.menu.back"]                = "Retour",
+  ["admin.menu.more"]                = "Suite",
   ["admin.menu.close"]               = "Fermer",
   ["admin.menu.closeKey"]            = "{key} ouvre et ferme ce menu.",
   ["admin.menu.cancel"]              = "Annuler",

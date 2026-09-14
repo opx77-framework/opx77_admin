@@ -22,6 +22,12 @@ shared_script "locales/fr.lua" -- below calls locale() against an empty one
 shared_script "data/vehicles.lua"
 shared_script "data/weapons.lua"
 shared_script "shared/catalog.lua" -- after both data files: it indexes them
+-- The vehicle rows, indexed in parts in this order: the host rolls a resource set back when one
+-- script's load runs long, so no file may carry them all. See shared/catalog.lua.
+shared_script "shared/catalog-1.lua"
+shared_script "shared/catalog-2.lua"
+shared_script "shared/catalog-3.lua"
+shared_script "shared/catalog-4.lua" -- last: whatever rows are left
 
 server_script "server/main.lua"
 server_script "server/players.lua"

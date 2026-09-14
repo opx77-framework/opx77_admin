@@ -323,7 +323,9 @@ command on the server, the core's money included — grant it only to whoever ma
 `/opx77.admin` or the menu key opens it; the arrow keys move, Enter chooses, Backspace goes
 back a screen. Each screen is its own `opx77_menu` menu — a roster of thirty players with twenty
 actions each is past what one menu tree may hold — and the stack of screens lives in this
-resource.
+resource. A vehicle, weapon or item list longer than twenty rows is drawn twenty at a time, with
+a More row to the next page: `opx77_menu` checks every row it is handed in one client handler,
+and the host stops a handler that runs past 10 000 VM instructions.
 
 ### The keys
 
@@ -444,8 +446,12 @@ uptime from memory; the log is the record.
 ## Catalogues
 
 The platform has no server-side call that enumerates vehicle records, so `data/vehicles.lua` is
-a hand-picked starter list: fourteen vehicles in three classes. **It is an allowlist, not a
-suggestion.** To extend it, add a row:
+copied from the vehicle catalogue the platform's `open77_admin` ships for build 2.31: 271
+vehicles in ten classes, every drivable `_player` record and every distinct traffic livery. Left
+out are the records that catalogue files as quest, scripted scene or special, their courier,
+locked, broken and heat-response copies, the traffic twin of a `_player` record, and every AV,
+whose flight the platform does not certify. **It is an allowlist, not a suggestion.** To extend
+it, add a row:
 
 ```lua
 { NAME = "outlaw", LABEL = "Herrera Outlaw", CLASS = "sport",
@@ -455,6 +461,12 @@ suggestion.** To extend it, add a row:
 `NAME` is what staff type, `CLASS` a key from the file's `CLASSES`, `RECORD` the exact TweakDB
 record. A malformed row is dropped and named in a boot warning. A record the engine does not
 know is refused when it is spawned, with the host's own reason in the answer.
+
+The rows are indexed at load in parts, `shared/catalog-1.lua` to `shared/catalog-4.lua`, 68 to a
+file: the host rolls the whole resource set back when one script's load runs past its deadline,
+which it checks every 10 000 VM instructions, and a row costs about 110. Past 272 rows, add a
+part to `open77.lua` for every 68 more; a boot warning says when the last part carried more
+than its share.
 
 **Weapons and items are `opx77_inventory`'s catalogue**, its `data/items.lua` and
 `data/weapons.lua`, read through its `GetItems` export and kept until that resource starts or
@@ -506,7 +518,7 @@ weapon that takes it.
 | `INVENTORY.MAX_COUNT` | `10000` | the largest count `inventory.give`, `inventory.remove` and the ammunition gives accept |
 | `LINKS` | see above | other resources' command names, `INVENTORY_OPEN` and `INVENTORY_HOLDERS` included; `false` removes the row |
 | `WEATHER_PRESETS`, `TIMES` | | what the sky screens offer |
-| `LOCATIONS` | three starters | saved destinations; `/opx77.admin.self.pos` copies a row |
+| `LOCATIONS` | eleven destinations | saved destinations, the platform's freeroam landing spots; `/opx77.admin.self.pos` copies a row |
 
 ## Exports and events
 

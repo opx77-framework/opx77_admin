@@ -29,6 +29,11 @@ local OPENER = "opx77.admin"
 --- opx77_menu refuses a level past 200 rows; the navigation rows need room.
 local MAX_LISTED = 190
 
+--- Rows a catalogue list draws at once; a longer list is drawn a page at a time. opx77_menu
+--- checks every row of a spec in one handler, at a few hundred VM instructions a row, and the
+--- host stops a client handler once it runs past 10 000 of them.
+local PAGE_ROWS = 20
+
 --- What the server said at open: `you`, `access`, `aclKnown`, `weapons`, `inventory`.
 ---@type table|nil
 local session
@@ -129,6 +134,33 @@ end
 ---@param extra table|nil
 local function go(id, label, screen, arg, extra)
   return row(id, text(label), { go = screen, arg = arg }, extra)
+end
+
+--- One page of a catalogue list: the rows `build` makes for it, then a row to the next page
+--- when there is one. `arg` is the screen's argument, its page in `p`; the title gains the page.
+---@param list table[]
+---@param screen string
+---@param arg table
+---@param title string
+---@param build fun(entry: table): table
+---@return string title, table[] items
+local function paged(list, screen, arg, title, build)
+  local pages = math.max(1, math.ceil(#list / PAGE_ROWS))
+  local page = math.min(math.max(math.floor(tonumber(arg.p) or 1), 1), pages)
+  local first = (page - 1) * PAGE_ROWS + 1
+  local items = {}
+  for index = first, math.min(#list, first + PAGE_ROWS - 1) do
+    items[#items + 1] = build(list[index])
+  end
+  if page < pages then
+    local following = {}
+    for key, value in pairs(arg) do following[key] = value end
+    following.p = page + 1
+    items[#items + 1] = go("more", "admin.menu.more", screen, following,
+      { value = ("%d/%d"):format(page + 1, pages) })
+  end
+  if pages > 1 then title = ("%s %d/%d"):format(title, page, pages) end
+  return title, items
 end
 
 ---@param labelKey string|nil
@@ -365,16 +397,15 @@ SCREENS.vehicleList = function(arg)
   for _, class in ipairs(Catalog.vehicleClasses) do
     if type(arg) == "table" and class.key == arg.c then found = class end
   end
-  local items = {}
-  for index = 1, found and math.min(#found.members, MAX_LISTED) or 0 do
-    local entry = found.members[index]
-    local tokens = target == "me" and { "opx77.admin.vehicle.spawn", entry.name }
-      or { "opx77.admin.vehicle.give", tostring(target), entry.name }
-    items[#items + 1] = command("entry_" .. entry.name, { text = entry.label }, tokens)
-  end
+  local title, items = paged(found and found.members or {}, "vehicleList",
+    type(arg) == "table" and arg or {}, found and found.label or "?", function(entry)
+      local tokens = target == "me" and { "opx77.admin.vehicle.spawn", entry.name }
+        or { "opx77.admin.vehicle.give", tostring(target), entry.name }
+      return command("entry_" .. entry.name, { text = entry.label }, tokens)
+    end)
   if #items == 0 then items[1] = row("empty", locale("admin.menu.catalogEmpty"), nil,
     { disabled = true }) end
-  return found and found.label or "?", items
+  return title, items
 end
 
 --- The weapon items of opx77_inventory's catalogue by class: the classes of data/weapons.lua in
@@ -416,16 +447,15 @@ SCREENS.weaponList = function(arg)
   local target = type(arg) == "table" and tostring(arg.t) or "me"
   local _, byKey = weaponGroups()
   local group = type(arg) == "table" and byKey[arg.c] or nil
-  local items = {}
-  for index = 1, group and math.min(#group.members, MAX_LISTED) or 0 do
-    local entry = group.members[index]
-    local item = command("entry_" .. entry.name, { text = entry.label },
-      { "opx77.admin.weapon.give", target, entry.name })
-    if not item.disabled and not inventoryUp() then unavailable(item) end
-    items[#items + 1] = item
-  end
+  local title, items = paged(group and group.members or {}, "weaponList",
+    type(arg) == "table" and arg or {}, group and group.label or "?", function(entry)
+      local item = command("entry_" .. entry.name, { text = entry.label },
+        { "opx77.admin.weapon.give", target, entry.name })
+      if not item.disabled and not inventoryUp() then unavailable(item) end
+      return item
+    end)
   if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
-  return group and group.label or "?", items
+  return title, items
 end
 
 --- The ammunition items of opx77_inventory's catalogue, each opening the count form of a give.
@@ -470,24 +500,25 @@ SCREENS.itemCategories = function(arg)
 end
 
 SCREENS.itemList = function(arg)
-  local items = {}
+  local matching = {}
   for _, entry in ipairs(catalog.rows) do
-    if entry.category == arg.c and #items < MAX_LISTED then
-      local item
-      if arg.m == "holders" then
-        item = command("item_" .. entry.name, { text = entry.label },
-          { LINKS.INVENTORY_HOLDERS, entry.name })
-      else
-        item = form("item_" .. entry.name, "admin.menu.invGive", "itemGive",
-          { t = arg.t, n = entry.name, l = entry.label }, "opx77.admin.inventory.give")
-        item.label = entry.label
-      end
-      item.description = entry.name
-      items[#items + 1] = item
-    end
+    if entry.category == arg.c then matching[#matching + 1] = entry end
   end
+  local title, items = paged(matching, "itemList", arg, arg.c, function(entry)
+    local item
+    if arg.m == "holders" then
+      item = command("item_" .. entry.name, { text = entry.label },
+        { LINKS.INVENTORY_HOLDERS, entry.name })
+    else
+      item = form("item_" .. entry.name, "admin.menu.invGive", "itemGive",
+        { t = arg.t, n = entry.name, l = entry.label }, "opx77.admin.inventory.give")
+      item.label = entry.label
+    end
+    item.description = entry.name
+    return item
+  end)
   if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
-  return arg.c, items
+  return title, items
 end
 
 --- One bag's stacks, each opening the count form of a removal.

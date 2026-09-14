@@ -95,12 +95,29 @@ OPX_ADMIN_CONFIG = {
   TIMES = { "06:00", "09:00", "12:00", "17:30", "20:30", "23:00", "03:00" },
 
   -- Saved destinations. NAME is what staff type: letters, digits, _ and -. Copy a row with
-  -- /opx77.admin.self.pos while standing where you want one. Starter points; replace them.
+  -- /opx77.admin.self.pos while standing where you want one. The platform's freeroam destinations,
+  -- landing spots it captured on build 2.31; replace them with your own.
   LOCATIONS = {
     { NAME = "watson", LABEL = "Watson, west", X = -667.14, Y = -382.61, Z = 9.16, HEADING = 0.0 },
     { NAME = "heights", LABEL = "Northwest heights", X = -1441.0, Y = 1269.0, Z = 123.0,
       HEADING = 180.0 },
     { NAME = "coast", LABEL = "Southwest coast", X = -1716.38, Y = -2421.28, Z = 62.59,
+      HEADING = 0.0 },
+    { NAME = "stoop", LABEL = "Watson, King Stoop forecourt", X = -410.22, Y = 722.73, Z = 115.0,
+      HEADING = 147.0 },
+    { NAME = "northside", LABEL = "Watson, north promenade", X = -469.47, Y = 930.99, Z = 56.45,
+      HEADING = -68.0 },
+    { NAME = "junction", LABEL = "Watson, lower junction", X = -644.91, Y = 1019.37, Z = 36.56,
+      HEADING = 75.5 },
+    { NAME = "underpass", LABEL = "Watson, lower underpass", X = -701.49, Y = 1033.97, Z = 35.71,
+      HEADING = -104.5 },
+    { NAME = "dealer", LABEL = "Westbrook, vehicle dealership", X = -1442.2, Y = 127.4, Z = 18.0,
+      HEADING = 0.0 },
+    { NAME = "racegrid", LABEL = "Westbrook, race grid", X = -1450.2, Y = 119.9, Z = 14.8,
+      HEADING = 200.0 },
+    { NAME = "lab", LABEL = "East, laboratory", X = 1669.75, Y = -739.12, Z = 49.86,
+      HEADING = 0.0 },
+    { NAME = "arena", LABEL = "Badlands, arena", X = 381.36, Y = -2401.79, Z = 181.99,
       HEADING = 0.0 },
   },
 }
