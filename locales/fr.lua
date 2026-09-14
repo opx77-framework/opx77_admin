@@ -263,7 +263,6 @@ OpxAdmin.Locale.register("fr", {
   ["admin.menu.kick"]                = "Expulser",
   ["admin.menu.ban"]                 = "Bannir",
   ["admin.menu.noclip"]              = "Noclip",
-  ["admin.menu.speed"]               = "Vitesse du noclip",
   ["admin.menu.maptravel"]           = "Voyage par la carte",
   ["admin.menu.teleport"]            = "Aller à une destination",
   ["admin.menu.pos"]                 = "Copier ma position",
@@ -311,7 +310,6 @@ OpxAdmin.Locale.register("fr", {
   ["admin.form.kick"]                = "Expulsion",
   ["admin.form.ban"]                 = "Bannissement",
   ["admin.form.announce"]            = "Annonce",
-  ["admin.form.speed"]               = "Vitesse du noclip",
   ["admin.form.coords"]              = "Coordonnées",
   ["admin.form.location"]            = "Enregistrer cet endroit",
   ["admin.form.time"]                = "Heure de la journée",
@@ -323,7 +321,6 @@ OpxAdmin.Locale.register("fr", {
   ["admin.field.reason"]             = "Motif",
   ["admin.field.duration"]           = "Durée",
   ["admin.field.message"]            = "Message",
-  ["admin.field.speed"]              = "Vitesse",
   ["admin.field.x"]                  = "X",
   ["admin.field.y"]                  = "Y",
   ["admin.field.z"]                  = "Z",
@@ -345,4 +342,20 @@ OpxAdmin.Locale.register("fr", {
 
   -- noms des touches, tels que les liste l'onglet des raccourcis du menu pause
   ["admin.key.menu"]                 = "Équipe : ouvrir ou fermer le menu",
+  ["admin.key.speedUp"]              = "Équipe : noclip plus rapide",
+  ["admin.key.speedDown"]            = "Équipe : noclip plus lent",
+
+  -- les commandes dans la bande d'opx77_prompts tant qu'un mode de déplacement est actif ;
+  -- courtes, la bande ne passe jamais à la ligne
+  ["admin.prompt.noclip"]            = "NOCLIP",
+  ["admin.prompt.move"]              = "Se déplacer",
+  ["admin.prompt.upDown"]            = "Monter / descendre",
+  ["admin.prompt.speed"]             = "Vitesse",
+  ["admin.prompt.speedValue"]        = "{speed} m/s",
+  ["admin.prompt.fast"]              = "Rapide ×4",
+  ["admin.prompt.slow"]              = "Lent ×0.25",
+  ["admin.prompt.off"]               = "Couper : Moi › Noclip",
+  ["admin.prompt.map"]               = "VOYAGE PAR CARTE",
+  ["admin.prompt.doubleClick"]       = "DOUBLE-CLIC",
+  ["admin.prompt.mapTravel"]         = "Sur la carte : y aller",
 })

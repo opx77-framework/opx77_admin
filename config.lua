@@ -8,6 +8,11 @@ OPX_ADMIN_CONFIG = {
   -- sends /opx77.admin like the chat box does, so the ACL still decides who gets a menu.
   KEYS = {
     MENU = "F9", -- open the staff menu, or close it
+    -- Noclip speed up and down, only while noclip is on; held, they repeat. Not the mouse
+    -- wheel: no client API on this platform reads it. Each change still goes through
+    -- /opx77.admin.self.speed, so the ACL decides.
+    SPEED_UP = "PAGEUP",
+    SPEED_DOWN = "PAGEDOWN",
   },
 
   RATE = {
@@ -28,6 +33,13 @@ OPX_ADMIN_CONFIG = {
 
   NOCLIP = {
     SPEED = 40.0, -- m/s, applied the first time noclip goes on; the native accepts 0.1..500
+    MIN_SPEED = 1.0, -- the lowest the speed keys go, 0.1..500
+    MAX_SPEED = 500.0, -- the highest, MIN_SPEED..500
+    STEP = 0.15, -- one press changes the speed by this fraction of itself, 0.01..1
+    -- quiet time after the last press before the speed is sent; never below RATE.ACTION_MS
+    -- plus 100, or a second change inside the floor would be refused
+    SEND_AFTER_MS = 500,
+    PROMPTS = true, -- the controls in opx77_prompts' strip while noclip is on; false for none
   },
 
   ANNOUNCE = {

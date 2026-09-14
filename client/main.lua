@@ -169,6 +169,8 @@ RegisterNetEvent("open77:command:result", function(raw, accepted, message)
   if type(raw) ~= "string" or type(message) ~= "string" then return end
   if accepted == true and message:find(QUEUE_ACK, 1, true) then return end
   if accepted ~= true then
+    -- a speed the speed keys sent and the host refused: the strip's read-out goes back
+    if OpxAdmin.Controls then OpxAdmin.Controls.answered(raw, false) end
     local name = raw:match("^/?(%S+)") or raw
     if message == "unknown_command" then
       message = locale("admin.client.unknownCommand", { command = name })
@@ -186,6 +188,8 @@ RegisterNetEvent("opx77_admin:answer", function(raw, accepted, message, kind)
   if type(raw) ~= "string" or type(message) ~= "string" or message == "" then return end
   underList(raw, accepted == true, message)
   if kind == "report" then return chatLine("info", message) end
+  -- a speed the speed keys chose: the strip already shows it, and a toast per press is noise
+  if OpxAdmin.Controls and OpxAdmin.Controls.answered(raw, accepted == true) then return end
   if kind ~= "info" and kind ~= "success" and kind ~= "warning" and kind ~= "error" then
     kind = accepted == true and "success" or "error"
   end
@@ -228,14 +232,20 @@ end
 --- locally, which buys it nothing it could not do with its own travel grant; the clipboard
 --- write is kept to the one line shape the server sends.
 RegisterNetEvent("opx77_admin:travel", function(action, value)
+  local Controls = OpxAdmin.Controls
   if action == "noclip" then
     if applyTravel("setNoclip", value == true) then noclipOn = value == true end
+    if Controls then Controls.noclip(noclipOn) end
   elseif action == "speed" then
     local speed = Text.finite(value)
-    if speed and speed >= 0.1 and speed <= 500 then applyTravel("setNoclipSpeed", speed) end
+    if speed and speed >= 0.1 and speed <= 500 and applyTravel("setNoclipSpeed", speed)
+      and Controls then
+      Controls.speed(speed)
+    end
   elseif action == "mapPick" then
     mapArmed = value == true and applyTravel("setMapPick", true)
     if value ~= true then applyTravel("setMapPick", false) end
+    if Controls then Controls.mapPick(mapArmed) end
   elseif action == "copy" then
     if type(value) ~= "string" or #value > 160 or not value:match("^{ NAME = ") then return end
     local clipboard = Open77.clipboard

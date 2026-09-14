@@ -253,7 +253,6 @@ OpxAdmin.Locale.register("en", {
   ["admin.menu.kick"]                = "Kick",
   ["admin.menu.ban"]                 = "Ban",
   ["admin.menu.noclip"]              = "Noclip",
-  ["admin.menu.speed"]               = "Noclip speed",
   ["admin.menu.maptravel"]           = "Map travel",
   ["admin.menu.teleport"]            = "Teleport to a destination",
   ["admin.menu.pos"]                 = "Copy my position",
@@ -301,7 +300,6 @@ OpxAdmin.Locale.register("en", {
   ["admin.form.kick"]                = "Kick",
   ["admin.form.ban"]                 = "Ban",
   ["admin.form.announce"]            = "Announcement",
-  ["admin.form.speed"]               = "Noclip speed",
   ["admin.form.coords"]              = "Coordinates",
   ["admin.form.location"]            = "Save this spot",
   ["admin.form.time"]                = "Time of day",
@@ -313,7 +311,6 @@ OpxAdmin.Locale.register("en", {
   ["admin.field.reason"]             = "Reason",
   ["admin.field.duration"]           = "Duration",
   ["admin.field.message"]            = "Message",
-  ["admin.field.speed"]              = "Speed",
   ["admin.field.x"]                  = "X",
   ["admin.field.y"]                  = "Y",
   ["admin.field.z"]                  = "Z",
@@ -334,4 +331,19 @@ OpxAdmin.Locale.register("en", {
 
   -- key names, as the pause menu's keybinds tab lists them
   ["admin.key.menu"]                 = "Staff: open or close the menu",
+  ["admin.key.speedUp"]              = "Staff: noclip faster",
+  ["admin.key.speedDown"]            = "Staff: noclip slower",
+
+  -- the controls in opx77_prompts' strip while a travel mode is on; short, the strip never wraps
+  ["admin.prompt.noclip"]            = "NOCLIP",
+  ["admin.prompt.move"]              = "Move",
+  ["admin.prompt.upDown"]            = "Up / down",
+  ["admin.prompt.speed"]             = "Speed",
+  ["admin.prompt.speedValue"]        = "{speed} m/s",
+  ["admin.prompt.fast"]              = "Fast ×4",
+  ["admin.prompt.slow"]              = "Slow ×0.25",
+  ["admin.prompt.off"]               = "Off: Myself › Noclip",
+  ["admin.prompt.map"]               = "MAP TRAVEL",
+  ["admin.prompt.doubleClick"]       = "DBL-CLICK",
+  ["admin.prompt.mapTravel"]         = "On the map: go there",
 })

@@ -224,7 +224,6 @@ end
 SCREENS.self = function()
   return locale("admin.menu.self"), {
     command("noclip", "admin.menu.noclip", { "opx77.admin.self.noclip" }),
-    form("speed", "admin.menu.speed", "speed", nil, "opx77.admin.self.speed"),
     command("maptravel", "admin.menu.maptravel", { "opx77.admin.self.maptravel" }),
     command("god", "admin.menu.god", { "opx77.admin.self.god" }),
     command("heal", "admin.menu.heal", { "opx77.admin.self.heal" }),

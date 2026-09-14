@@ -44,8 +44,9 @@ end
 ---@param nameKey string  catalogue key of the name the pause menu lists
 ---@param key string|false
 ---@param onPressed fun()
+---@param onReleased? fun()  makes it a hold mapping: the host calls this on key-up
 ---@return boolean registered
-function Keys.register(id, nameKey, key, onPressed)
+function Keys.register(id, nameKey, key, onPressed, onReleased)
   if key == false then return false end
   if type(RegisterKeyMapping) ~= "function" then
     Open77.log.warn(("key mapping %s not registered: this client build has no " ..
@@ -57,7 +58,18 @@ function Keys.register(id, nameKey, key, onPressed)
     local ran, failure = pcall(onPressed)
     if not ran then Open77.log.error(("key %s: %s"):format(id, tostring(failure))) end
   end
-  local called, ok, answer = pcall(RegisterKeyMapping, id, locale(nameKey), key, pressed)
+  local called, ok, answer
+  if onReleased == nil then
+    called, ok, answer = pcall(RegisterKeyMapping, id, locale(nameKey), key, pressed)
+  else
+    -- a release is never swallowed: a key let go behind a surface must not stay held here.
+    -- Only passed when there is one: a fifth argument is what makes a mapping a hold mapping.
+    local function released()
+      local ran, failure = pcall(onReleased)
+      if not ran then Open77.log.error(("key %s: %s"):format(id, tostring(failure))) end
+    end
+    called, ok, answer = pcall(RegisterKeyMapping, id, locale(nameKey), key, pressed, released)
+  end
   if not called or ok ~= true then
     Open77.log.warn(("key mapping %s (%s) not registered: %s"):format(id, key,
       tostring(called and answer or ok)))

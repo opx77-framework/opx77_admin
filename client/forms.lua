@@ -176,21 +176,6 @@ FORMS.announce = {
   end,
 }
 
-FORMS.speed = {
-  build = function()
-    local speed = Text.finite((Config.NOCLIP or {}).SPEED) or 40
-    return { title = locale("admin.form.speed"), fields = {
-      { id = "speed", label = locale("admin.field.speed"),
-        slider = { min = 5, max = 500, step = 5, value = math.max(5, math.min(500, speed)),
-                   suffix = " m/s" } },
-    } }
-  end,
-  submit = function(values)
-    local speed = math.floor(Text.finite(values.speed) or 40)
-    menu().run({ "opx77.admin.self.speed", ("%d"):format(speed) })
-  end,
-}
-
 FORMS.coords = {
   build = function()
     return { title = locale("admin.form.coords"), fields = {

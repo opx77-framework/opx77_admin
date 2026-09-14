@@ -32,7 +32,8 @@ second set.
 - Teleport: go to, bring, send to a saved destination, coordinates, map double-click, observe
 - Heal, revive, god mode, health, armour and kill, on yourself or anybody
 - Kick with a reason, and account bans through the platform's own server-local ban list
-- Noclip with a speed, applied on the client only when an ACL-gated command says so
+- Noclip, applied on the client only when an ACL-gated command says so; its speed on two keys
+  while flying, and the controls on screen in `opx77_prompts`' strip
 - Vehicles from a catalogue: spawn, deliver to a player, repair, flags, remove, clean up
 - Weapons from a catalogue, handed out loaded; refill, clear, holster, read a loadout back
 - Announcements to every player, as a toast and a chat line
@@ -56,6 +57,7 @@ second set.
 | `opx77_menu` | the menu itself; every command still runs typed |
 | `opx77_input` | the forms: reasons, amounts, coordinates, announcements |
 | `opx77_notify` | the toast a target sees ("a staff member healed you"), and the toast answering each staff action; without it that answer is a chat line |
+| `opx77_prompts` | the noclip and map travel controls drawn on screen while those modes are on; the keys work without it |
 | `opx77_core` | the character rows: record, job, gang, money, save, characters online |
 | `opx77_appearance` | the readiness gate opening at all; see [Safety](#safety) |
 | `opx77_weather` | the weather and time screens |
@@ -238,13 +240,15 @@ back a screen. Each screen is its own `opx77_menu` menu — a roster of thirty p
 actions each is past what one menu tree may hold — and the stack of screens lives in this
 resource.
 
-### The key
+### The keys
 
 | Mapping id | Name in the pause menu | Default | Does |
 |---|---|---|---|
 | `opx77_admin.menu` | *Staff: open or close the menu* | `F9` | opens the menu, or closes it when it is up |
+| `opx77_admin.noclipFaster` | *Staff: noclip faster* | `PAGEUP` | while noclip is on, raises its speed; held, it repeats |
+| `opx77_admin.noclipSlower` | *Staff: noclip slower* | `PAGEDOWN` | while noclip is on, lowers its speed; held, it repeats |
 
-The key is declared with `RegisterKeyMapping`, so the pause menu's key bindings tab lists it
+Each key is declared with `RegisterKeyMapping`, so the pause menu's key bindings tab lists it
 under the name above — read from the configured locale when the resource starts — and every
 player can rebind it there. The root screen's **Close** row names the key the player actually
 has, and follows a rebind without the menu being reopened.
@@ -257,11 +261,39 @@ which grants nothing. A press while another surface holds the keyboard — the c
 the pause menu — does nothing. The mapping is registered for every player, staff or not: the
 client cannot know the ACL, and the host is what answers.
 
-`KEYS.MENU` in `config.lua` sets the default, which a player's own rebind overrides;
-`KEYS.MENU = false` registers no mapping. A value that is neither a key name nor `false` is a
-client log warning and the default. F9 was chosen clear of the keys the rest of a stock
-resource set takes: F2 wardrobe, F3 animation picker, F6 perspective, F8 HUD,
-F11 voice mode, X stop animation, V push-to-talk, ALT context menu.
+`KEYS.MENU`, `KEYS.SPEED_UP` and `KEYS.SPEED_DOWN` in `config.lua` set the defaults, which a
+player's own rebind overrides; `false` registers no mapping. A value that is neither a key name
+nor `false` is a client log warning and the default. F9 was chosen clear of the keys the rest of
+a stock resource set takes: F2 wardrobe, F3 animation picker, F6 perspective, F8 HUD,
+F11 voice mode, X stop animation, V push-to-talk, ALT context menu. Page Up and Page Down are
+clear of those and of noclip's own keys.
+
+### Noclip
+
+The staff menu has no speed row. While noclip is on, `PAGEUP` and `PAGEDOWN` change the speed
+by `NOCLIP.STEP` of itself per press — fine at walking pace, a few seconds of holding from one
+end of the range to the other — between `NOCLIP.MIN_SPEED` and `NOCLIP.MAX_SPEED`. Pressed
+with noclip off, they do nothing.
+
+**A key only chooses a number.** The client waits until the keys have been quiet for
+`NOCLIP.SEND_AFTER_MS`, then sends one `/opx77.admin.self.speed <m/s>` line, so a held key is
+one command and not thirty, the host resolves the ACL for it like a typed one, and the native is
+set by the server's answer. The wait is never shorter than `RATE.ACTION_MS` plus 100 ms, or a
+second change would land inside the server's floor and be refused. An accepted change is not
+toasted — the strip already shows the number — and a refused one is, and puts the read-out back
+to the speed the server has.
+
+**Not the mouse wheel.** `Open77.input.isDown` reads A–Z, 0–9, F1–F12 and a closed list of
+named keys, `RegisterKeyMapping` takes the same vocabulary, and no client call on this platform
+reports the wheel, so there is nothing to read it with.
+
+While noclip is on, and the player is alive, `opx77_prompts` draws the controls in its corner
+strip: move (`W A S D`), up and down (`SPACE`, `CTRL`), the speed keys with the current speed,
+fast and slow (`SHIFT` ×4 and `ALT` ×0.25, held — the native's own modifiers), and the menu key
+that leads to the **Noclip** row that turns it off. Keys named by a mapping follow a rebind.
+While map travel is armed the strip says a double-click on the map goes there. Both come down
+when the mode goes off, when noclip is switched off by anything else, on death, and when this
+resource stops.
 
 - A row whose command the ACL refuses is drawn greyed, with *no access* beside it. The access map
   is re-read when you leave the root screen, so an `acl.reload` shows without reopening.
@@ -343,7 +375,9 @@ drawn weapon only when all three are full; naming a slot always replaces it.
 | Key | Default | |
 |---|---|---|
 | `LOCALE` | `"en"` | which `locales/<code>.lua` catalogue player-facing text uses |
-| `KEYS.MENU` | `"F9"` | the menu key's default, or `false` for none; see [The key](#the-key) |
+| `KEYS.MENU` | `"F9"` | the menu key's default, or `false` for none; see [The keys](#the-keys) |
+| `KEYS.SPEED_UP` | `"PAGEUP"` | the noclip faster key's default, or `false` for none |
+| `KEYS.SPEED_DOWN` | `"PAGEDOWN"` | the noclip slower key's default, or `false` for none |
 | `RATE.ACTION_MS` | `400` | floor between two runs of one mutating command, per operator |
 | `RATE.READ_MS` | `1000` | the same for a reading command |
 | `RATE.REFRESH_MS` | `750` | floor between two menu refresh requests |
@@ -354,6 +388,11 @@ drawn weapon only when all three are full; naming a slot always replaces it.
 | `PLACEMENT.BESIDE` | `1.5, 0, 0` | offset from the other player on goto and bring |
 | `PLACEMENT.OBSERVE_HEIGHT` | `2.0` | metres above the target an observer lands |
 | `NOCLIP.SPEED` | `40.0` | m/s the first time noclip goes on |
+| `NOCLIP.MIN_SPEED` | `1.0` | the lowest the speed keys go, 0.1..500 |
+| `NOCLIP.MAX_SPEED` | `500.0` | the highest they go |
+| `NOCLIP.STEP` | `0.15` | one press changes the speed by this fraction of itself |
+| `NOCLIP.SEND_AFTER_MS` | `500` | quiet time after the last press before the speed is sent |
+| `NOCLIP.PROMPTS` | `true` | the travel controls in `opx77_prompts`' strip; `false` for none |
 | `ANNOUNCE.DURATION_MS` | `12000` | announcement toast lifetime |
 | `ANNOUNCE.CHAT` | `true` | also write announcements into the chat box |
 | `ANNOUNCE.MAX_CHARACTERS` | `240` | |
@@ -405,6 +444,7 @@ be a hole.
 |---|---|
 | Freeze a player | The platform has no binding that holds a player in place. Not faked. |
 | True spectate | There is no free camera at a world point. `observe` is a teleport with noclip, and says so. |
+| Noclip speed on the mouse wheel | No client call reads the wheel; the speed is on two rebindable keys instead. |
 | Invisibility | No binding hides a player from other clients. |
 | Props, lights and effects | Set dressing, not staff work; the platform's own `open77_props` and `open77_effects` do it. |
 | Vehicle speed governor | Client-local, not in every client build, and balance rather than moderation. |
