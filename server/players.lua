@@ -86,7 +86,8 @@ local function setNoclip(playerId, on, grant)
 end
 
 Server.command("opx77.admin.self.noclip", {
-  help = "admin.help.noclip", params = { { name = "on|off", help = "admin.help.toggle" } },
+  help = "admin.help.noclip",
+  params = { { name = "on|off", help = "admin.help.toggle", optional = true } },
   inGame = true,
   handler = function(source, args, raw)
     local wanted, invalid = Text.switch(args[1])
@@ -115,8 +116,9 @@ Server.command("opx77.admin.self.speed", {
 
 Server.command("opx77.admin.self.maptravel", {
   help = "admin.help.maptravel",
-  params = { { name = "on|off|x", help = "admin.help.maptravelValue" }, { name = "y" },
-             { name = "z" } },
+  params = { { name = "on|off|x", help = "admin.help.maptravelValue", optional = true },
+             { name = "y", help = "admin.help.maptravelPoint", optional = true },
+             { name = "z", help = "admin.help.maptravelPoint", optional = true } },
   inGame = true,
   handler = function(source, args, raw)
     if count(args) == 3 then
@@ -255,7 +257,8 @@ Server.command("opx77.admin.self.revive", {
 })
 
 Server.command("opx77.admin.self.god", {
-  help = "admin.help.selfGod", params = { { name = "on|off", help = "admin.help.toggle" } },
+  help = "admin.help.selfGod",
+  params = { { name = "on|off", help = "admin.help.toggle", optional = true } },
   inGame = true,
   handler = function(source, args, raw) god(source, raw, source, args[1], "admin.self.god") end,
 })
@@ -291,7 +294,8 @@ local function beside(playerId)
 end
 
 Server.command("opx77.admin.player.goto", {
-  help = "admin.help.goto", params = { { name = "playerId" } }, inGame = true,
+  help = "admin.help.goto", params = { { name = "playerId", help = "admin.help.playerId" } },
+  inGame = true,
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end
@@ -309,7 +313,8 @@ Server.command("opx77.admin.player.goto", {
 })
 
 Server.command("opx77.admin.player.bring", {
-  help = "admin.help.bring", params = { { name = "playerId" } }, inGame = true,
+  help = "admin.help.bring", params = { { name = "playerId", help = "admin.help.playerId" } },
+  inGame = true,
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end
@@ -327,8 +332,11 @@ Server.command("opx77.admin.player.bring", {
 
 Server.command("opx77.admin.player.tp", {
   help = "admin.help.tp",
-  params = { { name = "playerId|me" }, { name = "x" }, { name = "y" }, { name = "z" },
-             { name = "heading" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "x", help = "admin.help.coordinate" },
+             { name = "y", help = "admin.help.coordinate" },
+             { name = "z", help = "admin.help.coordinate" },
+             { name = "heading", help = "admin.help.heading", optional = true } },
   handler = function(source, args, raw)
     local given = count(args)
     if given < 4 or given > 5 then return answer(source, raw, false, "admin.usage.tp") end
@@ -349,7 +357,8 @@ Server.command("opx77.admin.player.tp", {
 })
 
 Server.command("opx77.admin.player.observe", {
-  help = "admin.help.observe", params = { { name = "playerId" } }, inGame = true,
+  help = "admin.help.observe", params = { { name = "playerId", help = "admin.help.playerId" } },
+  inGame = true,
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end
@@ -372,7 +381,7 @@ Server.command("opx77.admin.player.observe", {
 })
 
 Server.command("opx77.admin.player.heal", {
-  help = "admin.help.heal", params = { { name = "playerId|me" } },
+  help = "admin.help.heal", params = { { name = "playerId|me", help = "admin.help.playerOrMe" } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId then heal(source, raw, playerId, "admin.player.heal") end
@@ -380,7 +389,8 @@ Server.command("opx77.admin.player.heal", {
 })
 
 Server.command("opx77.admin.player.revive", {
-  help = "admin.help.revive", params = { { name = "playerId|me" } },
+  help = "admin.help.revive",
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId then revive(source, raw, playerId, "admin.player.revive") end
@@ -389,7 +399,8 @@ Server.command("opx77.admin.player.revive", {
 
 Server.command("opx77.admin.player.god", {
   help = "admin.help.god",
-  params = { { name = "playerId|me" }, { name = "on|off", help = "admin.help.toggle" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "on|off", help = "admin.help.toggle", optional = true } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId then god(source, raw, playerId, args[2], "admin.player.god") end
@@ -397,7 +408,7 @@ Server.command("opx77.admin.player.god", {
 })
 
 Server.command("opx77.admin.player.kill", {
-  help = "admin.help.kill", params = { { name = "playerId" } },
+  help = "admin.help.kill", params = { { name = "playerId", help = "admin.help.playerId" } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end
@@ -416,7 +427,9 @@ Server.command("opx77.admin.player.kill", {
 })
 
 Server.command("opx77.admin.player.health", {
-  help = "admin.help.health", params = { { name = "playerId|me" }, { name = "points" } },
+  help = "admin.help.health",
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "points", help = "admin.help.healthPoints" } },
   handler = function(source, args, raw)
     local value = Text.finite(args[2])
     if count(args) ~= 2 or value == nil or value < 0 then
@@ -436,7 +449,9 @@ Server.command("opx77.admin.player.health", {
 })
 
 Server.command("opx77.admin.player.armor", {
-  help = "admin.help.armor", params = { { name = "playerId|me" }, { name = "points" } },
+  help = "admin.help.armor",
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "points", help = "admin.help.armorPoints" } },
   handler = function(source, args, raw)
     local value = Text.finite(args[2])
     if count(args) ~= 2 or value == nil or value < 0 or value > 10000 then
@@ -480,7 +495,9 @@ local function duration(token)
 end
 
 Server.command("opx77.admin.moderate.kick", {
-  help = "admin.help.kick", params = { { name = "playerId" }, { name = "reason" } },
+  help = "admin.help.kick",
+  params = { { name = "playerId", help = "admin.help.playerId" },
+             { name = "reason", help = "admin.help.reason", optional = true } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end
@@ -496,8 +513,9 @@ Server.command("opx77.admin.moderate.kick", {
 
 Server.command("opx77.admin.moderate.ban", {
   help = "admin.help.ban",
-  params = { { name = "playerId" }, { name = "duration", help = "admin.help.banDuration" },
-             { name = "reason" } },
+  params = { { name = "playerId", help = "admin.help.playerId" },
+             { name = "duration", help = "admin.help.banDuration", optional = true },
+             { name = "reason", help = "admin.help.reason", optional = true } },
   handler = function(source, args, raw)
     local playerId = targetOf(source, raw, args[1])
     if playerId == nil then return end

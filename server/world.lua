@@ -89,7 +89,8 @@ end
 
 Server.command("opx77.admin.player.send", {
   help = "admin.help.send",
-  params = { { name = "playerId|me" }, { name = "location", help = "admin.help.locationName" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "location", help = "admin.help.locationName" } },
   handler = function(source, args, raw)
     if count(args) ~= 2 then return answer(source, raw, false, "admin.usage.send") end
     local playerId, code = Server.target(source, args[1])
@@ -109,7 +110,8 @@ Server.command("opx77.admin.player.send", {
 
 Server.command("opx77.admin.world.loc.add", {
   help = "admin.help.locAdd",
-  params = { { name = "name", help = "admin.help.locationName" }, { name = "label" } },
+  params = { { name = "name", help = "admin.help.locationName" },
+             { name = "label", help = "admin.help.locationLabel", optional = true } },
   inGame = true,
   handler = function(source, args, raw)
     local name = Text.slug(args[1])
@@ -159,7 +161,7 @@ Server.command("opx77.admin.read.locations", {
 -- ---------------------------------------------------------------------------
 
 Server.command("opx77.admin.world.announce", {
-  help = "admin.help.announce", params = { { name = "text" } },
+  help = "admin.help.announce", params = { { name = "text", help = "admin.help.announceText" } },
   handler = function(source, args, raw)
     local settings = Config.ANNOUNCE or {}
     local text = Text.clean(Text.rest(args, 1),
@@ -286,7 +288,8 @@ Server.command("opx77.admin.read.status", {
 })
 
 Server.command("opx77.admin.read.audit", {
-  help = "admin.help.readAudit", params = { { name = "count" } }, read = true,
+  help = "admin.help.readAudit",
+  params = { { name = "count", help = "admin.help.auditCount", optional = true } }, read = true,
   handler = function(source, args, raw)
     local wanted = math.min(40, math.max(1, Text.integer(args[1]) or 15))
     local entries = Server.recent(wanted)

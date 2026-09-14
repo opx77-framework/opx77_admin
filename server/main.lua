@@ -424,6 +424,7 @@ RegisterNetEvent("chat:ready", function()
         parameters[index] = {
           name = parameter.name,
           help = parameter.help and locale(parameter.help) or nil,
+          optional = parameter.optional == true or nil,
         }
       end
       suggestions[#suggestions + 1] = {
