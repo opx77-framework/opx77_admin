@@ -4,6 +4,12 @@
 OPX_ADMIN_CONFIG = {
   LOCALE = "en", -- which locales/<code>.lua player-facing text is read from
 
+  -- Default keys, which each player can rebind in the pause menu; false registers none. A key
+  -- sends /opx77.admin like the chat box does, so the ACL still decides who gets a menu.
+  KEYS = {
+    MENU = "F10", -- open the staff menu, or close it
+  },
+
   RATE = {
     ACTION_MS = 400, -- floor between two runs of one mutating command, per operator
     READ_MS = 1000, -- the same for a command that only reads

@@ -12,6 +12,7 @@ local Config = OPX_ADMIN_CONFIG
 local Client = OpxAdmin.Client
 local Catalog = OpxAdmin.Catalog
 local Forms = OpxAdmin.Forms
+local Keys = OpxAdmin.Keys
 
 local Menu = {}
 OpxAdmin.Menu = Menu
@@ -19,6 +20,11 @@ OpxAdmin.Menu = Menu
 local MENU = "opx77_menu"
 local EVENT = "opx77_admin:row"
 local LINKS = type(Config.LINKS) == "table" and Config.LINKS or {}
+
+--- The mapping that opens and closes the menu, and the command it sends. The id is stable: a
+--- player's rebind is stored under it.
+local KEY_MENU = "opx77_admin.menu"
+local OPENER = "opx77.admin"
 
 --- opx77_menu refuses a level past 200 rows; the navigation rows need room.
 local MAX_LISTED = 190
@@ -468,7 +474,9 @@ local function draw(inPlace)
     items[#items + 1] = row("back", locale("admin.menu.back"), { back = true })
   else
     items[#items + 1] = section()
-    items[#items + 1] = { id = "close", label = locale("admin.menu.close"), close = true }
+    local key = Keys.effective(KEY_MENU)
+    items[#items + 1] = { id = "close", label = locale("admin.menu.close"), close = true,
+      description = key and locale("admin.menu.closeKey", { key = key }) or nil }
   end
 
   drawn = drawn + 1
@@ -595,6 +603,11 @@ function Menu.close()
   CreateThread(function() Client.call(MENU, "close", closing) end)
 end
 
+--- Redraw the open screen in place, for text that changed under it.
+function Menu.refresh()
+  if handle ~= nil and not suspended then draw(true) end
+end
+
 ---@return boolean
 function Menu.isOpen()
   return handle ~= nil or Forms.isOpen()
@@ -711,6 +724,32 @@ AddEventHandler(EVENT, function(payload)
   end
   if type(data.form) == "string" then return Forms.open(data.form, data.arg) end
 end)
+
+-- ---------------------------------------------------------------------------
+-- The key
+-- ---------------------------------------------------------------------------
+
+--- Up, the menu comes down here: closing grants nothing. Down, the key sends the line
+--- /opx77.admin sends, so the host resolves command.opx77.admin before the server answers with
+--- a menu, and a player without the grant gets the host's refusal and nothing else.
+local function pressed()
+  if Menu.isOpen() then return Menu.close() end
+  Client.execute({ OPENER })
+end
+
+AddEventHandler("onClientResourceStart", function(name)
+  if name ~= Client.RESOURCE then return end
+  local keys = Config.KEYS
+  if keys ~= nil and type(keys) ~= "table" then
+    Open77.log.warn("config: KEYS must be a table; using the default keys")
+    keys = nil
+  end
+  keys = keys or {}
+  Keys.register(KEY_MENU, "admin.key.menu", Keys.setting("KEYS.MENU", keys.MENU, "F10"), pressed)
+end)
+
+-- the close row names the key, so a rebind in the pause menu shows without reopening
+Keys.onChanged(Menu.refresh)
 
 AddEventHandler("onClientResourceStop", function(name)
   if name ~= Client.RESOURCE then return end

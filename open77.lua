@@ -31,6 +31,7 @@ server_script "server/world.lua"
 server_script "server/menu.lua"
 
 client_script "client/main.lua"
+client_script "client/keys.lua" -- before menu.lua, which registers the menu key through it
 client_script "client/forms.lua"
 client_script "client/menu.lua" -- after forms.lua: a row can open a form
 client_script "client/exports.lua" -- last: publishing the surface claims it exists
@@ -69,6 +70,11 @@ permissions {
 
   "clipboard.write", -- client: /opx77.admin.self.pos copies a LOCATIONS row to paste into config
 
+  -- Client: RegisterKeyMapping for the menu key, Open77.input.keyFor for the key the close row
+  -- names, and isCaptured, so a key typed into chat or a form opens nothing. The key sends the
+  -- same command line as the chat box; it authorises nothing.
+  "input.actions",
+
   -- Deliberately not requested: database.access (nothing here persists to the database),
-  -- world.props, world.effects, vehicles.performance, input.actions, local.events.
+  -- world.props, world.effects, vehicles.performance, local.events.
 }

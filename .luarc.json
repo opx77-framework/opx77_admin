@@ -23,6 +23,7 @@
     "TriggerServerEvent",
     "TriggerClientEvent",
     "RegisterCommand",
+    "RegisterKeyMapping",
     "GetCurrentResourceName",
     "GetResourceState",
     "GetInvokingResource",
