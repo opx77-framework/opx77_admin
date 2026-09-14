@@ -745,7 +745,7 @@ AddEventHandler("onClientResourceStart", function(name)
     keys = nil
   end
   keys = keys or {}
-  Keys.register(KEY_MENU, "admin.key.menu", Keys.setting("KEYS.MENU", keys.MENU, "F10"), pressed)
+  Keys.register(KEY_MENU, "admin.key.menu", Keys.setting("KEYS.MENU", keys.MENU, "F9"), pressed)
 end)
 
 -- the close row names the key, so a rebind in the pause menu shows without reopening

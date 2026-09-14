@@ -27,7 +27,7 @@ second set.
 
 ## Features
 
-- A staff menu on `/opx77.admin` and on a rebindable key, F10 by default: players, yourself,
+- A staff menu on `/opx77.admin` and on a rebindable key, F9 by default: players, yourself,
   vehicles, weapons, world and server screens
 - Teleport: go to, bring, send to a saved destination, coordinates, map double-click, observe
 - Heal, revive, god mode, health, armour and kill, on yourself or anybody
@@ -70,7 +70,7 @@ noclip will fight, so give each operator one of them.
 1. Copy this directory into the server's `resources/` as `opx77_admin`.
 2. Add it to `resources.load` in `server.jsonc` if the server uses an explicit list.
 3. Grant the permissions below in `acl.jsonc`, then run `acl.reload` in the console.
-4. Connect, and press F10 or type `/opx77.admin`.
+4. Connect, and press F9 or type `/opx77.admin`.
 
 `reload_policy` is `local`: the resource owns no page, so a reload rebuilds both halves without
 a reconnect. Destinations saved in game survive a reload and not a restart.
@@ -224,7 +224,7 @@ resource.
 
 | Mapping id | Name in the pause menu | Default | Does |
 |---|---|---|---|
-| `opx77_admin.menu` | *Staff: open or close the menu* | `F10` | opens the menu, or closes it when it is up |
+| `opx77_admin.menu` | *Staff: open or close the menu* | `F9` | opens the menu, or closes it when it is up |
 
 The key is declared with `RegisterKeyMapping`, so the pause menu's key bindings tab lists it
 under the name above — read from the configured locale when the resource starts — and every
@@ -241,8 +241,8 @@ client cannot know the ACL, and the host is what answers.
 
 `KEYS.MENU` in `config.lua` sets the default, which a player's own rebind overrides;
 `KEYS.MENU = false` registers no mapping. A value that is neither a key name nor `false` is a
-client log warning and the default. F10 was chosen clear of the keys the rest of a stock
-resource set takes: F2 wardrobe, F3 animation picker, F6 perspective, F7 appearance panel, F8 HUD,
+client log warning and the default. F9 was chosen clear of the keys the rest of a stock
+resource set takes: F2 wardrobe, F3 animation picker, F6 perspective, F8 HUD,
 F11 voice mode, X stop animation, V push-to-talk, ALT context menu.
 
 - A row whose command the ACL refuses is drawn greyed, with *no access* beside it. The access map
@@ -323,7 +323,7 @@ drawn weapon only when all three are full; naming a slot always replaces it.
 | Key | Default | |
 |---|---|---|
 | `LOCALE` | `"en"` | which `locales/<code>.lua` catalogue player-facing text uses |
-| `KEYS.MENU` | `"F10"` | the menu key's default, or `false` for none; see [The key](#the-key) |
+| `KEYS.MENU` | `"F9"` | the menu key's default, or `false` for none; see [The key](#the-key) |
 | `RATE.ACTION_MS` | `400` | floor between two runs of one mutating command, per operator |
 | `RATE.READ_MS` | `1000` | the same for a reading command |
 | `RATE.REFRESH_MS` | `750` | floor between two menu refresh requests |

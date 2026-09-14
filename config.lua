@@ -7,7 +7,7 @@ OPX_ADMIN_CONFIG = {
   -- Default keys, which each player can rebind in the pause menu; false registers none. A key
   -- sends /opx77.admin like the chat box does, so the ACL still decides who gets a menu.
   KEYS = {
-    MENU = "F10", -- open the staff menu, or close it
+    MENU = "F9", -- open the staff menu, or close it
   },
 
   RATE = {
