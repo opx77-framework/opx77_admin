@@ -77,8 +77,8 @@ end
 local vehicleClasses, vehiclesByName, vehiclesByRecord =
   build(OPX_ADMIN_VEHICLES, "data/vehicles.lua", "VEHICLES")
 
---- The weapon classes: an order, a label and the rounds a give loads. The weapons are
---- opx77_inventory's items and are read from it, so no row here names a record.
+--- The weapon classes: an order and a label. The weapons are opx77_inventory's items and are
+--- read from it, so no row here names a record.
 ---@type WeaponClass[]
 local weaponClasses = {}
 local weaponClassIndex = {}
@@ -92,11 +92,7 @@ do
       if key == nil or weaponClassIndex[key] ~= nil then
         problem(("data/weapons.lua: class #%d needs a unique KEY"):format(position))
       else
-        local class = {
-          key = key,
-          label = Text.clean(row.LABEL, 48) or key,
-          rounds = row.ROUNDS ~= nil and math.max(0, Text.integer(row.ROUNDS) or 0) or nil,
-        }
+        local class = { key = key, label = Text.clean(row.LABEL, 48) or key }
         weaponClasses[#weaponClasses + 1] = class
         weaponClassIndex[key] = class
       end
@@ -114,10 +110,4 @@ function Catalog.vehicle(token)
   if type(token) ~= "string" then return nil end
   local lowered = token:lower()
   return vehiclesByName[lowered] or vehiclesByRecord[lowered]
-end
-
----@param key any
----@return WeaponClass|nil
-function Catalog.weaponClass(key)
-  return weaponClassIndex[tostring(key or "")]
 end

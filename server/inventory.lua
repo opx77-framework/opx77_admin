@@ -169,6 +169,7 @@ function Inventory.catalog()
           name = name,
           label = Text.clean(item.label, 48) or name,
           category = Text.clean(item.category, 32) or "misc",
+          weight = math.max(0, Text.integer(item.weight) or 0),
           weapon = weapon and {
             class = Text.clean(weapon.class, 32) or "other",
             ammo = Text.clean(weapon.ammo, 48),
@@ -272,24 +273,36 @@ function Inventory.fail(source, raw, event, playerId, who, code, reason, params)
   refuse(source, raw, code, params)
 end
 
+--- CanCarry. Coroutine only. True when the bag takes those items; otherwise false, this
+--- resource's refusal code and the raw reason.
+---@return boolean carried, string|nil code, string|nil reason
+function Inventory.carry(target, name, count, metadata)
+  local carry, code, reason = Inventory.call("CanCarry", target, name, count, metadata)
+  if not carry then return false, code, reason end
+  if carry.result ~= true then
+    return false, carry.reason == "too_heavy" and "bag_too_heavy" or "bag_no_room",
+      Text.clean(carry.reason, 32)
+  end
+  return true, nil, nil
+end
+
+--- CanCarry, then AddItem, answering nothing. Coroutine only.
+---@return boolean added, string|nil code, string|nil reason
+function Inventory.add(target, name, count, metadata)
+  local carried, code, reason = Inventory.carry(target, name, count, metadata)
+  if not carried then return false, code, reason end
+  local added, addCode, addReason = Inventory.call("AddItem", target, name, count, metadata)
+  if not added then return false, addCode, addReason end
+  return true, nil, nil
+end
+
 --- CanCarry, then AddItem. Coroutine only. True once the items are in the bag; otherwise the
 --- refusal has been answered and audited.
 ---@return boolean
 function Inventory.give(source, raw, event, target, who, playerId, name, count, metadata, label)
-  local carry, code, reason = Inventory.call("CanCarry", target, name, count, metadata)
-  if not carry then
-    Inventory.fail(source, raw, event, playerId, who, code, reason, { item = label })
-    return false
-  end
-  if carry.result ~= true then
-    local why = carry.reason == "too_heavy" and "bag_too_heavy" or "bag_no_room"
-    Inventory.fail(source, raw, event, playerId, who, why, Text.clean(carry.reason, 32),
-      { item = label })
-    return false
-  end
-  local added, addCode, addReason = Inventory.call("AddItem", target, name, count, metadata)
+  local added, code, reason = Inventory.add(target, name, count, metadata)
   if not added then
-    Inventory.fail(source, raw, event, playerId, who, addCode, addReason, { item = label })
+    Inventory.fail(source, raw, event, playerId, who, code, reason, { item = label })
     return false
   end
   return true

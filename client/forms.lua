@@ -160,6 +160,25 @@ end
 FORMS.itemGive = countForm("admin.form.itemGive", "opx77.admin.inventory.give")
 FORMS.itemRemove = countForm("admin.form.itemRemove", "opx77.admin.inventory.remove", "bag")
 
+--- How many ammunition items, starting at one full load. `arg` is the picker's row: `t` the
+--- target, `n` the ammo item, `l` its label, `x` its full load.
+FORMS.ammoGive = {
+  build = function(arg)
+    if type(arg) ~= "table" or type(arg.n) ~= "string" then return nil end
+    local full = Text.integer(arg.x)
+    local label = tostring(arg.l or arg.n)
+    return { title = locale("admin.form.ammoGive"),
+      description = full and locale("admin.form.ammoLoad", { label = label, max = full }) or label,
+      fields = {
+        text("count", "admin.field.count", { value = tostring(full or 1), charset = "digits",
+                                             maxLength = 6, required = true }),
+      } }
+  end,
+  submit = function(values, arg)
+    menu().run({ "opx77.admin.weapon.giveammo", tostring(arg.t), arg.n, values.count })
+  end,
+}
+
 FORMS.kick = {
   build = function()
     return { title = locale("admin.form.kick"), fields = {

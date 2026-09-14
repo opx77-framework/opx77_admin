@@ -62,10 +62,11 @@ OPX_ADMIN_CONFIG = {
 
   -- Weapons and bags are opx77_inventory's: every weapon and inventory command calls its server
   -- exports, which need this resource in its EXPORTS.WRITERS (shipped so). Without it running
-  -- they refuse; the rounds a give loads are ROUNDS in data/weapons.lua.
+  -- they refuse. A weapon is given empty; its rounds are that resource's ammo items, whose full
+  -- load is AMMO.MAX in its data/weapons.lua.
   INVENTORY = {
     RESOURCE = "opx77_inventory", -- match a renamed folder
-    MAX_COUNT = 10000, -- the largest count inventory.give and inventory.remove accept
+    MAX_COUNT = 10000, -- the largest count an inventory or ammunition give or removal accepts
   },
 
   -- Commands of other OPX//77 resources the menu drives instead of doing the same thing twice.

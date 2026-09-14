@@ -36,8 +36,9 @@ local session
 local roster, rosterById, incoming = {}, {}, {}
 local locations = {}
 
---- opx77_inventory's catalogue as the server read it: `{ name, label, category, class }`, and
---- whether it has arrived. Weapons are the rows with a class.
+--- opx77_inventory's catalogue as the server read it: `{ name, label, category, class, max }`,
+--- and whether it has arrived. Weapons are the rows with a class, ammunition the `ammo` category
+--- with its full load in `max`.
 local catalog = { rows = {}, incoming = {}, loaded = false, error = nil }
 
 --- The stacks of the one bag the remove picker is drawing, by the target the server was asked.
@@ -167,8 +168,8 @@ local function placeholder(list, emptyKey)
   return row("empty", locale(key), nil, { disabled = true })
 end
 
---- The weapon rows for a target, "me" or a player id. A weapon is an opx77_inventory item, so
---- every row but the holster needs that resource; the holster and a drawn weapon's refill need
+--- The weapon rows for a target, "me" or a player id. A weapon and its ammunition are
+--- opx77_inventory items, so every row but the holster needs that resource; the holster needs
 --- the platform's weapon relay.
 ---@param target string
 ---@param giveKey string
@@ -176,6 +177,7 @@ end
 local function weaponRows(target, giveKey)
   local items = {
     goFor("giveWeapon", giveKey, "weaponClasses", target, "opx77.admin.weapon.give"),
+    goFor("giveAmmo", "admin.menu.giveAmmo", "ammoList", target, "opx77.admin.weapon.giveammo"),
     command("ammo", "admin.menu.ammo", { "opx77.admin.weapon.ammo", target }),
     command("holster", "admin.menu.holster", { "opx77.admin.weapon.holster", target }),
     guarded("disarm", "admin.menu.disarm", { "opx77.admin.weapon.remove", target, "all" },
@@ -409,6 +411,7 @@ SCREENS.weaponClasses = function(target)
   return titleFor("admin.menu.weapons", target), items
 end
 
+--- A weapon row gives it empty: its ammunition is the next picker's.
 SCREENS.weaponList = function(arg)
   local target = type(arg) == "table" and tostring(arg.t) or "me"
   local _, byKey = weaponGroups()
@@ -423,6 +426,24 @@ SCREENS.weaponList = function(arg)
   end
   if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
   return group and group.label or "?", items
+end
+
+--- The ammunition items of opx77_inventory's catalogue, each opening the count form of a give.
+SCREENS.ammoList = function(target)
+  local items = {}
+  for _, entry in ipairs(catalog.rows) do
+    if entry.category == "ammo" and #items < MAX_LISTED then
+      local item = form("ammo_" .. entry.name, "admin.menu.giveAmmo", "ammoGive",
+        { t = tostring(target), n = entry.name, l = entry.label, x = entry.max },
+        "opx77.admin.weapon.giveammo")
+      item.label = entry.label
+      item.description = entry.name
+      if not item.disabled and not inventoryUp() then unavailable(item) end
+      items[#items + 1] = item
+    end
+  end
+  if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
+  return titleFor("admin.menu.giveAmmo", target), items
 end
 
 SCREENS.weapons = function()
@@ -682,7 +703,7 @@ local function push(screen, arg)
     TriggerServerEvent("opx77_admin:refresh", "roster")
   elseif screen == "locations" or screen == "saved" then
     TriggerServerEvent("opx77_admin:refresh", "locations")
-  elseif (screen == "itemCategories" or screen == "weaponClasses") and
+  elseif (screen == "itemCategories" or screen == "weaponClasses" or screen == "ammoList") and
     (not catalog.loaded or catalog.error) then
     TriggerServerEvent("opx77_admin:refresh", "items")
   elseif screen == "bag" then
@@ -852,13 +873,15 @@ RegisterNetEvent("opx77_admin:items", function(payload)
   if type(payload) ~= "table" or type(payload.rows) ~= "table" then return end
   local done = collect(catalog, payload, function(entry)
     if type(entry.name) ~= "string" then return nil end
+    local max = tonumber(entry.max)
     return { name = entry.name, label = tostring(entry.label or entry.name),
              category = tostring(entry.category or "misc"),
-             class = type(entry.class) == "string" and entry.class or nil }
+             class = type(entry.class) == "string" and entry.class or nil,
+             max = max and math.floor(max) or nil }
   end)
   local screen = Menu.screen()
   if done and (screen == "itemCategories" or screen == "itemList" or screen == "weaponClasses" or
-    screen == "weaponList") then
+    screen == "weaponList" or screen == "ammoList") then
     draw(true)
   end
 end)

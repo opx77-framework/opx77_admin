@@ -86,14 +86,15 @@ local function pushLocations(playerId)
   TriggerClientEvent("opx77_admin:locations", playerId, { rows = rows })
 end
 
---- opx77_inventory's catalogue, for the item and weapon pickers. Coroutine only.
+--- opx77_inventory's catalogue, for the item, weapon and ammunition pickers. `max` is an ammo
+--- item's full load, the count its form starts at. Coroutine only.
 ---@param playerId integer
 local function pushItems(playerId)
   local catalog, code = Inventory.catalog()
   local rows = {}
   for _, entry in ipairs(catalog and catalog.items or {}) do
     rows[#rows + 1] = { name = entry.name, label = entry.label, category = entry.category,
-                        class = entry.weapon and entry.weapon.class or nil }
+                        class = entry.weapon and entry.weapon.class or nil, max = entry.ammoMax }
   end
   pushChunks(playerId, "opx77_admin:items", rows, { error = code })
 end

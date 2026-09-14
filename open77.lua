@@ -41,9 +41,9 @@ client_script "client/exports.lua" -- last: publishing the surface claims it exi
 permissions {
   -- Both halves: the snapshot and travel pushes out, the refresh request in, and the menu's
   -- command lines sent through open77:command:execute. It is also the only grant the holster
-  -- and a drawn weapon's refill need: Open77.weapons on the server is a relay over net events.
-  -- The weapon and inventory commands otherwise call opx77_inventory's server exports, which
-  -- need no permission here; that resource lists this one in its EXPORTS.WRITERS.
+  -- needs: Open77.weapons on the server is a relay over net events. Every other weapon command,
+  -- ammunition included, and every inventory command calls opx77_inventory's server exports,
+  -- which need no permission here; that resource lists this one in its EXPORTS.WRITERS.
   "network.events",
 
   -- Server: Open77.acl.isAllowed. Re-checks the refresh event and the travel modes against

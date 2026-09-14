@@ -88,6 +88,9 @@ local ERRORS = {
   unknown_weapon = "admin.error.unknownWeapon",
   weapons_unavailable = "admin.error.weaponsUnavailable",
   weapon_no_answer = "admin.error.weaponNoAnswer",
+  unknown_ammo = "admin.error.unknownAmmo",
+  melee_no_ammo = "admin.error.meleeNoAmmo",
+  give_partial = "admin.error.givePartial",
   inventory_unavailable = "admin.error.inventoryUnavailable",
   inventory_denied = "admin.error.inventoryDenied",
   bad_holder = "admin.error.badHolder",
@@ -111,7 +114,8 @@ local TYPED = {
   bad_coordinates = true, bad_switch = true, bad_duration = true, empty_text = true,
   unknown_vehicle = true, bad_scope = true, unknown_flag = true, unknown_weapon = true,
   unknown_location = true, bad_location_name = true, bad_holder = true, unknown_citizen = true,
-  unknown_item = true, bad_count = true, not_enough = true,
+  unknown_item = true, bad_count = true, not_enough = true, unknown_ammo = true,
+  melee_no_ammo = true,
 }
 
 --- The catalogue key a report is answered with. Everything else a command answers is an

@@ -19,7 +19,7 @@
 ---| "kill_refused"          the first half of a placement was refused
 ---| "respawn_refused"       the second half was refused; the player was revived in place
 ---| "refused"               a native answered false; `reason` carries the host's own word
----| "bad_number"            a reserve or amount that is not a whole number
+---| "bad_number"            an amount that is not a whole number
 ---| "bad_coordinates"       a point that is not three finite numbers inside a million
 ---| "bad_switch"            not on, off, or nothing
 ---| "bad_duration"          looks like a ban duration and is out of range
@@ -36,6 +36,9 @@
 ---| "unknown_weapon"        not a weapon item of opx77_inventory, weapon_ prefix or not
 ---| "weapons_unavailable"   Open77.weapons, the relay the holster needs, is missing on this host
 ---| "weapon_no_answer"      the target's client never answered the relay: request_timeout
+---| "unknown_ammo"          neither an ammo item nor a weapon item of opx77_inventory
+---| "melee_no_ammo"         ammunition asked for a weapon that takes none
+---| "give_partial"          a weapon's ammunition was refused and the weapon was not taken back
 ---| "inventory_unavailable" opx77_inventory is not running, or its export was not found or stopped
 ---| "inventory_denied"      opx77_inventory answered caller_denied: not in its EXPORTS.WRITERS
 ---| "bad_holder"            not a player id, `me`, or a citizen id
@@ -43,7 +46,7 @@
 ---| "unknown_citizen"       no living character carries that citizen id
 ---| "core_unavailable"      opx77_core did not answer opx77_inventory
 ---| "unknown_item"          not an item of opx77_inventory's catalogue
----| "bad_count"             a count outside 1..INVENTORY.MAX_COUNT
+---| "bad_count"             a count outside 1..INVENTORY.MAX_COUNT; weapon.give's ammo may be 0
 ---| "not_enough"            the bag holds fewer units than asked to remove
 ---| "bag_no_room"           CanCarry or AddItem: no free or stackable slot
 ---| "bag_too_heavy"         CanCarry or AddItem: past the bag's weight
@@ -86,15 +89,15 @@
 ---@class WeaponClass
 ---@field key string        CLASS in opx77_inventory's data/weapons.lua
 ---@field label string
----@field rounds integer|nil the rounds a give puts on the item; nil for a full load
 
 --- One item of opx77_inventory's catalogue, as server/inventory.lua keeps it from GetItems.
 ---@class InventoryItem
 ---@field name string
 ---@field label string       in opx77_inventory's LOCALE
----@field category string
+---@field category string    `ammo` for an ammunition item
+---@field weight integer     grams per unit
 ---@field weapon { class: string, ammo: string|nil }|nil  ammo is the item that loads it
----@field ammoMax integer|nil the most rounds one weapon of that ammunition holds
+---@field ammoMax integer|nil an ammo item: the most rounds one weapon holds, and a full load
 
 --- A bag as server/inventory.lua reads it, every GetInventory page joined.
 ---@class InventoryBag

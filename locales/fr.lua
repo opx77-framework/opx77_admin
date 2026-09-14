@@ -30,13 +30,16 @@ OpxAdmin.Locale.register("fr", {
   ["admin.done.repaired"]            = "Véhicule {vehicle} réparé ({scope}).",
   ["admin.done.flagOn"]              = "Véhicule {vehicle} : {flag} activé.",
   ["admin.done.flagOff"]             = "Véhicule {vehicle} : {flag} désactivé.",
-  ["admin.done.weaponGiven"]         = "{label} est dans le sac de {who}, avec {rounds} " ..
-                                       "munitions ; elle se sort depuis l'inventaire.",
+  ["admin.done.weaponGiven"]         = "{label} est dans le sac de {who}, vide : ses munitions " ..
+                                       "se donnent à part.",
+  ["admin.done.weaponGivenAmmo"]     = "{label} est dans le sac de {who}, vide, avec {count}x " ..
+                                       "{ammo} à côté.",
   ["admin.done.meleeGiven"]          = "{label} est dans le sac de {who} ; elle se sort depuis " ..
                                        "l'inventaire.",
-  ["admin.done.refilled"]            = "{count} arme(s) du sac de {who} rechargée(s).",
-  ["admin.done.drawnRefilled"]       = "{label}, en main de {who}, chargée de {rounds} munitions.",
-  ["admin.done.nothingToRefill"]     = "{who} ne porte aucune arme de ce genre à recharger.",
+  ["admin.done.ammoGiven"]           = "{count}x {label} mis dans le sac de {who}.",
+  ["admin.done.refilled"]            = "{items} mis dans le sac de {who}.",
+  ["admin.done.nothingToRefill"]     = "{who} ne porte aucune arme de ce genre qui prenne des " ..
+                                       "munitions.",
   ["admin.done.weaponsRemoved"]      = "{count} arme(s) retirée(s) du sac de {who}.",
   ["admin.done.noWeapons"]           = "{who} ne porte aucune arme de ce genre.",
   ["admin.done.holstered"]           = "Le joueur {id} a rengainé.",
@@ -93,6 +96,13 @@ OpxAdmin.Locale.register("fr", {
   ["admin.error.unknownWeapon"]      = "Ce n'est pas une arme du catalogue d'opx77_inventory.",
   ["admin.error.weaponsUnavailable"] = "Le relais des armes n'est pas disponible sur cette " ..
                                        "version du serveur.",
+  ["admin.error.unknownAmmo"]        = "{item} n'est ni une munition ni une arme du catalogue " ..
+                                       "d'opx77_inventory.",
+  ["admin.error.meleeNoAmmo"]        = "{label} est une arme de mêlée : elle ne prend pas de " ..
+                                       "munitions.",
+  ["admin.error.givePartial"]        = "{label} est dans le sac de {who}, mais {count}x {ammo} " ..
+                                       "n'a pas pu être ajouté ({reason}) et l'arme n'a pas pu " ..
+                                       "être reprise : retirez-la.",
   ["admin.error.inventoryUnavailable"] = "opx77_inventory ne tourne pas ou ne répond pas ; " ..
                                        "rien n'a été changé.",
   ["admin.error.inventoryDenied"]    = "opx77_inventory refuse cette ressource : ajoutez " ..
@@ -167,6 +177,7 @@ OpxAdmin.Locale.register("fr", {
   ["admin.inventory.row"]            = "  {slot}  {label} x{count}{extra}",
   ["admin.inventory.empty"]          = "  vide",
   ["admin.inventory.rounds"]         = "{rounds} munitions",
+  ["admin.inventory.pair"]           = "{label} et {count}x {ammo}",
 
   -- suggestions du chat
   ["admin.help.menu"]                = "Ouvre le menu de l'équipe.",
@@ -217,13 +228,16 @@ OpxAdmin.Locale.register("fr", {
   ["admin.help.vehicleTarget"]       = "un numéro de véhicule, ou near",
   ["admin.help.flagName"]            = "un nom de VEHICLES.FLAGS",
   ["admin.help.holder"]              = "un numéro de joueur, me, ou un citizen id, connecté ou non",
-  ["admin.help.giveWeapon"]          = "Met une arme chargée dans le sac d'un personnage.",
+  ["admin.help.giveWeapon"]          = "Met une arme vide dans le sac d'un personnage.",
   ["admin.help.weaponName"]          = "une arme d'opx77_inventory ; weapon_ peut être omis",
-  ["admin.help.rounds"]              = "munitions qu'elle porte ; celles de sa classe si omis",
+  ["admin.help.giveAmmoCount"]       = "munitions données à côté ; aucune si omis",
+  ["admin.help.giveAmmo"]            = "Met des munitions dans le sac d'un personnage.",
+  ["admin.help.ammoName"]            = "une munition, ou une arme pour les munitions qu'elle prend",
+  ["admin.help.ammoCount"]           = "combien ; un plein si omis",
   ["admin.help.weaponOrAll"]         = "un nom d'arme, ou all",
   ["admin.help.weaponOrAllOptional"] = "un nom d'arme, ou all ; all si omis",
-  ["admin.help.refillRounds"]        = "munitions de chacune ; un plein si omis",
-  ["admin.help.ammo"]                = "Recharge les armes du sac d'un personnage.",
+  ["admin.help.refillCount"]         = "combien de chaque munition ; un plein si omis",
+  ["admin.help.ammo"]                = "Donne des munitions pour les armes du sac d'un personnage.",
   ["admin.help.removeWeapon"]        = "Retire des armes du sac d'un personnage.",
   ["admin.help.holster"]             = "Fait rengainer un joueur.",
   ["admin.help.loadout"]             = "Liste les armes du sac d'un personnage.",
@@ -295,6 +309,7 @@ OpxAdmin.Locale.register("fr", {
   ["admin.menu.giveVehicle"]         = "Livrer un véhicule",
   ["admin.menu.giveWeapon"]          = "Donner une arme",
   ["admin.menu.giveMe"]              = "Me donner une arme",
+  ["admin.menu.giveAmmo"]            = "Donner des munitions",
   ["admin.menu.ammo"]                = "Recharger les munitions",
   ["admin.menu.holster"]             = "Rengainer",
   ["admin.menu.disarm"]              = "Retirer toutes les armes",
@@ -362,6 +377,8 @@ OpxAdmin.Locale.register("fr", {
   ["admin.form.itemGive"]            = "Donner",
   ["admin.form.itemRemove"]          = "Retirer",
   ["admin.form.itemHeld"]            = "{label} : {count} dans cet emplacement",
+  ["admin.form.ammoGive"]            = "Donner des munitions",
+  ["admin.form.ammoLoad"]            = "{label} : un plein fait {max}",
   ["admin.field.count"]              = "Quantité",
   ["admin.field.points"]             = "Points",
   ["admin.field.group"]              = "Groupe",

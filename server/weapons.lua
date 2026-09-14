@@ -1,24 +1,24 @@
 --- Weapon commands. A weapon is an opx77_inventory item: a unit in a bag carrying a serial and its
---- rounds, which the player draws by using it. So a give adds that item, a refill raises the
---- rounds it carries, a removal takes the item, and a read lists the weapon items and which one is
---- drawn -- all through the inventory's server exports (server/inventory.lua), never by putting
---- a record in a game slot. The inventory takes off, every WEAPONS.SCAN_MS, any weapon a bag does
---- not back, so a weapon handed over any other way would not last, and would not be recorded.
+--- rounds, which the player draws by using it. Ammunition is an item of its own, a stack the
+--- player spends on the drawn weapon that takes it. So a give adds an empty weapon item, and its
+--- ammunition, when asked for, as a separate stack; a refill adds ammunition items; a removal
+--- takes the weapon item; a read lists the weapon items and which one is drawn -- all through the
+--- inventory's server exports (server/inventory.lua), never by putting a record in a game slot or
+--- rounds on an item. The inventory takes off, every WEAPONS.SCAN_MS, any weapon a bag does not
+--- back, so a weapon handed over any other way would not last, and would not be recorded.
 ---
---- Two things stay on `Open77.weapons`, the platform's relay to the target client's
---- open77_weapons half, because the inventory has no export for them and neither creates nor
---- removes a weapon: holstering, and stating the new rounds of the weapon the player has drawn,
---- whose item the inventory otherwise lowers again to what the engine reads back. A relay step
---- answers in two halves: `open77:weapons:completed` carries the client's verdict.
+--- One thing stays on `Open77.weapons`, the platform's relay to the target client's
+--- open77_weapons half, because the inventory has no export for it and it changes no item:
+--- holstering. A relay step answers in two halves: `open77:weapons:completed` carries the
+--- client's verdict.
 
 local Server = OpxAdmin.Server
-local Catalog = OpxAdmin.Catalog
 local Inventory = OpxAdmin.Inventory
 local Text = OpxAdmin.Text
 
 local answer, refuse, audit, tell = Server.answer, Server.refuse, Server.audit, Server.tell
 
---- tostring(requestId) -> the step a completion resumes.
+--- tostring(requestId) -> the holster a completion answers.
 local pending = {}
 
 --- A relay that never answers is a timeout on the platform's side; this bounds the table in
@@ -29,98 +29,61 @@ local PENDING_MS = 30000
 local function available()
   local weapons = Open77.weapons
   return type(weapons) == "table" and type(weapons.holster) == "function"
-    and type(weapons.setAmmo) == "function" and type(weapons.requestSnapshot) == "function"
 end
 
----@param requestId any
----@param step table
-local function remember(requestId, step)
-  step.atMs = Server.nowMs()
-  pending[tostring(requestId)] = step
-end
-
---- The rounds a weapon item carries after a give or a refill: what was typed, else the class's
---- ROUNDS for a give and a full load for a refill, never past its ammunition's MAX.
----@param catalog table
----@param entry table     a weapon item of the inventory's catalogue
----@param typed integer|nil
----@param full boolean    a refill: the ammunition's MAX when nothing was typed
----@return integer rounds, boolean takesAmmo
-local function roundsFor(catalog, entry, typed, full)
-  local ammo = entry.weapon and entry.weapon.ammo and catalog.byName[entry.weapon.ammo] or nil
-  local max = ammo and ammo.ammoMax or nil
-  if max == nil then return 0, false end
-  local class = Catalog.weaponClass(entry.weapon.class)
-  local wanted = typed or ((not full and class and class.rounds) or max)
-  return math.max(0, math.min(wanted, max)), true
-end
-
---- A typed round count: nil when omitted, false when it is not a whole number from 0.
+--- A typed count of ammunition items: nil when omitted, false when it is not a whole number in
+--- `least`..INVENTORY.MAX_COUNT.
 ---@param token any
+---@param least integer  0 for a give, where 0 means none; 1 elsewhere
 ---@return integer|false|nil
-local function typedRounds(token)
+local function typedCount(token, least)
   if token == nil then return nil end
-  local rounds = Text.integer(token)
-  if rounds == nil or rounds < 0 then return false end
-  return rounds
+  local count = Text.integer(token)
+  if count == nil or count < least or count > Inventory.MAX_COUNT then return false end
+  return count
 end
 
----@param metadata table|nil
----@return table
-local function copy(metadata)
-  local out = {}
-  for key, value in pairs(type(metadata) == "table" and metadata or {}) do out[key] = value end
-  return out
-end
-
---- The weapon drawn from this player's bag, or nil. Coroutine only.
----@param playerId integer|nil
+--- The ammunition item that loads a weapon item, or nil for a melee weapon.
+---@param catalog table
+---@param entry table  a weapon item of the inventory's catalogue
 ---@return table|nil
-local function drawnOf(playerId)
-  if playerId == nil then return nil end
-  local held = Inventory.call("GetHeldWeapon", playerId)
-  local weapon = held and type(held.weapon) == "table" and held.weapon or nil
-  if weapon == nil or weapon.drawn ~= true or type(weapon.serial) ~= "string" then return nil end
-  return weapon
+local function ammoOf(catalog, entry)
+  local name = entry.weapon and entry.weapon.ammo
+  local ammo = name and catalog.byName[name] or nil
+  return ammo and ammo.ammoMax and ammo or nil
+end
+
+--- What was typed for ammunition: an ammo item's name, or a weapon's name, short or not, standing
+--- for the ammunition that loads it.
+---@param catalog table
+---@param token any
+---@return table|nil ammo, string|nil code, table|nil weapon
+local function ammoFor(catalog, token)
+  local item = Inventory.item(catalog, token)
+  if item and item.ammoMax then return item, nil, nil end
+  local weapon = Inventory.weapon(catalog, token)
+  if weapon == nil then return nil, "unknown_ammo", nil end
+  local ammo = ammoOf(catalog, weapon)
+  if ammo == nil then return nil, "melee_no_ammo", weapon end
+  return ammo, nil, weapon
+end
+
+--- The serials of one weapon's items in a bag.
+---@param bag table
+---@param name string
+---@return table<string, true>
+local function serialsOf(bag, name)
+  local serials = {}
+  for _, row in ipairs(bag.items) do
+    local serial = row.name == name and type(row.metadata) == "table" and row.metadata.serial
+    if type(serial) == "string" then serials[serial] = true end
+  end
+  return serials
 end
 
 -- ---------------------------------------------------------------------------
--- The relay half of a refill
+-- The holster, on the relay
 -- ---------------------------------------------------------------------------
-
---- Writes the refill of the drawn weapon's item, once the engine holds those rounds. Coroutine
---- only.
----@param step table
-local function writeDrawn(step)
-  local set, code, reason = Inventory.call("SetMetadata", step.target, step.slot, step.metadata)
-  if not set then
-    return Inventory.fail(step.source, step.raw, "admin.weapon.ammo", step.playerId, step.who, code,
-      reason)
-  end
-  audit(step.source, "admin.weapon.ammo", true, step.playerId,
-    ("%s drawn, slot %d, %d rounds"):format(step.name, step.slot, step.rounds))
-  answer(step.source, step.raw, true, "admin.done.drawnRefilled",
-    { label = step.label, who = step.who, rounds = step.rounds })
-end
-
---- The drawn weapon's rounds are stated to the engine first and written to the item after:
---- the inventory lowers an item to what it reads back, never raises it, so an item raised first
---- would be lowered again by the next reading.
----@param step table
-local function refillDrawn(step)
-  local admitted = Server.admit(step.playerId)
-  if not available() or not admitted then
-    -- nothing can be drawn on a client that is not in the world: the item alone is the state
-    return CreateThread(function() writeDrawn(step) end)
-  end
-  local requestId, reason = Open77.weapons.requestSnapshot(step.playerId)
-  if requestId == nil then
-    audit(step.source, "admin.weapon.ammo", false, step.playerId, tostring(reason))
-    return refuse(step.source, step.raw, "refused", { reason = tostring(reason) })
-  end
-  step.kind = "drawnRead"
-  remember(requestId, step)
-end
 
 AddEventHandler("open77:weapons:completed", function(playerId, requestId, operation, accepted,
                                                      reason, result)
@@ -132,50 +95,11 @@ AddEventHandler("open77:weapons:completed", function(playerId, requestId, operat
 
   if accepted ~= true then
     local code = tostring(reason) == "request_timeout" and "weapon_no_answer" or "refused"
-    audit(step.source, "admin.weapon." .. step.command, false, step.playerId,
-      ("%s: %s"):format(step.kind, tostring(reason)))
+    audit(step.source, "admin.weapon.holster", false, step.playerId, tostring(reason))
     return refuse(step.source, step.raw, code, { reason = tostring(reason), id = step.playerId })
   end
-
-  if step.kind == "holster" then
-    audit(step.source, "admin.weapon.holster", true, step.playerId)
-    return answer(step.source, step.raw, true, "admin.done.holstered", { id = step.playerId })
-  end
-
-  if step.kind == "drawnRead" then
-    local row
-    for _, each in ipairs(type(result) == "table" and result or {}) do
-      if type(each) == "table" and each.equipped == true and type(each.record) == "string" and
-        each.record:lower() == step.record:lower() then
-        row = each
-      end
-    end
-    local slot = row and Text.integer(row.slot) or nil
-    if slot == nil then
-      -- put away meanwhile: the item alone is the state again
-      return CreateThread(function() writeDrawn(step) end)
-    end
-    local ammo = type(row.ammo) == "table" and row.ammo or {}
-    local capacity = Text.integer(ammo.capacity)
-    local amounts = { activate = true }
-    if capacity and capacity > 0 then
-      amounts.magazine = math.min(step.rounds, capacity)
-      amounts.reserve = step.rounds - amounts.magazine
-    else
-      amounts.reserve = step.rounds
-    end
-    local loadId, loadReason = Open77.weapons.setAmmo(step.playerId, slot, amounts)
-    if loadId == nil then
-      audit(step.source, "admin.weapon.ammo", false, step.playerId, tostring(loadReason))
-      return refuse(step.source, step.raw, "refused", { reason = tostring(loadReason) })
-    end
-    step.kind = "drawnLoad"
-    return remember(loadId, step)
-  end
-
-  if step.kind == "drawnLoad" then
-    return CreateThread(function() writeDrawn(step) end)
-  end
+  audit(step.source, "admin.weapon.holster", true, step.playerId)
+  answer(step.source, step.raw, true, "admin.done.holstered", { id = step.playerId })
 end)
 
 CreateThread(function()
@@ -209,15 +133,84 @@ local function resolve(source, raw, token)
   return target, who, playerId
 end
 
+--- The weapon and its ammunition, both or neither. Coroutine only. The bag is read first so the
+--- two are checked together -- CanCarry weighs one item at a time -- and so the weapon just added
+--- can be told from a copy already there, by its serial, if the ammunition is then refused.
+---@return boolean given
+local function giveWithAmmo(source, raw, event, target, who, playerId, entry, ammo, count)
+  local both = locale("admin.inventory.pair", { label = entry.label, count = count,
+                                                ammo = ammo.label })
+  local bag, bagCode, bagReason = Inventory.bag(target)
+  if not bag then
+    Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
+    return false
+  end
+  local weight = bag.weight + (entry.weight or 0) + (ammo.weight or 0) * count
+  local stacked = false
+  for _, row in ipairs(bag.items) do
+    if row.name == ammo.name and (row.metadata == nil or next(row.metadata) == nil) then
+      stacked = true
+    end
+  end
+  local code, reason
+  if bag.maxWeight > 0 and weight > bag.maxWeight then
+    code, reason = "bag_too_heavy", "too_heavy"
+  elseif bag.slots - #bag.items < (stacked and 1 or 2) then
+    code, reason = "bag_no_room", "no_room"
+  else
+    local carried
+    carried, code, reason = Inventory.carry(target, entry.name, 1, { ammo = 0 })
+    if carried then carried, code, reason = Inventory.carry(target, ammo.name, count) end
+    if carried then code = nil end
+  end
+  if code then
+    Inventory.fail(source, raw, event, playerId, who, code, reason, { item = both })
+    return false
+  end
+
+  local before = serialsOf(bag, entry.name)
+  local added, addCode, addReason = Inventory.call("AddItem", target, entry.name, 1, { ammo = 0 })
+  if not added then
+    Inventory.fail(source, raw, event, playerId, who, addCode, addReason, { item = entry.label })
+    return false
+  end
+  added, addCode, addReason = Inventory.call("AddItem", target, ammo.name, count)
+  if added then return true end
+
+  -- the inventory decides last: the weapon goes back out, so nothing is given
+  local after = Inventory.bag(target)
+  local taken
+  for _, row in ipairs(after and after.items or {}) do
+    local serial = row.name == entry.name and type(row.metadata) == "table" and row.metadata.serial
+    if taken == nil and type(serial) == "string" and not before[serial] then
+      taken = Inventory.call("RemoveItem", target, entry.name, 1, row.metadata) and serial or false
+    end
+  end
+  if not taken then
+    audit(source, event, false, playerId, ("%s: %s given, %dx %s refused (%s), not taken back")
+      :format(who, entry.name, count, ammo.name, tostring(addReason)))
+    refuse(source, raw, "give_partial", { label = entry.label, who = who, count = count,
+                                           ammo = ammo.label, reason = addReason })
+    return false
+  end
+  audit(source, event, false, playerId, ("%s taken back from %s: its ammunition was refused")
+    :format(taken, who))
+  Inventory.fail(source, raw, event, playerId, who, addCode, addReason, { item = both })
+  return false
+end
+
 Server.command("opx77.admin.weapon.give", {
   help = "admin.help.giveWeapon",
   params = { TARGET,
              { name = "weapon", help = "admin.help.weaponName" },
-             { name = "rounds", help = "admin.help.rounds", optional = true } },
+             { name = "ammo", help = "admin.help.giveAmmoCount", optional = true } },
   handler = function(source, args, raw)
     if Text.clean(args[2], 48) == nil then return refuse(source, raw, "unknown_weapon") end
-    local typed = typedRounds(args[3])
-    if typed == false then return refuse(source, raw, "bad_number") end
+    local count = typedCount(args[3], 0)
+    if count == false then
+      return refuse(source, raw, "bad_count", { max = Inventory.MAX_COUNT })
+    end
+    count = count or 0
     local target, who, playerId = resolve(source, raw, args[1])
     if target == nil then return end
     CreateThread(function()
@@ -229,19 +222,74 @@ Server.command("opx77.admin.weapon.give", {
         return Inventory.fail(source, raw, event, playerId, who, "unknown_weapon",
           Text.clean(args[2], 48))
       end
-      local rounds, takesAmmo = roundsFor(catalog, entry, typed or nil, false)
-      -- the serial is the inventory's to give; the rounds are carried on the item
-      local metadata = takesAmmo and { ammo = rounds } or nil
-      if not Inventory.give(source, raw, event, target, who, playerId, entry.name, 1, metadata,
-        entry.label) then
+      local ammo = ammoOf(catalog, entry)
+      if count > 0 and ammo == nil then
+        return Inventory.fail(source, raw, event, playerId, who, "melee_no_ammo", entry.name,
+          { label = entry.label })
+      end
+
+      -- empty: rounds come from ammunition items the player spends on it, never with the weapon
+      if count == 0 then
+        if not Inventory.give(source, raw, event, target, who, playerId, entry.name, 1,
+          ammo and { ammo = 0 } or nil, entry.label) then
+          return
+        end
+      elseif not giveWithAmmo(source, raw, event, target, who, playerId, entry, ammo, count) then
         return
       end
-      audit(source, event, true, playerId, ("%s to %s, %d rounds"):format(entry.name, who, rounds))
+
+      audit(source, event, true, playerId, ("%s to %s, %dx %s"):format(entry.name, who, count,
+        ammo and ammo.name or "-"))
       if playerId and playerId ~= source then
         tell(playerId, "admin.toast.weapon", { label = entry.label }, "success")
+        if count > 0 then
+          tell(playerId, "admin.toast.itemGiven", { count = count, label = ammo.label }, "info")
+        end
       end
-      answer(source, raw, true, takesAmmo and "admin.done.weaponGiven" or "admin.done.meleeGiven",
-        { label = entry.label, who = who, rounds = rounds })
+      local key = ammo == nil and "admin.done.meleeGiven" or count > 0 and
+        "admin.done.weaponGivenAmmo" or "admin.done.weaponGiven"
+      answer(source, raw, true, key, { label = entry.label, who = who, count = count,
+                                       ammo = ammo and ammo.label or "" })
+    end)
+  end,
+})
+
+Server.command("opx77.admin.weapon.giveammo", {
+  help = "admin.help.giveAmmo",
+  params = { TARGET,
+             { name = "weapon|ammo", help = "admin.help.ammoName" },
+             { name = "count", help = "admin.help.ammoCount", optional = true } },
+  handler = function(source, args, raw)
+    if Text.clean(args[2], 48) == nil then
+      return refuse(source, raw, "unknown_ammo", { item = "?" })
+    end
+    local typed = typedCount(args[3], 1)
+    if typed == false then
+      return refuse(source, raw, "bad_count", { max = Inventory.MAX_COUNT })
+    end
+    local target, who, playerId = resolve(source, raw, args[1])
+    if target == nil then return end
+    CreateThread(function()
+      local event = "admin.weapon.giveammo"
+      local catalog, code, reason = Inventory.catalog()
+      if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
+      local ammo, ammoCode, weapon = ammoFor(catalog, args[2])
+      if ammo == nil then
+        return Inventory.fail(source, raw, event, playerId, who, ammoCode, Text.clean(args[2], 48),
+          { item = Text.clean(args[2], 48), label = weapon and weapon.label })
+      end
+      -- one full load of that ammunition when no count is typed
+      local count = typed or ammo.ammoMax
+      if not Inventory.give(source, raw, event, target, who, playerId, ammo.name, count, nil,
+        ammo.label) then
+        return
+      end
+      audit(source, event, true, playerId, ("%dx %s to %s"):format(count, ammo.name, who))
+      if playerId and playerId ~= source then
+        tell(playerId, "admin.toast.itemGiven", { count = count, label = ammo.label }, "info")
+      end
+      answer(source, raw, true, "admin.done.ammoGiven", { count = count, label = ammo.label,
+                                                          who = who })
     end)
   end,
 })
@@ -250,11 +298,13 @@ Server.command("opx77.admin.weapon.ammo", {
   help = "admin.help.ammo",
   params = { TARGET,
              { name = "weapon|all", help = "admin.help.weaponOrAllOptional", optional = true },
-             { name = "rounds", help = "admin.help.refillRounds", optional = true } },
+             { name = "count", help = "admin.help.refillCount", optional = true } },
   handler = function(source, args, raw)
     local all = args[2] == nil or tostring(args[2]):lower() == "all"
-    local typed = typedRounds(args[3])
-    if typed == false then return refuse(source, raw, "bad_number") end
+    local typed = typedCount(args[3], 1)
+    if typed == false then
+      return refuse(source, raw, "bad_count", { max = Inventory.MAX_COUNT })
+    end
     local target, who, playerId = resolve(source, raw, args[1])
     if target == nil then return end
     CreateThread(function()
@@ -273,45 +323,44 @@ Server.command("opx77.admin.weapon.ammo", {
       if not bag then
         return Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
       end
-      local drawn = drawnOf(playerId)
 
-      local refilled, drawnStep, failure = 0, nil, nil
+      -- one ammunition type once, however many weapons of the bag it loads
+      local types, seen = {}, {}
       for _, row in ipairs(bag.items) do
         local entry = catalog.byName[row.name]
-        if entry and entry.weapon and (only == nil or only.name == entry.name) then
-          local rounds, takesAmmo = roundsFor(catalog, entry, typed or nil, true)
-          if takesAmmo then
-            local metadata = copy(row.metadata)
-            metadata.ammo = rounds
-            if drawn and metadata.serial == drawn.serial then
-              drawnStep = { command = "ammo", source = source, raw = raw, target = target,
-                            who = who, playerId = playerId, slot = row.slot, name = entry.name,
-                            label = entry.label, record = tostring(drawn.record or ""),
-                            rounds = rounds, metadata = metadata }
-            else
-              local set, setCode, setReason = Inventory.call("SetMetadata", target, row.slot,
-                metadata)
-              if set then
-                refilled = refilled + 1
-              else
-                failure = { code = setCode, reason = setReason }
-              end
-            end
-          end
+        local ammo = entry and entry.weapon and (only == nil or only.name == entry.name) and
+          ammoOf(catalog, entry) or nil
+        if ammo and not seen[ammo.name] then
+          seen[ammo.name] = true
+          types[#types + 1] = ammo
         end
       end
-
-      if refilled == 0 and drawnStep == nil then
-        if failure then
-          return Inventory.fail(source, raw, event, playerId, who, failure.code, failure.reason)
-        end
+      if #types == 0 then
         return answer(source, raw, false, "admin.done.nothingToRefill", { who = who }, "warning")
       end
-      if refilled > 0 then
-        audit(source, event, true, playerId, ("%d weapon item(s) of %s"):format(refilled, who))
-        answer(source, raw, true, "admin.done.refilled", { count = refilled, who = who })
+
+      local given, failure = {}, nil
+      for _, ammo in ipairs(types) do
+        local count = typed or ammo.ammoMax
+        local added, addCode, addReason = Inventory.add(target, ammo.name, count)
+        if added then
+          given[#given + 1] = ("%dx %s"):format(count, ammo.label)
+          audit(source, event, true, playerId, ("%dx %s to %s"):format(count, ammo.name, who))
+          if playerId and playerId ~= source then
+            tell(playerId, "admin.toast.itemGiven", { count = count, label = ammo.label }, "info")
+          end
+        else
+          failure = failure or { code = addCode, reason = addReason, label = ammo.label }
+        end
       end
-      if drawnStep then refillDrawn(drawnStep) end
+      if #given > 0 then
+        answer(source, raw, true, "admin.done.refilled", { items = table.concat(given, ", "),
+                                                          who = who })
+      end
+      if failure then
+        Inventory.fail(source, raw, event, playerId, who, failure.code, failure.reason,
+          { item = failure.label })
+      end
     end)
   end,
 })
@@ -394,8 +443,8 @@ Server.command("opx77.admin.weapon.holster", {
     if requestId == nil then
       return refuse(source, raw, "refused", { reason = tostring(reason) })
     end
-    remember(requestId, { command = "holster", kind = "holster", source = source, raw = raw,
-                          playerId = playerId })
+    pending[tostring(requestId)] = { source = source, raw = raw, playerId = playerId,
+                                     atMs = Server.nowMs() }
   end,
 })
 
@@ -412,7 +461,14 @@ Server.command("opx77.admin.weapon.read", {
       if not bag then
         return Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
       end
-      local drawn = drawnOf(playerId)
+      local drawn
+      if playerId ~= nil then
+        local held = Inventory.call("GetHeldWeapon", playerId)
+        local weapon = held and type(held.weapon) == "table" and held.weapon or nil
+        if weapon and weapon.drawn == true and type(weapon.serial) == "string" then
+          drawn = weapon
+        end
+      end
       local lines = { locale("admin.loadout.header", { who = who }) }
       for _, row in ipairs(bag.items) do
         local entry = catalog.byName[row.name]
@@ -433,13 +489,12 @@ Server.command("opx77.admin.weapon.read", {
   end,
 })
 
---- Whether the relay the holster and a drawn weapon's refill use exists on this host.
+--- Whether the relay the holster uses exists on this host.
 ---@return boolean
 function Server.weaponsAvailable()
   return available()
 end
 
 if not available() then
-  Open77.log.warn("Open77.weapons is unavailable on this host: holster refuses, and a refill " ..
-    "writes the drawn weapon's item without loading it in hand")
+  Open77.log.warn("Open77.weapons is unavailable on this host: the holster refuses")
 end

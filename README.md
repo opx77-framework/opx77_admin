@@ -37,7 +37,8 @@ it. See [Weapons and bags](#weapons-and-bags).
 - Noclip, applied on the client only when an ACL-gated command says so; its speed on two keys
   while flying, and the controls on screen in `opx77_prompts`' strip
 - Vehicles from a catalogue: spawn, deliver to a player, repair, flags, remove, clean up
-- Weapons as `opx77_inventory` items: put a loaded one in a bag, refill, take, holster, list
+- Weapons and ammunition as `opx77_inventory` items: put an empty weapon in a bag, give its
+  ammunition as a stack of its own, take, holster, list
 - A character's bag, online or not: list it, open it beside yours, give and take items from
   the inventory's catalogue, empty it, and find who holds an item
 - Announcements to every player, as a toast and a chat line
@@ -66,7 +67,7 @@ it. See [Weapons and bags](#weapons-and-bags).
 | `opx77_appearance` | the readiness gate opening at all; see [Safety](#safety) |
 | `opx77_weather` | the weather and time screens |
 | `opx77_inventory` | every weapon command but the holster, and every inventory command and row; it must list `opx77_admin` in its `EXPORTS.WRITERS`, as it ships |
-| `open77_weapons` | the holster, and loading a refilled weapon the player has drawn: its client half answers the relay |
+| `open77_weapons` | the holster: its client half answers the relay |
 
 `open77_admin`, the platform's own admin package, can run beside this one: every name here is
 under `opx77.admin`, so no command shadows another. Two tools switching the same player's
@@ -129,8 +130,9 @@ on a body and takes `<player>`.
 | `opx77.admin.vehicle.remove [id\|near\|mine]` | remove one, or all of yours |
 | `opx77.admin.vehicle.cleanup` | remove every empty vehicle this resource spawned |
 | **Weapons** | |
-| `opx77.admin.weapon.give <holder> <weapon> [rounds]` | put the weapon item in the bag, carrying `rounds`; the player draws it from the inventory |
-| `opx77.admin.weapon.ammo <holder> [weapon\|all] [rounds]` | set the rounds of every weapon item of that name, or of all of them; a full load when `rounds` is left out |
+| `opx77.admin.weapon.give <holder> <weapon> [ammo]` | put the weapon item in the bag, empty; with `ammo`, that many items of its ammunition beside it, both or neither. The player draws it from the inventory |
+| `opx77.admin.weapon.giveammo <holder> <weapon\|ammo> [count]` | add ammunition items: an ammo item by name, or the one a weapon takes; one full load, the inventory's `AMMO.MAX`, when `count` is left out |
+| `opx77.admin.weapon.ammo <holder> [weapon\|all] [count]` | add ammunition items for the weapons in the bag: one stack per ammunition they take, of `count`, or one full load each |
 | `opx77.admin.weapon.remove <holder> <weapon\|all>` | take every weapon item of that name, or every weapon, out of the bag |
 | `opx77.admin.weapon.holster <player>` | holster |
 | `opx77.admin.weapon.read <holder>` | the weapon items in the bag: slot, rounds, serial, and which one is drawn |
@@ -199,8 +201,9 @@ weapon in a game slot that no item backs. So no command here puts a record in a 
 
 | Action | Goes through | Permission |
 |---|---|---|
-| `weapon.give` | `CanCarry`, then `AddItem(holder, weapon, 1, { ammo = rounds })` | `command.opx77.admin.weapon.give` |
-| `weapon.ammo` | `GetInventory`, `GetHeldWeapon`, `SetMetadata` per weapon item; the drawn one's rounds also through the relay's `setAmmo` first | `command.opx77.admin.weapon.ammo` |
+| `weapon.give` | `CanCarry`, then `AddItem(holder, weapon, 1, { ammo = 0 })`. With ammunition: `GetInventory` and `CanCarry` for both first, then the two `AddItem`, and `RemoveItem` of that very weapon, by its serial, when the second is refused | `command.opx77.admin.weapon.give` |
+| `weapon.giveammo` | `GetItems`, `CanCarry`, `AddItem(holder, ammo, count)` | `command.opx77.admin.weapon.giveammo` |
+| `weapon.ammo` | `GetInventory`, then `CanCarry` and `AddItem` per ammunition type the bag's weapons take; no weapon item is written | `command.opx77.admin.weapon.ammo` |
 | `weapon.remove` | `GetInventory`, `RemoveItem` per weapon name and count; the inventory holsters a drawn one itself | `command.opx77.admin.weapon.remove` |
 | `weapon.read` | `GetInventory`, `GetHeldWeapon` | `command.opx77.admin.weapon.read` |
 | `weapon.holster` | the relay's `holster` | `command.opx77.admin.weapon.holster` |
@@ -210,7 +213,7 @@ weapon in a game slot that no item backs. So no command here puts a record in a 
 | `inventory.clear` | `ClearInventory` | `command.opx77.admin.inventory.clear` |
 | Open the bag beside mine | the inventory's `/opx77.inventory.open` | `command.opx77.inventory.open` |
 | Who holds an item | the inventory's `/opx77.inventory.holders` | `command.opx77.inventory.holders` |
-| The item and weapon pickers | `GetItems`; the removal picker `GetInventory` | the menu's grant, and the view or remove grant for a bag |
+| The item, weapon and ammunition pickers | `GetItems`; the removal picker `GetInventory` | the menu's grant, and the view or remove grant for a bag |
 
 **Why these are this resource's commands, and those two are links.** The menu drives another
 resource's own command where that resource publishes no door this one may use: `opx77_core`
@@ -225,15 +228,24 @@ inventory scope, which only it holds — so those two rows run the inventory's c
 member without it gets the host's refusal, from the chat box or from the menu, whose row is
 greyed.
 
-`command.opx77.admin.inventory.give` and `command.opx77.inventory.give` both create items, and
-`command.opx77.admin.weapon.give` creates weapons: grant them like money.
+`command.opx77.admin.inventory.give` and `command.opx77.inventory.give` both create items,
+`command.opx77.admin.weapon.give` creates weapons, and `command.opx77.admin.weapon.giveammo` and
+`command.opx77.admin.weapon.ammo` create ammunition items, as `weapon.give` does with its third
+argument: grant them like money.
+
+**Ammunition is an item, not a number on the weapon.** A weapon is given with 0 rounds. Its
+rounds are ammo items of the inventory's catalogue (`ammo_handgun`, `ammo_rifle`,
+`ammo_shotgun`, `ammo_sniper`), which the player uses — from the bag or a hotbar slot — while the
+weapon that takes them is drawn: the inventory loads it up to that ammunition's `AMMO.MAX` and
+spends the items, leaving the magazine as it was, so the game's reload key fills it. That key
+only moves rounds the weapon already carries into its magazine, never from the bag: once they are
+spent, the weapon stays empty until another ammo item is used. No command here writes a weapon
+item's rounds any more.
 
 **What stays on the relay, and why.** The inventory has no export that holsters, so the holster
 is still the platform's `Open77.weapons.holster`: it changes no item and leaves the weapon in
-its slot. A refill of the weapon the player has drawn states its new rounds to the engine with
-`setAmmo` before its item is written, because the inventory lowers a drawn weapon's item to what
-the engine reads back and never raises it: an item written first would be lowered again at the
-next reading.
+its slot. Nothing else does: a refill used to state a drawn weapon's rounds through `setAmmo`,
+and now only adds items, which the player loads themselves.
 
 **Without `opx77_inventory`** — stopped, or its exports answering `export_not_found` or not at
 all — every weapon command but the holster and every inventory command answers a refusal toast,
@@ -299,9 +311,10 @@ developer terminal writes a ready-to-paste `aclPrincipal`. Three desks, from lea
 }
 ```
 
-`command.opx77.admin.weapon.give` hands a loaded weapon to anybody, the operator included, and
-`command.opx77.admin.inventory.give` any item; both are left out of the moderator above on
-purpose, who may search a bag and see who holds something, and take nothing out of one. `command.opx77.*` covers every OPX//77 staff
+`command.opx77.admin.weapon.give` hands a weapon to anybody, the operator included,
+`command.opx77.admin.weapon.giveammo` its ammunition, and `command.opx77.admin.inventory.give`
+any item; all are left out of the moderator above on purpose, who may search a bag and see who
+holds something, and take nothing out of one. `command.opx77.*` covers every OPX//77 staff
 command on the server, the core's money included — grant it only to whoever may have all of it.
 `acl.check <playerId> <permission>` in the console answers the exact question the host asks.
 
@@ -382,7 +395,10 @@ resource stops.
   a category and an item of the inventory's catalogue, then a count; *Take an item*, a stack
   of that bag, read again each time the screen opens, then a count; *Empty the bag*. The
   **Server** screen adds *Who holds an item*. The weapon lists come from the same catalogue,
-  grouped by the classes of `data/weapons.lua`.
+  grouped by the classes of `data/weapons.lua`, and a weapon row gives it empty.
+- *Give ammunition*, on a player's **ITEMS** rows and on the **Weapons** screen: an ammo item of
+  the catalogue, then a count that starts at one full load. *Refill ammunition* gives one full
+  load of each ammunition the bag's weapons take.
 - The roster shows the platform's verified display name, the state (*in world*, *down*,
   *joining*, *loading*), the routing bucket and the distance. It does not show the character's
   name: that is in `opx77_core`'s VM. *Character record* runs `opx77.where` for it.
@@ -446,11 +462,11 @@ stops again. There is one list: a weapon staff can hand out is always one the in
 and it is added to or trimmed there. Staff type a weapon by its item name, `weapon_lexington`,
 or without the prefix, `lexington`.
 
-`data/weapons.lua` here keeps only the classes: their menu order, their `LABEL`, matched on the
-inventory's `CLASS`, and `ROUNDS`, the rounds a give puts on the item when none are typed. A give
-never puts more than the inventory's `AMMO.MAX` for that ammunition, and a melee weapon carries
-none. A class the inventory uses and this file does not name is listed last, under its key, and
-loads full.
+`data/weapons.lua` here keeps only the classes: their menu order and their `LABEL`, matched on
+the inventory's `CLASS`. It sets no rounds: a weapon is given empty, and a full load is the
+inventory's `AMMO.MAX` for that ammunition. A class the inventory uses and this file does not
+name is listed last, under its key. Ammunition is typed by its item name, `ammo_rifle`, or by a
+weapon that takes it.
 
 ## Configuration
 
@@ -487,7 +503,7 @@ loads full.
 | `VEHICLES.OCCUPIED_REPAIRS` | all but `mechanical`, `full` | repairs allowed with somebody aboard |
 | `VEHICLES.FLAGS` | `locked engineOn lightsOn invulnerable` | what `flag` may toggle |
 | `INVENTORY.RESOURCE` | `"opx77_inventory"` | the inventory whose exports the weapon and inventory commands call |
-| `INVENTORY.MAX_COUNT` | `10000` | the largest count `inventory.give` and `inventory.remove` accept |
+| `INVENTORY.MAX_COUNT` | `10000` | the largest count `inventory.give`, `inventory.remove` and the ammunition gives accept |
 | `LINKS` | see above | other resources' command names, `INVENTORY_OPEN` and `INVENTORY_HOLDERS` included; `false` removes the row |
 | `WEATHER_PRESETS`, `TIMES` | | what the sky screens offer |
 | `LOCATIONS` | three starters | saved destinations; `/opx77.admin.self.pos` copies a row |
@@ -513,7 +529,7 @@ Net events, all private to this resource — nothing outside it should raise or 
 | `opx77_admin:open` | server → client | the access map, after the opener command, and whether `opx77_inventory` runs |
 | `opx77_admin:roster` | server → client | roster rows, twenty per event |
 | `opx77_admin:locations` | server → client | the destination list |
-| `opx77_admin:items` | server → client | `opx77_inventory`'s catalogue, twenty rows per event |
+| `opx77_admin:items` | server → client | `opx77_inventory`'s catalogue, twenty rows per event, an ammo item with its full load |
 | `opx77_admin:bag` | server → client | one bag's stacks for the removal picker, twenty per event |
 | `opx77_admin:access` | server → client | a fresh access map |
 | `opx77_admin:travel` | server → client | noclip, speed, map pick, a clipboard row |
