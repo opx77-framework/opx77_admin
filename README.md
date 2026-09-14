@@ -114,7 +114,7 @@ prefix. Grant both.
 | **Vehicles** | |
 | `opx77.admin.vehicle.spawn <vehicle>` | spawn beside you |
 | `opx77.admin.vehicle.give <player> <vehicle>` | spawn beside a player |
-| `opx77.admin.vehicle.repair <id\|near> [scope]` | `glass body lights tires visual mechanical full` |
+| `opx77.admin.vehicle.repair [id\|near] [scope]` | `glass body lights tires visual mechanical full`; `near` and `full` when left out |
 | `opx77.admin.vehicle.flag <id\|near> <flag> [on\|off]` | toggle a flag from `VEHICLES.FLAGS` |
 | `opx77.admin.vehicle.remove [id\|near\|mine]` | remove one, or all of yours |
 | `opx77.admin.vehicle.cleanup` | remove every empty vehicle this resource spawned |

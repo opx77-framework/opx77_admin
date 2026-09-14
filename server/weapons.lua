@@ -295,8 +295,10 @@ end
 
 Server.command("opx77.admin.weapon.give", {
   help = "admin.help.giveWeapon",
-  params = { { name = "playerId|me" }, { name = "weapon", help = "admin.help.weaponName" },
-             { name = "slot", help = "admin.help.slot" }, { name = "reserve" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "weapon", help = "admin.help.weaponName" },
+             { name = "slot", help = "admin.help.slot", optional = true },
+             { name = "reserve", help = "admin.help.reserve", optional = true } },
   handler = function(source, args, raw)
     local entry, class = Catalog.weapon(args[2])
     if entry == nil then return refuse(source, raw, "unknown_weapon") end
@@ -324,7 +326,9 @@ Server.command("opx77.admin.weapon.give", {
 
 Server.command("opx77.admin.weapon.ammo", {
   help = "admin.help.ammo",
-  params = { { name = "playerId|me" }, { name = "slot|all" }, { name = "reserve" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "slot|all", help = "admin.help.ammoSlot", optional = true },
+             { name = "reserve", help = "admin.help.reserve", optional = true } },
   handler = function(source, args, raw)
     local all = args[2] == nil or tostring(args[2]):lower() == "all"
     local slot = not all and Text.integer(args[2]) or nil
@@ -350,7 +354,8 @@ Server.command("opx77.admin.weapon.ammo", {
 
 Server.command("opx77.admin.weapon.remove", {
   help = "admin.help.removeWeapon",
-  params = { { name = "playerId|me" }, { name = "slot|all" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "slot|all", help = "admin.help.slotOrAll" } },
   handler = function(source, args, raw)
     -- no default: clearing all three slots is never what a forgotten argument meant
     if args[2] == nil then return refuse(source, raw, "bad_slot") end
@@ -377,7 +382,8 @@ Server.command("opx77.admin.weapon.remove", {
 })
 
 Server.command("opx77.admin.weapon.holster", {
-  help = "admin.help.holster", params = { { name = "playerId|me" } },
+  help = "admin.help.holster",
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" } },
   handler = function(source, args, raw)
     local playerId = armable(source, raw, args[1], "admin.weapon.holster")
     if playerId == nil then return end
@@ -391,7 +397,8 @@ Server.command("opx77.admin.weapon.holster", {
 })
 
 Server.command("opx77.admin.weapon.read", {
-  help = "admin.help.loadout", params = { { name = "playerId|me" } }, read = true,
+  help = "admin.help.loadout",
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" } }, read = true,
   handler = function(source, args, raw)
     local playerId = armable(source, raw, args[1], "admin.weapon.read")
     if playerId == nil then return end

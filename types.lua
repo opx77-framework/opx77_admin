@@ -52,6 +52,7 @@
 ---@class AdminParameter
 ---@field name string
 ---@field help string|nil  catalogue key
+---@field optional boolean|nil  true when the handler runs without it; drawn `[name]` in the chat
 
 --- What `Server.commands()` answers, in registration order.
 ---@class AdminCommand

@@ -167,7 +167,8 @@ Server.command("opx77.admin.vehicle.spawn", {
 
 Server.command("opx77.admin.vehicle.give", {
   help = "admin.help.giveVehicle",
-  params = { { name = "playerId|me" }, { name = "vehicle", help = "admin.help.vehicleName" } },
+  params = { { name = "playerId|me", help = "admin.help.playerOrMe" },
+             { name = "vehicle", help = "admin.help.vehicleName" } },
   handler = function(source, args, raw)
     if not available() then return refuse(source, raw, "vehicles_unavailable") end
     local playerId, code = Server.target(source, args[1])
@@ -197,7 +198,7 @@ end
 
 Server.command("opx77.admin.vehicle.remove", {
   help = "admin.help.removeVehicle",
-  params = { { name = "vehicleId|near|mine", help = "admin.help.removeTarget" } },
+  params = { { name = "vehicleId|near|mine", help = "admin.help.removeTarget", optional = true } },
   handler = function(source, args, raw)
     if not available() then return refuse(source, raw, "vehicles_unavailable") end
     local token = type(args[1]) == "string" and args[1]:lower() or "near"
@@ -239,7 +240,8 @@ Server.command("opx77.admin.vehicle.cleanup", {
 
 Server.command("opx77.admin.vehicle.repair", {
   help = "admin.help.repair",
-  params = { { name = "vehicleId|near" }, { name = "scope", help = "admin.help.repairScope" } },
+  params = { { name = "vehicleId|near", help = "admin.help.repairTarget", optional = true },
+             { name = "scope", help = "admin.help.repairScope", optional = true } },
   handler = function(source, args, raw)
     if not available() then return refuse(source, raw, "vehicles_unavailable") end
     local scope = type(args[2]) == "string" and args[2]:lower() or "full"
@@ -277,8 +279,9 @@ end
 
 Server.command("opx77.admin.vehicle.flag", {
   help = "admin.help.flag",
-  params = { { name = "vehicleId|near" }, { name = "flag" },
-             { name = "on|off", help = "admin.help.toggle" } },
+  params = { { name = "vehicleId|near", help = "admin.help.vehicleTarget" },
+             { name = "flag", help = "admin.help.flagName" },
+             { name = "on|off", help = "admin.help.toggle", optional = true } },
   handler = function(source, args, raw)
     if not available() then return refuse(source, raw, "vehicles_unavailable") end
     if count(args) < 2 then return answer(source, raw, false, "admin.usage.flag") end
