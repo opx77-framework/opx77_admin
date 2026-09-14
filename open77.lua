@@ -26,6 +26,7 @@ shared_script "shared/catalog.lua" -- after both data files: it indexes them
 server_script "server/main.lua"
 server_script "server/players.lua"
 server_script "server/vehicles.lua"
+server_script "server/inventory.lua" -- before weapons.lua and menu.lua, which call through it
 server_script "server/weapons.lua"
 server_script "server/world.lua"
 server_script "server/menu.lua"
@@ -39,8 +40,10 @@ client_script "client/exports.lua" -- last: publishing the surface claims it exi
 
 permissions {
   -- Both halves: the snapshot and travel pushes out, the refresh request in, and the menu's
-  -- command lines sent through open77:command:execute. It is also the only grant the weapon
-  -- commands need: Open77.weapons on the server is a relay over net events.
+  -- command lines sent through open77:command:execute. It is also the only grant the holster
+  -- and a drawn weapon's refill need: Open77.weapons on the server is a relay over net events.
+  -- The weapon and inventory commands otherwise call opx77_inventory's server exports, which
+  -- need no permission here; that resource lists this one in its EXPORTS.WRITERS.
   "network.events",
 
   -- Server: Open77.acl.isAllowed. Re-checks the refresh event and the travel modes against

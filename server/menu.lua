@@ -1,5 +1,5 @@
 --- The menu's server half: the opener command, and the one inbound event, which asks for the
---- roster or the destination list again.
+--- roster, the destination list, the access map, the inventory's catalogue or a bag again.
 ---
 --- The menu decides nothing. What it shows comes from here, and everything it does is a command
 --- line sent through open77:command:execute -- the path the chat box uses -- so the host
@@ -8,13 +8,14 @@
 
 local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
+local Inventory = OpxAdmin.Inventory
 
 --- The permission the refresh event is re-checked against: whoever may open the menu may read
 --- what it draws. Net events carry no authorisation of their own on this platform.
 local OPENER = "opx77.admin"
 
---- Rows per roster event. The host drops an event past 1024 value nodes without a word, and a
---- row is about a dozen.
+--- Rows per roster, catalogue or bag event. The host drops an event past 1024 value nodes
+--- without a word, and a row is about a dozen.
 local ROSTER_CHUNK = 20
 
 local lastRefresh = {}
@@ -45,6 +46,26 @@ local function accessOf(playerId)
   return access, known
 end
 
+--- Rows in chunks: the host drops an event past 1024 value nodes without a word.
+---@param playerId integer
+---@param event string
+---@param rows table[]
+---@param extra table|nil  copied into every chunk
+local function pushChunks(playerId, event, rows, extra)
+  local offset = 0
+  repeat
+    local chunk = {}
+    for index = offset + 1, math.min(offset + ROSTER_CHUNK, #rows) do
+      chunk[#chunk + 1] = rows[index]
+    end
+    local payload = { rows = chunk, offset = offset, total = #rows,
+                      done = offset + #chunk >= #rows }
+    for key, value in pairs(extra or {}) do payload[key] = value end
+    TriggerClientEvent(event, playerId, payload)
+    offset = offset + #chunk
+  until offset >= #rows
+end
+
 ---@param playerId integer
 local function pushRoster(playerId)
   local origin = Server.positionOf(playerId)
@@ -53,17 +74,7 @@ local function pushRoster(playerId)
     local row = Server.rosterRow(id, origin)
     if row then rows[#rows + 1] = row end
   end
-  local offset = 0
-  repeat
-    local chunk = {}
-    for index = offset + 1, math.min(offset + ROSTER_CHUNK, #rows) do
-      chunk[#chunk + 1] = rows[index]
-    end
-    TriggerClientEvent("opx77_admin:roster", playerId, {
-      rows = chunk, offset = offset, total = #rows, done = offset + #chunk >= #rows,
-    })
-    offset = offset + #chunk
-  until offset >= #rows
+  pushChunks(playerId, "opx77_admin:roster", rows)
 end
 
 ---@param playerId integer
@@ -75,6 +86,34 @@ local function pushLocations(playerId)
   TriggerClientEvent("opx77_admin:locations", playerId, { rows = rows })
 end
 
+--- opx77_inventory's catalogue, for the item and weapon pickers. Coroutine only.
+---@param playerId integer
+local function pushItems(playerId)
+  local catalog, code = Inventory.catalog()
+  local rows = {}
+  for _, entry in ipairs(catalog and catalog.items or {}) do
+    rows[#rows + 1] = { name = entry.name, label = entry.label, category = entry.category,
+                        class = entry.weapon and entry.weapon.class or nil }
+  end
+  pushChunks(playerId, "opx77_admin:items", rows, { error = code })
+end
+
+--- The stacks of one bag, for the remove picker. Coroutine only.
+---@param playerId integer
+---@param token string
+local function pushBag(playerId, token)
+  local target, _, _, targetCode = Inventory.target(playerId, token)
+  local bag, code
+  if target ~= nil then bag, code = Inventory.bag(target) end
+  local catalog = bag and Inventory.catalog() or nil
+  local rows = {}
+  for _, row in ipairs(bag and bag.items or {}) do
+    rows[#rows + 1] = { slot = row.slot, name = row.name, count = row.count,
+                        label = Inventory.labelOf(catalog, row.name) }
+  end
+  pushChunks(playerId, "opx77_admin:bag", rows, { target = token, error = targetCode or code })
+end
+
 Server.command(OPENER, {
   help = "admin.help.menu", inGame = true, read = true,
   handler = function(source)
@@ -84,19 +123,26 @@ Server.command(OPENER, {
       access = access,
       aclKnown = known,
       weapons = Server.weaponsAvailable(),
+      inventory = Inventory.running(),
     })
     pushRoster(source)
     pushLocations(source)
+    if Inventory.running() then CreateThread(function() pushItems(source) end) end
     -- no command result: the menu opening is the answer, and a chat line per open is noise
   end,
 })
 
 --- The menu asks for a list again. Re-checked against the opener's grant with the same ACL the
---- host uses for commands, because anybody can send a net event.
-RegisterNetEvent("opx77_admin:refresh", function(topic)
+--- host uses for commands, because anybody can send a net event. A bag's stacks are somebody's
+--- belongings, so they also need the grant to view or to remove from one.
+RegisterNetEvent("opx77_admin:refresh", function(topic, arg)
   local player = tonumber(source) or 0
   if player <= 0 then return end
-  if topic ~= "roster" and topic ~= "locations" and topic ~= "access" then return end
+  if topic ~= "roster" and topic ~= "locations" and topic ~= "access" and topic ~= "items" and
+    topic ~= "bag" then
+    return
+  end
+  if topic == "bag" and (type(arg) ~= "string" or #arg > 32) then return end
 
   local atMs = Server.nowMs()
   local slot = player .. ":" .. topic
@@ -112,9 +158,18 @@ RegisterNetEvent("opx77_admin:refresh", function(topic)
     pushRoster(player)
   elseif topic == "locations" then
     pushLocations(player)
+  elseif topic == "items" then
+    CreateThread(function() pushItems(player) end)
+  elseif topic == "bag" then
+    if Server.permitted(player, "opx77.admin.inventory.view") ~= true and
+      Server.permitted(player, "opx77.admin.inventory.remove") ~= true then
+      return
+    end
+    CreateThread(function() pushBag(player, arg) end)
   else
     local access, known = accessOf(player)
-    TriggerClientEvent("opx77_admin:access", player, { access = access, aclKnown = known })
+    TriggerClientEvent("opx77_admin:access", player, { access = access, aclKnown = known,
+                                                      inventory = Inventory.running() })
   end
 end)
 

@@ -60,9 +60,12 @@ OPX_ADMIN_CONFIG = {
     FLAGS = { "locked", "engineOn", "lightsOn", "invulnerable" }, -- Open77.vehicles.flags names
   },
 
-  WEAPONS = {
-    MAX_RESERVE = 2000, -- ceiling on a typed reserve; the engine caps each ammo type lower still
-    FILL_MAGAZINE = true, -- after the spare rounds, fill the magazine to what the weapon holds
+  -- Weapons and bags are opx77_inventory's: every weapon and inventory command calls its server
+  -- exports, which need this resource in its EXPORTS.WRITERS (shipped so). Without it running
+  -- they refuse; the rounds a give loads are ROUNDS in data/weapons.lua.
+  INVENTORY = {
+    RESOURCE = "opx77_inventory", -- match a renamed folder
+    MAX_COUNT = 10000, -- the largest count inventory.give and inventory.remove accept
   },
 
   -- Commands of other OPX//77 resources the menu drives instead of doing the same thing twice.
@@ -74,6 +77,10 @@ OPX_ADMIN_CONFIG = {
     GANG = "opx77.gang", -- opx77_core: <playerId|citizenId> <gang> [grade]
     MONEY = "opx77.money", -- opx77_core: <playerId|citizenId> <TYPE> <amount>
     SAVE = "opx77.save", -- opx77_core: write every character now
+    -- opx77_inventory: no export opens another character's bag on a staff screen, or lists the
+    -- containers holding an item, so the menu runs its commands for those two
+    INVENTORY_OPEN = "opx77.inventory.open", -- <playerId|citizenId>, in game
+    INVENTORY_HOLDERS = "opx77.inventory.holders", -- <item>
     WEATHER_SET = "opx77.weather.set", -- opx77_weather
     WEATHER_NEXT = "opx77.weather.next",
     WEATHER_FREEZE = "opx77.weather.freeze",

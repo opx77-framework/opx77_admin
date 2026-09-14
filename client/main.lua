@@ -155,30 +155,40 @@ end
 ---@param raw string
 ---@param accepted boolean
 ---@param message string
+---@return boolean sentByMenu
 local function underList(raw, accepted, message)
   local name = (raw:match("^/?(%S+)") or ""):lower()
   local sentAt = awaiting[name]
-  if sentAt == nil or Client.nowMs() - sentAt > 15000 then return end
+  if sentAt == nil or Client.nowMs() - sentAt > 15000 then return false end
   local Menu = OpxAdmin.Menu
   if Menu then Menu.status(message, accepted == true) end
+  return true
 end
 
 --- Another resource's answer, or the dispatcher's: its queue acknowledgement, dropped, or a
 --- refusal, whose code is put in words. opx77_chat toasts the refusal as well.
+---
+--- opx77_chat prints no accepted result, so a report of a linked command the menu sent -- the
+--- holders of an item, from opx77_inventory -- is a chat line here, as this resource's own
+--- reports are: the line under the list holds only its first line.
 RegisterNetEvent("open77:command:result", function(raw, accepted, message)
   if type(raw) ~= "string" or type(message) ~= "string" then return end
   if accepted == true and message:find(QUEUE_ACK, 1, true) then return end
-  if accepted ~= true then
-    -- a speed the speed keys sent and the host refused: the strip's read-out goes back
-    if OpxAdmin.Controls then OpxAdmin.Controls.answered(raw, false) end
-    local name = raw:match("^/?(%S+)") or raw
-    if message == "unknown_command" then
-      message = locale("admin.client.unknownCommand", { command = name })
-    elseif message:find("permission_denied:", 1, true) == 1 then
-      message = locale("admin.client.denied", { command = name })
+  if accepted == true then
+    if underList(raw, true, message) and message:find("\n", 1, true) then
+      chatLine("info", message)
     end
+    return
   end
-  underList(raw, accepted, message)
+  -- a speed the speed keys sent and the host refused: the strip's read-out goes back
+  if OpxAdmin.Controls then OpxAdmin.Controls.answered(raw, false) end
+  local name = raw:match("^/?(%S+)") or raw
+  if message == "unknown_command" then
+    message = locale("admin.client.unknownCommand", { command = name })
+  elseif message:find("permission_denied:", 1, true) == 1 then
+    message = locale("admin.client.denied", { command = name })
+  end
+  underList(raw, false, message)
 end)
 
 --- This resource's own answer: under the list when the menu sent it, and besides that a chat

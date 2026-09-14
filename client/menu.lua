@@ -29,12 +29,19 @@ local OPENER = "opx77.admin"
 --- opx77_menu refuses a level past 200 rows; the navigation rows need room.
 local MAX_LISTED = 190
 
---- What the server said at open: `you`, `access`, `aclKnown`, `weapons`.
+--- What the server said at open: `you`, `access`, `aclKnown`, `weapons`, `inventory`.
 ---@type table|nil
 local session
 
 local roster, rosterById, incoming = {}, {}, {}
 local locations = {}
+
+--- opx77_inventory's catalogue as the server read it: `{ name, label, category, class }`, and
+--- whether it has arrived. Weapons are the rows with a class.
+local catalog = { rows = {}, incoming = {}, loaded = false, error = nil }
+
+--- The stacks of the one bag the remove picker is drawing, by the target the server was asked.
+local bag = { target = nil, rows = {}, incoming = {}, loaded = false, error = nil }
 
 --- { screen, arg, cursor } from the root down.
 local stack = {}
@@ -128,6 +135,63 @@ local function section(labelKey)
   return { separator = true, label = labelKey and locale(labelKey) or nil }
 end
 
+--- Whether the server could reach opx77_inventory when the menu opened or last refreshed.
+---@return boolean
+local function inventoryUp()
+  return session ~= nil and session.inventory == true
+end
+
+--- A row greyed with a word beside it, for what cannot be done here at all.
+---@param item table
+---@param key string
+---@return table
+local function unavailable(item, key)
+  item.disabled, item.value = true, locale(key or "admin.menu.unavailable")
+  return item
+end
+
+--- A row that goes to a picker, greyed when the ACL refuses the command the picker ends in.
+local function goFor(id, labelKey, screen, arg, name)
+  local item = go(id, labelKey, screen, arg)
+  if not permitted(name) then unavailable(item, "admin.menu.denied") end
+  return item
+end
+
+--- The one row a picker shows while its list is on its way, or when it cannot be had.
+---@param list table  `catalog` or `bag`
+---@param emptyKey string
+---@return table
+local function placeholder(list, emptyKey)
+  local key = not list.loaded and "admin.menu.loading" or list.error and "admin.menu.inventoryError"
+    or emptyKey
+  return row("empty", locale(key), nil, { disabled = true })
+end
+
+--- The weapon rows for a target, "me" or a player id. A weapon is an opx77_inventory item, so
+--- every row but the holster needs that resource; the holster and a drawn weapon's refill need
+--- the platform's weapon relay.
+---@param target string
+---@param giveKey string
+---@return table[]
+local function weaponRows(target, giveKey)
+  local items = {
+    goFor("giveWeapon", giveKey, "weaponClasses", target, "opx77.admin.weapon.give"),
+    command("ammo", "admin.menu.ammo", { "opx77.admin.weapon.ammo", target }),
+    command("holster", "admin.menu.holster", { "opx77.admin.weapon.holster", target }),
+    guarded("disarm", "admin.menu.disarm", { "opx77.admin.weapon.remove", target, "all" },
+      "admin.confirm.disarm"),
+    command("loadout", "admin.menu.loadout", { "opx77.admin.weapon.read", target }),
+  }
+  for _, item in ipairs(items) do
+    local relay = item.id == "holster"
+    if not item.disabled and ((relay and not (session and session.weapons)) or
+      (not relay and not inventoryUp())) then
+      unavailable(item)
+    end
+  end
+  return items
+end
+
 --- The name of a roster player, for a title.
 ---@param id integer
 ---@return string
@@ -206,14 +270,24 @@ SCREENS.player = function(id)
 
   items[#items + 1] = section("admin.menu.section.items")
   items[#items + 1] = go("giveVehicle", "admin.menu.giveVehicle", "vehicleClasses", id)
-  items[#items + 1] = go("giveWeapon", "admin.menu.giveWeapon", "weaponClasses", id)
-  items[#items + 1] = command("ammo", "admin.menu.ammo", { "opx77.admin.weapon.ammo", target })
-  items[#items + 1] = command("holster", "admin.menu.holster",
-    { "opx77.admin.weapon.holster", target })
-  items[#items + 1] = guarded("disarm", "admin.menu.disarm",
-    { "opx77.admin.weapon.remove", target, "all" }, "admin.confirm.disarm")
-  items[#items + 1] = command("loadout", "admin.menu.loadout",
-    { "opx77.admin.weapon.read", target })
+  for _, item in ipairs(weaponRows(target, "admin.menu.giveWeapon")) do items[#items + 1] = item end
+
+  if inventoryUp() then
+    items[#items + 1] = section("admin.menu.section.inventory")
+    items[#items + 1] = command("invView", "admin.menu.invView",
+      { "opx77.admin.inventory.view", target })
+    if LINKS.INVENTORY_OPEN then
+      -- the inventory's screen takes the keyboard: the menu steps aside rather than sit under it
+      items[#items + 1] = command("invOpen", "admin.menu.invOpen", { LINKS.INVENTORY_OPEN, target })
+      items[#items].data.closeAfter = true
+    end
+    items[#items + 1] = goFor("invGive", "admin.menu.invGive", "itemCategories",
+      { t = target, m = "give" }, "opx77.admin.inventory.give")
+    items[#items + 1] = goFor("invRemove", "admin.menu.invRemove", "bag", target,
+      "opx77.admin.inventory.remove")
+    items[#items + 1] = guarded("invClear", "admin.menu.invClear",
+      { "opx77.admin.inventory.clear", target }, "admin.confirm.invClear")
+  end
 
   items[#items + 1] = section("admin.menu.section.moderation")
   items[#items + 1] = form("kick", "admin.menu.kick", "kick", id, "opx77.admin.moderate.kick")
@@ -261,76 +335,160 @@ SCREENS.vehicles = function()
   return locale("admin.menu.vehicles"), items
 end
 
---- A class list for a target: "me", or a player id. `kind` is vehicle or weapon.
-local function classes(kind, target)
-  local list = kind == "vehicle" and Catalog.vehicleClasses or Catalog.weaponClasses
+---@param titleKey string
+---@param target any  "me", or a player id
+---@return string
+local function titleFor(titleKey, target)
+  if target == nil or target == "me" then return locale(titleKey) end
+  return ("%s: %s"):format(locale(titleKey), nameOf(tonumber(target) or target))
+end
+
+SCREENS.vehicleClasses = function(target)
   local items = {}
-  for _, class in ipairs(list) do
+  for _, class in ipairs(Catalog.vehicleClasses) do
     if #class.members > 0 then
-      items[#items + 1] = go("class_" .. class.key, { text = class.label },
-        kind == "vehicle" and "vehicleList" or "weaponList", { t = target, c = class.key },
-        { value = tostring(#class.members) })
+      items[#items + 1] = go("class_" .. class.key, { text = class.label }, "vehicleList",
+        { t = target, c = class.key }, { value = tostring(#class.members) })
     end
   end
   if #items == 0 then items[1] = row("empty", locale("admin.menu.catalogEmpty"), nil,
     { disabled = true }) end
-  local titleKey = kind == "vehicle" and "admin.menu.vehicles" or "admin.menu.weapons"
-  local title = target == "me" and locale(titleKey)
-    or ("%s: %s"):format(locale(titleKey), nameOf(target))
-  return title, items
+  return titleFor("admin.menu.vehicles", target), items
 end
 
-SCREENS.vehicleClasses = function(target) return classes("vehicle", target) end
-SCREENS.weaponClasses = function(target) return classes("weapon", target) end
-
 --- The rows of one class, each a spawn for the operator or a delivery to a player.
-local function members(kind, arg)
-  local list = kind == "vehicle" and Catalog.vehicleClasses or Catalog.weaponClasses
+SCREENS.vehicleList = function(arg)
   local target = type(arg) == "table" and arg.t or "me"
   local found
-  for _, class in ipairs(list) do
+  for _, class in ipairs(Catalog.vehicleClasses) do
     if type(arg) == "table" and class.key == arg.c then found = class end
   end
   local items = {}
   for index = 1, found and math.min(#found.members, MAX_LISTED) or 0 do
     local entry = found.members[index]
-    local tokens
-    if kind == "vehicle" then
-      tokens = target == "me" and { "opx77.admin.vehicle.spawn", entry.name }
-        or { "opx77.admin.vehicle.give", tostring(target), entry.name }
-    else
-      tokens = { "opx77.admin.weapon.give", tostring(target), entry.name }
-    end
-    local item = command("entry_" .. entry.name, { text = entry.label }, tokens)
-    if kind == "weapon" and session and not session.weapons then
-      item.disabled, item.value = true, locale("admin.menu.unavailable")
-    end
-    items[#items + 1] = item
+    local tokens = target == "me" and { "opx77.admin.vehicle.spawn", entry.name }
+      or { "opx77.admin.vehicle.give", tostring(target), entry.name }
+    items[#items + 1] = command("entry_" .. entry.name, { text = entry.label }, tokens)
   end
   if #items == 0 then items[1] = row("empty", locale("admin.menu.catalogEmpty"), nil,
     { disabled = true }) end
   return found and found.label or "?", items
 end
 
-SCREENS.vehicleList = function(arg) return members("vehicle", arg) end
-SCREENS.weaponList = function(arg) return members("weapon", arg) end
-
-SCREENS.weapons = function()
-  local unavailable = session and not session.weapons
-  local items = {
-    go("give", "admin.menu.giveMe", "weaponClasses", "me"),
-    command("ammo", "admin.menu.ammo", { "opx77.admin.weapon.ammo", "me" }),
-    command("holster", "admin.menu.holster", { "opx77.admin.weapon.holster", "me" }),
-    guarded("disarm", "admin.menu.disarm", { "opx77.admin.weapon.remove", "me", "all" },
-      "admin.confirm.disarm"),
-    command("loadout", "admin.menu.loadout", { "opx77.admin.weapon.read", "me" }),
-  }
-  if unavailable then
-    for _, item in ipairs(items) do
-      item.disabled, item.value = true, locale("admin.menu.unavailable")
+--- The weapon items of opx77_inventory's catalogue by class: the classes of data/weapons.lua in
+--- their order, then any class that file does not name, under its key.
+---@return { key: string, label: string, members: table[] }[]
+local function weaponGroups()
+  local groups, byKey = {}, {}
+  for _, class in ipairs(Catalog.weaponClasses) do
+    byKey[class.key] = { key = class.key, label = class.label, members = {} }
+    groups[#groups + 1] = byKey[class.key]
+  end
+  for _, entry in ipairs(catalog.rows) do
+    if entry.class then
+      if byKey[entry.class] == nil then
+        byKey[entry.class] = { key = entry.class, label = entry.class, members = {} }
+        groups[#groups + 1] = byKey[entry.class]
+      end
+      local members = byKey[entry.class].members
+      members[#members + 1] = entry
     end
   end
-  return locale("admin.menu.weapons"), items
+  return groups, byKey
+end
+
+SCREENS.weaponClasses = function(target)
+  local items = {}
+  for _, group in ipairs(weaponGroups()) do
+    if #group.members > 0 then
+      items[#items + 1] = go("class_" .. group.key, { text = group.label }, "weaponList",
+        { t = target, c = group.key }, { value = tostring(#group.members) })
+    end
+  end
+  if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
+  return titleFor("admin.menu.weapons", target), items
+end
+
+SCREENS.weaponList = function(arg)
+  local target = type(arg) == "table" and tostring(arg.t) or "me"
+  local _, byKey = weaponGroups()
+  local group = type(arg) == "table" and byKey[arg.c] or nil
+  local items = {}
+  for index = 1, group and math.min(#group.members, MAX_LISTED) or 0 do
+    local entry = group.members[index]
+    local item = command("entry_" .. entry.name, { text = entry.label },
+      { "opx77.admin.weapon.give", target, entry.name })
+    if not item.disabled and not inventoryUp() then unavailable(item) end
+    items[#items + 1] = item
+  end
+  if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
+  return group and group.label or "?", items
+end
+
+SCREENS.weapons = function()
+  return locale("admin.menu.weapons"), weaponRows("me", "admin.menu.giveMe")
+end
+
+--- The categories of opx77_inventory's catalogue, sorted, for a give (`m = "give"`, to `t`) or
+--- for the holders list (`m = "holders"`).
+SCREENS.itemCategories = function(arg)
+  local counts, names = {}, {}
+  for _, entry in ipairs(catalog.rows) do
+    if counts[entry.category] == nil then names[#names + 1] = entry.category end
+    counts[entry.category] = (counts[entry.category] or 0) + 1
+  end
+  table.sort(names)
+  local items = {}
+  for _, name in ipairs(names) do
+    items[#items + 1] = go("cat_" .. name, { text = name }, "itemList",
+      { t = arg.t, m = arg.m, c = name }, { value = tostring(counts[name]) })
+  end
+  if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
+  local titleKey = arg.m == "holders" and "admin.menu.invHolders" or "admin.menu.invGive"
+  return titleFor(titleKey, arg.t), items
+end
+
+SCREENS.itemList = function(arg)
+  local items = {}
+  for _, entry in ipairs(catalog.rows) do
+    if entry.category == arg.c and #items < MAX_LISTED then
+      local item
+      if arg.m == "holders" then
+        item = command("item_" .. entry.name, { text = entry.label },
+          { LINKS.INVENTORY_HOLDERS, entry.name })
+      else
+        item = form("item_" .. entry.name, "admin.menu.invGive", "itemGive",
+          { t = arg.t, n = entry.name, l = entry.label }, "opx77.admin.inventory.give")
+        item.label = entry.label
+      end
+      item.description = entry.name
+      items[#items + 1] = item
+    end
+  end
+  if #items == 0 then items[1] = placeholder(catalog, "admin.menu.catalogEmpty") end
+  return arg.c, items
+end
+
+--- One bag's stacks, each opening the count form of a removal.
+SCREENS.bag = function(target)
+  local items = {}
+  if bag.target == tostring(target) then
+    for _, entry in ipairs(bag.rows) do
+      if #items >= MAX_LISTED then break end
+      local item = form(("slot_%d"):format(entry.slot), "admin.menu.invRemove", "itemRemove",
+        { t = tostring(target), n = entry.name, l = entry.label, c = entry.count },
+        "opx77.admin.inventory.remove")
+      item.label = ("%d  %s"):format(entry.slot, entry.label)
+      if not item.disabled then item.value = "x" .. tostring(entry.count) end
+      item.description = entry.name
+      items[#items + 1] = item
+    end
+  end
+  if #items == 0 then
+    items[1] = placeholder(bag.target == tostring(target) and bag or { loaded = false },
+      "admin.menu.bagEmpty")
+  end
+  return titleFor("admin.menu.invRemove", target), items
 end
 
 SCREENS.locations = function(target)
@@ -438,6 +596,11 @@ SCREENS.server = function()
         "admin.confirm.save")
     end
   end
+  if inventoryUp() and LINKS.INVENTORY_HOLDERS then
+    items[#items + 1] = section("admin.menu.section.inventory")
+    items[#items + 1] = goFor("holders", "admin.menu.invHolders", "itemCategories",
+      { m = "holders" }, LINKS.INVENTORY_HOLDERS)
+  end
   return locale("admin.menu.server"), items
 end
 
@@ -519,6 +682,13 @@ local function push(screen, arg)
     TriggerServerEvent("opx77_admin:refresh", "roster")
   elseif screen == "locations" or screen == "saved" then
     TriggerServerEvent("opx77_admin:refresh", "locations")
+  elseif (screen == "itemCategories" or screen == "weaponClasses") and
+    (not catalog.loaded or catalog.error) then
+    TriggerServerEvent("opx77_admin:refresh", "items")
+  elseif screen == "bag" then
+    -- always read again: a bag changes under a staff member between two visits
+    bag.target, bag.rows, bag.incoming, bag.loaded, bag.error = tostring(arg), {}, {}, false, nil
+    TriggerServerEvent("opx77_admin:refresh", "bag", tostring(arg))
   end
   draw()
 end
@@ -556,9 +726,14 @@ function Menu.run(tokens, refresh)
     return
   end
   if refresh then
+    -- a bag is asked for by the target its screen draws
+    local current = top()
+    local arg = refresh == "bag" and current and current.screen == "bag" and tostring(current.arg)
+      or nil
+    if refresh == "bag" and arg == nil then return end
     CreateThread(function()
       Wait(1200)
-      TriggerServerEvent("opx77_admin:refresh", refresh)
+      TriggerServerEvent("opx77_admin:refresh", refresh, arg)
     end)
   end
 end
@@ -636,7 +811,10 @@ RegisterNetEvent("opx77_admin:open", function(payload)
     access = type(payload.access) == "table" and payload.access or {},
     aclKnown = payload.aclKnown == true,
     weapons = payload.weapons == true,
+    inventory = payload.inventory == true,
   }
+  -- the catalogue follows on its own event; one read before it would draw an old one
+  catalog.rows, catalog.incoming, catalog.loaded, catalog.error = {}, {}, false, nil
   stack = { { screen = "root" } }
   suspended = false
   draw()
@@ -645,7 +823,56 @@ end)
 RegisterNetEvent("opx77_admin:access", function(payload)
   if session == nil or type(payload) ~= "table" or type(payload.access) ~= "table" then return end
   session.access, session.aclKnown = payload.access, payload.aclKnown == true
+  local inventory = payload.inventory == true
+  if inventory and not session.inventory then TriggerServerEvent("opx77_admin:refresh", "items") end
+  session.inventory = inventory
   draw(true)
+end)
+
+--- Chunks of a list the server read from opx77_inventory. Rows are data drawn as text; what a
+--- row runs is a command line the host gates like any other.
+---@param list table  `catalog` or `bag`
+---@param payload table
+---@param accept fun(entry: table): table|nil
+---@return boolean done
+local function collect(list, payload, accept)
+  if payload.offset == 0 then list.incoming = {} end
+  for _, entry in ipairs(payload.rows) do
+    local kept = type(entry) == "table" and accept(entry) or nil
+    if kept then list.incoming[#list.incoming + 1] = kept end
+  end
+  if payload.done ~= true then return false end
+  list.rows, list.incoming = list.incoming, {}
+  list.loaded = true
+  list.error = type(payload.error) == "string" and payload.error or nil
+  return true
+end
+
+RegisterNetEvent("opx77_admin:items", function(payload)
+  if type(payload) ~= "table" or type(payload.rows) ~= "table" then return end
+  local done = collect(catalog, payload, function(entry)
+    if type(entry.name) ~= "string" then return nil end
+    return { name = entry.name, label = tostring(entry.label or entry.name),
+             category = tostring(entry.category or "misc"),
+             class = type(entry.class) == "string" and entry.class or nil }
+  end)
+  local screen = Menu.screen()
+  if done and (screen == "itemCategories" or screen == "itemList" or screen == "weaponClasses" or
+    screen == "weaponList") then
+    draw(true)
+  end
+end)
+
+RegisterNetEvent("opx77_admin:bag", function(payload)
+  if type(payload) ~= "table" or type(payload.rows) ~= "table" then return end
+  if payload.target ~= bag.target then return end
+  local done = collect(bag, payload, function(entry)
+    local slot, count = tonumber(entry.slot), tonumber(entry.count)
+    if slot == nil or count == nil or type(entry.name) ~= "string" then return nil end
+    return { slot = math.floor(slot), count = math.floor(count), name = entry.name,
+             label = tostring(entry.label or entry.name) }
+  end)
+  if done and Menu.screen() == "bag" then draw(true) end
 end)
 
 RegisterNetEvent("opx77_admin:roster", function(payload)
@@ -717,7 +944,11 @@ AddEventHandler(EVENT, function(payload)
     return Menu.run(tokens)
   end
   if type(data.go) == "string" and SCREENS[data.go] then return push(data.go, data.arg) end
-  if type(data.run) == "table" then return Menu.run(data.run, data.refresh) end
+  if type(data.run) == "table" then
+    Menu.run(data.run, data.refresh)
+    if data.closeAfter then Menu.close() end
+    return
+  end
   if type(data.confirm) == "table" and type(data.key) == "string" then
     return Menu.confirm(data.confirm, data.key)
   end

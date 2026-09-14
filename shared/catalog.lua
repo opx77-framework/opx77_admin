@@ -1,6 +1,7 @@
 --- The index over data/vehicles.lua and data/weapons.lua. Both halves read it: the server to
---- refuse anything that is not a row, the client to draw the lists. A malformed row is dropped
---- and named in `problems`, which the server logs at boot, rather than raising at load.
+--- refuse a vehicle that is not a row, both to group weapons, the client to draw the lists. A
+--- malformed row is dropped and named in `problems`, which the server logs at boot, rather than
+--- raising at load.
 
 OpxAdmin = OpxAdmin or {}
 
@@ -17,12 +18,11 @@ local function problem(line)
 end
 
 --- Index one data file into ordered classes and a lookup by name and by record.
----@param source table|nil        OPX_ADMIN_VEHICLES or OPX_ADMIN_WEAPONS
+---@param source table|nil        OPX_ADMIN_VEHICLES
 ---@param file string             for the problem lines
 ---@param list string             the key the rows live under
----@param extra fun(class: table, row: table)|nil  copies class-specific fields
 ---@return table[] classes, table<string, CatalogEntry> byName, table<string, CatalogEntry> byRecord
-local function build(source, file, list, extra)
+local function build(source, file, list)
   local classes, classIndex, byName, byRecord = {}, {}, {}, {}
   if type(source) ~= "table" or type(source.CLASSES) ~= "table" then
     problem(file .. ": CLASSES must be a table")
@@ -35,7 +35,6 @@ local function build(source, file, list, extra)
       problem(("%s: class #%d needs a unique KEY"):format(file, position))
     else
       local class = { key = key, label = Text.clean(row.LABEL, 48) or key, members = {} }
-      if extra then extra(class, row) end
       classes[#classes + 1] = class
       classIndex[key] = class
     end
@@ -78,14 +77,32 @@ end
 local vehicleClasses, vehiclesByName, vehiclesByRecord =
   build(OPX_ADMIN_VEHICLES, "data/vehicles.lua", "VEHICLES")
 
-local weaponClasses, weaponsByName, weaponsByRecord =
-  build(OPX_ADMIN_WEAPONS, "data/weapons.lua", "WEAPONS", function(class, row)
-    class.ammo = row.AMMO == true
-    class.reserve = math.max(0, Text.integer(row.RESERVE) or 0)
-  end)
-
+--- The weapon classes: an order, a label and the rounds a give loads. The weapons are
+--- opx77_inventory's items and are read from it, so no row here names a record.
+---@type WeaponClass[]
+local weaponClasses = {}
 local weaponClassIndex = {}
-for _, class in ipairs(weaponClasses) do weaponClassIndex[class.key] = class end
+do
+  local source = type(OPX_ADMIN_WEAPONS) == "table" and OPX_ADMIN_WEAPONS or nil
+  if source == nil or type(source.CLASSES) ~= "table" then
+    problem("data/weapons.lua: CLASSES must be a table")
+  else
+    for position, row in ipairs(source.CLASSES) do
+      local key = type(row) == "table" and Text.slug(row.KEY) or nil
+      if key == nil or weaponClassIndex[key] ~= nil then
+        problem(("data/weapons.lua: class #%d needs a unique KEY"):format(position))
+      else
+        local class = {
+          key = key,
+          label = Text.clean(row.LABEL, 48) or key,
+          rounds = row.ROUNDS ~= nil and math.max(0, Text.integer(row.ROUNDS) or 0) or nil,
+        }
+        weaponClasses[#weaponClasses + 1] = class
+        weaponClassIndex[key] = class
+      end
+    end
+  end
+end
 
 Catalog.vehicleClasses = vehicleClasses
 Catalog.weaponClasses = weaponClasses
@@ -97,17 +114,6 @@ function Catalog.vehicle(token)
   if type(token) ~= "string" then return nil end
   local lowered = token:lower()
   return vehiclesByName[lowered] or vehiclesByRecord[lowered]
-end
-
---- A weapon row and its class, by name or by exact record, without case.
----@param token any
----@return CatalogEntry|nil, WeaponClass|nil
-function Catalog.weapon(token)
-  if type(token) ~= "string" then return nil, nil end
-  local lowered = token:lower()
-  local entry = weaponsByName[lowered] or weaponsByRecord[lowered]
-  if entry == nil then return nil, nil end
-  return entry, weaponClassIndex[entry.class]
 end
 
 ---@param key any

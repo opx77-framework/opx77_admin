@@ -86,9 +86,19 @@ local ERRORS = {
   not_ours = "admin.error.notOurs",
   vehicles_unavailable = "admin.error.vehiclesUnavailable",
   unknown_weapon = "admin.error.unknownWeapon",
-  bad_slot = "admin.error.badSlot",
   weapons_unavailable = "admin.error.weaponsUnavailable",
   weapon_no_answer = "admin.error.weaponNoAnswer",
+  inventory_unavailable = "admin.error.inventoryUnavailable",
+  inventory_denied = "admin.error.inventoryDenied",
+  bad_holder = "admin.error.badHolder",
+  no_character = "admin.error.noCharacter",
+  unknown_citizen = "admin.error.unknownCitizen",
+  core_unavailable = "admin.error.coreUnavailable",
+  unknown_item = "admin.error.unknownItem",
+  bad_count = "admin.error.badCount",
+  not_enough = "admin.error.notEnough",
+  bag_no_room = "admin.error.bagNoRoom",
+  bag_too_heavy = "admin.error.bagTooHeavy",
   unknown_location = "admin.error.unknownLocation",
   bad_location_name = "admin.error.badLocationName",
   seeded_location = "admin.error.seededLocation",
@@ -100,15 +110,13 @@ local TYPED = {
   too_fast = true, no_target = true, bad_target = true, self_target = true, bad_number = true,
   bad_coordinates = true, bad_switch = true, bad_duration = true, empty_text = true,
   unknown_vehicle = true, bad_scope = true, unknown_flag = true, unknown_weapon = true,
-  bad_slot = true, unknown_location = true, bad_location_name = true,
+  unknown_location = true, bad_location_name = true, bad_holder = true, unknown_citizen = true,
+  unknown_item = true, bad_count = true, not_enough = true,
 }
 
 --- The catalogue key a report is answered with. Everything else a command answers is an
 --- action's outcome.
 local REPORT = "admin.text.lines"
-
---- Successes that only say a request is on its way; the outcome is somebody else's to tell.
-local UNDER_WAY = { ["admin.done.weaponAsked"] = true, ["admin.done.slotsCleared"] = true }
 
 --- One answer back to whoever ran the command. A player reads the configured catalogue, sent
 --- to this resource's client half: a report as a chat line, an action's outcome as a toast (a
@@ -129,7 +137,7 @@ function Server.answer(source, raw, ok, key, params, kind)
       kind = "report"
     elseif kind == nil then
       if ok then
-        kind = UNDER_WAY[key] and "info" or "success"
+        kind = "success"
       else
         kind = key:sub(1, 12) == "admin.usage." and "warning" or "error"
       end

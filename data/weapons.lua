@@ -1,64 +1,26 @@
--- The weapons staff may hand out. Definitions, not settings, and this list IS the allowlist: a
--- record that is not a row here never reaches Open77.weapons.assign, whatever a client types.
+-- How the staff menu groups weapons, and how many rounds a give loads. Definitions, not settings.
 --
--- The platform has no server-side call that enumerates item records, so this is a short,
--- hand-picked starter list. Extend it: add a row with a NAME staff type, a LABEL, a CLASS key
--- from CLASSES, and the exact TweakDB RECORD. Only the three ordinary weapon slots are
--- supported by the platform, so grenades, heavy weapons and arm cyberware do not belong here.
+-- The weapons themselves are not listed here any more. A weapon is an item of opx77_inventory,
+-- declared in that resource's data/weapons.lua with its TweakDB record, its class and the
+-- ammunition that loads it, and this resource reads that catalogue through the inventory's
+-- GetItems export. One list, so a weapon staff can hand out is always one the inventory backs;
+-- a name that is not a weapon item there is refused, whatever a client types.
 --
--- The ammunition TYPE is never chosen: the engine reads it off the weapon record. A class only
--- says whether there is ammunition at all (AMMO) and how many spare rounds a give loads
--- (RESERVE). The engine caps what a character carries per ammo type, on reserve plus magazine;
--- an ask above that cap is partly applied and then reported as refused, so keep RESERVE
--- modest. Precision rifles draw rifle ammunition, not sniper ammunition.
+-- A class here gives a menu order, a LABEL, and ROUNDS: the rounds a give puts on the weapon
+-- item when none are typed. The inventory caps it at its ammunition's MAX, and a melee weapon
+-- carries none. A class the inventory uses and this file does not name is listed last, under
+-- its key, with a full load.
 
 OPX_ADMIN_WEAPONS = {
-  CLASSES = { -- menu order
-    { KEY = "handgun", LABEL = "Handguns", AMMO = true, RESERVE = 300 },
-    { KEY = "revolver", LABEL = "Revolvers", AMMO = true, RESERVE = 200 },
-    { KEY = "smg", LABEL = "SMGs", AMMO = true, RESERVE = 600 },
-    { KEY = "rifle", LABEL = "Assault rifles", AMMO = true, RESERVE = 600 },
-    { KEY = "precision", LABEL = "Precision rifles", AMMO = true, RESERVE = 300 },
-    { KEY = "sniper", LABEL = "Sniper rifles", AMMO = true, RESERVE = 100 },
-    { KEY = "shotgun", LABEL = "Shotguns", AMMO = true, RESERVE = 120 },
-    { KEY = "lmg", LABEL = "Light machine guns", AMMO = true, RESERVE = 600 },
-    { KEY = "melee", LABEL = "Melee", AMMO = false, RESERVE = 0 },
-  },
-
-  WEAPONS = {
-    { NAME = "lexington", LABEL = "M-10AF Lexington", CLASS = "handgun",
-      RECORD = "Items.Preset_Lexington_Default" },
-    { NAME = "unity", LABEL = "Unity", CLASS = "handgun",
-      RECORD = "Items.Preset_Unity_Default" },
-    { NAME = "nue", LABEL = "Nue", CLASS = "handgun",
-      RECORD = "Items.Preset_Nue_Default" },
-    { NAME = "overture", LABEL = "Overture", CLASS = "revolver",
-      RECORD = "Items.Preset_Overture_Default" },
-    { NAME = "saratoga", LABEL = "M221 Saratoga", CLASS = "smg",
-      RECORD = "Items.Preset_Saratoga_Default" },
-    { NAME = "ajax", LABEL = "Ajax", CLASS = "rifle",
-      RECORD = "Items.Preset_Ajax_Default" },
-    { NAME = "copperhead", LABEL = "Copperhead", CLASS = "rifle",
-      RECORD = "Items.Preset_Copperhead_Default" },
-    { NAME = "masamune", LABEL = "Masamune", CLASS = "rifle",
-      RECORD = "Items.Preset_Masamune_Default" },
-    { NAME = "achilles", LABEL = "Achilles", CLASS = "precision",
-      RECORD = "Items.Preset_Achilles_Default" },
-    { NAME = "grad", LABEL = "SPT32 Grad", CLASS = "sniper",
-      RECORD = "Items.Preset_Grad_Default" },
-    { NAME = "nekomata", LABEL = "Nekomata", CLASS = "sniper",
-      RECORD = "Items.Preset_Nekomata_Default" },
-    { NAME = "carnage", LABEL = "Carnage", CLASS = "shotgun",
-      RECORD = "Items.Preset_Carnage_Default" },
-    { NAME = "defender", LABEL = "M2067 Defender", CLASS = "lmg",
-      RECORD = "Items.Preset_Defender_Default" },
-    { NAME = "katana", LABEL = "Katana", CLASS = "melee",
-      RECORD = "Items.Preset_Katana_Default" },
-    { NAME = "knife", LABEL = "Knife", CLASS = "melee",
-      RECORD = "Items.Preset_Knife_Default" },
-    { NAME = "machete", LABEL = "Machete", CLASS = "melee",
-      RECORD = "Items.Preset_Machete_Default" },
-    { NAME = "hammer", LABEL = "Hammer", CLASS = "melee",
-      RECORD = "Items.Preset_Hammer_Default" },
+  CLASSES = { -- menu order; KEY matches CLASS in opx77_inventory's data/weapons.lua
+    { KEY = "handgun", LABEL = "Handguns", ROUNDS = 300 },
+    { KEY = "revolver", LABEL = "Revolvers", ROUNDS = 150 },
+    { KEY = "smg", LABEL = "SMGs", ROUNDS = 600 },
+    { KEY = "rifle", LABEL = "Assault rifles", ROUNDS = 600 },
+    { KEY = "precision", LABEL = "Precision rifles", ROUNDS = 300 },
+    { KEY = "sniper", LABEL = "Sniper rifles", ROUNDS = 100 },
+    { KEY = "shotgun", LABEL = "Shotguns", ROUNDS = 120 },
+    { KEY = "lmg", LABEL = "Light machine guns", ROUNDS = 600 },
+    { KEY = "melee", LABEL = "Melee", ROUNDS = 0 },
   },
 }

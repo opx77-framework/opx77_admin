@@ -33,10 +33,20 @@
 ---| "unknown_flag"          not in VEHICLES.FLAGS, or the host has no mask of that name
 ---| "not_ours"              the host refused a removal: another resource created it
 ---| "vehicles_unavailable"  Open77.vehicles is missing on this host
----| "unknown_weapon"        not a NAME or RECORD in data/weapons.lua
----| "bad_slot"              not 1, 2, 3, auto or all
----| "weapons_unavailable"   Open77.weapons is missing on this host
+---| "unknown_weapon"        not a weapon item of opx77_inventory, weapon_ prefix or not
+---| "weapons_unavailable"   Open77.weapons, the relay the holster needs, is missing on this host
 ---| "weapon_no_answer"      the target's client never answered the relay: request_timeout
+---| "inventory_unavailable" opx77_inventory is not running, or its export was not found or stopped
+---| "inventory_denied"      opx77_inventory answered caller_denied: not in its EXPORTS.WRITERS
+---| "bad_holder"            not a player id, `me`, or a citizen id
+---| "no_character"          that player has no character in the world (not_loaded)
+---| "unknown_citizen"       no living character carries that citizen id
+---| "core_unavailable"      opx77_core did not answer opx77_inventory
+---| "unknown_item"          not an item of opx77_inventory's catalogue
+---| "bad_count"             a count outside 1..INVENTORY.MAX_COUNT
+---| "not_enough"            the bag holds fewer units than asked to remove
+---| "bag_no_room"           CanCarry or AddItem: no free or stackable slot
+---| "bag_too_heavy"         CanCarry or AddItem: past the bag's weight
 ---| "unknown_location"      no destination of that name
 ---| "bad_location_name"     not 1..32 letters, digits, _ or -
 ---| "seeded_location"       configured in config.lua, so not removable in game
@@ -60,7 +70,7 @@
 ---@field help string
 ---@field params AdminParameter[]
 
---- One row of data/vehicles.lua or data/weapons.lua, after the index checked it.
+--- One row of data/vehicles.lua, after the index checked it.
 ---@class CatalogEntry
 ---@field name string    what staff type, lower-cased
 ---@field label string
@@ -72,9 +82,27 @@
 ---@field label string
 ---@field members CatalogEntry[]
 
----@class WeaponClass : CatalogClass
----@field ammo boolean      false for melee: no spare rounds are asked for
----@field reserve integer   spare rounds a give loads
+--- One class of data/weapons.lua. The weapons are opx77_inventory's items, not rows here.
+---@class WeaponClass
+---@field key string        CLASS in opx77_inventory's data/weapons.lua
+---@field label string
+---@field rounds integer|nil the rounds a give puts on the item; nil for a full load
+
+--- One item of opx77_inventory's catalogue, as server/inventory.lua keeps it from GetItems.
+---@class InventoryItem
+---@field name string
+---@field label string       in opx77_inventory's LOCALE
+---@field category string
+---@field weapon { class: string, ammo: string|nil }|nil  ammo is the item that loads it
+---@field ammoMax integer|nil the most rounds one weapon of that ammunition holds
+
+--- A bag as server/inventory.lua reads it, every GetInventory page joined.
+---@class InventoryBag
+---@field citizenId string
+---@field slots integer
+---@field maxWeight integer   grams
+---@field weight integer      grams
+---@field items { slot: integer, name: string, count: integer, metadata: table|nil }[]
 
 --- One entry of the in-memory audit ring. The log line written beside it is the record.
 ---@class AuditEntry
@@ -110,7 +138,8 @@
 ---@field you integer
 ---@field access table<string, true>  command names the ACL grants; absent means refused
 ---@field aclKnown boolean            false when the host has no ACL reader: nothing is greyed
----@field weapons boolean             Open77.weapons exists on this host
+---@field weapons boolean             Open77.weapons, the holster's relay, exists on this host
+---@field inventory boolean           opx77_inventory is running: its rows are drawn
 
 --- Every export answers a table carrying `ok` and never raises.
 ---@class AdminResponse

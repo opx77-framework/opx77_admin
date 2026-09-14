@@ -261,7 +261,8 @@ Server.command("opx77.admin.read.players", {
 --- The OPX//77 set and the platform packages this one leans on or collides with. There is no
 --- way to enumerate resources: GetResourceState answers only for a name already known.
 local WATCHED = { "opx77_core", "opx77_menu", "opx77_input", "opx77_notify", "opx77_chat",
-                  "opx77_appearance", "opx77_weather", "open77_weapons", "open77_admin" }
+                  "opx77_appearance", "opx77_weather", OpxAdmin.Inventory.RESOURCE,
+                  "open77_weapons", "open77_admin" }
 
 Server.command("opx77.admin.read.status", {
   help = "admin.help.readStatus", read = true,

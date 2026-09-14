@@ -1,4 +1,4 @@
---- The values a menu row cannot hold -- a reason, an amount, a point -- asked for through
+--- The values a menu row cannot hold -- a reason, an amount, a point, a count -- asked for through
 --- opx77_input. A form's answer becomes a command line like any row's, and the menu comes back
 --- where it was.
 
@@ -131,6 +131,34 @@ FORMS.money = {
     menu().run({ LINKS.MONEY, tostring(arg), values.type, values.amount })
   end,
 }
+
+--- How many of an item, for a give or a removal from a bag. `arg` is the picker's row:
+--- `t` the target, `n` the item, `l` its label, `c` how many the stack holds, for a removal.
+---@param titleKey string
+---@param commandName string
+---@param refresh string|nil
+local function countForm(titleKey, commandName, refresh)
+  return {
+    build = function(arg)
+      if type(arg) ~= "table" or type(arg.n) ~= "string" then return nil end
+      local held = Text.integer(arg.c)
+      local label = tostring(arg.l or arg.n)
+      return { title = locale(titleKey),
+        description = held and locale("admin.form.itemHeld", { label = label, count = held })
+          or label,
+        fields = {
+          text("count", "admin.field.count", { value = "1", charset = "digits", maxLength = 6,
+                                               required = true }),
+        } }
+    end,
+    submit = function(values, arg)
+      menu().run({ commandName, tostring(arg.t), arg.n, values.count }, refresh)
+    end,
+  }
+end
+
+FORMS.itemGive = countForm("admin.form.itemGive", "opx77.admin.inventory.give")
+FORMS.itemRemove = countForm("admin.form.itemRemove", "opx77.admin.inventory.remove", "bag")
 
 FORMS.kick = {
   build = function()

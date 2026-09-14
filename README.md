@@ -23,7 +23,9 @@ the chat box and the console with the same commands.
 
 It owns no character data. What a character *is* — citizen id, job, gang, money — belongs to
 `opx77_core`, and the menu drives the core's own staff commands for it rather than writing a
-second set.
+second set. What a character *carries*, weapons included, belongs to `opx77_inventory`: every
+weapon and bag command goes through its server exports, so the inventory stays the one record of
+it. See [Weapons and bags](#weapons-and-bags).
 
 ## Features
 
@@ -35,7 +37,9 @@ second set.
 - Noclip, applied on the client only when an ACL-gated command says so; its speed on two keys
   while flying, and the controls on screen in `opx77_prompts`' strip
 - Vehicles from a catalogue: spawn, deliver to a player, repair, flags, remove, clean up
-- Weapons from a catalogue, handed out loaded; refill, clear, holster, read a loadout back
+- Weapons as `opx77_inventory` items: put a loaded one in a bag, refill, take, holster, list
+- A character's bag, online or not: list it, open it beside yours, give and take items from
+  the inventory's catalogue, empty it, and find who holds an item
 - Announcements to every player, as a toast and a chat line
 - Character record, job, gang and money through `opx77_core`'s commands; weather and time
   through `opx77_weather`'s
@@ -61,7 +65,8 @@ second set.
 | `opx77_core` | the character rows: record, job, gang, money, save, characters online |
 | `opx77_appearance` | the readiness gate opening at all; see [Safety](#safety) |
 | `opx77_weather` | the weather and time screens |
-| `open77_weapons` | every weapon command: its client half answers the relay |
+| `opx77_inventory` | every weapon command but the holster, and every inventory command and row; it must list `opx77_admin` in its `EXPORTS.WRITERS`, as it ships |
+| `open77_weapons` | the holster, and loading a refilled weapon the player has drawn: its client half answers the relay |
 
 `open77_admin`, the platform's own admin package, can run beside this one: every name here is
 under `opx77.admin`, so no command shadows another. Two tools switching the same player's
@@ -84,8 +89,10 @@ with a wildcard — `command.opx77.admin.player.*` — and remember that **`comm
 does not cover `command.opx77.admin`**, the menu: the wildcard grants what is *below* the
 prefix. Grant both.
 
-`<player>` is a player id, or `me`. A citizen id is not accepted: that mapping lives in
-`opx77_core`'s VM, which no other server resource can ask.
+`<player>` is a player id, or `me`. `<holder>` — the weapon and inventory commands — is a player
+id, `me`, or a citizen id, which also reaches a character that is not in the world:
+`opx77_inventory` resolves it through the core and loads that bag for the call. The holster acts
+on a body and takes `<player>`.
 
 | Command | Does |
 |---|---|
@@ -122,11 +129,16 @@ prefix. Grant both.
 | `opx77.admin.vehicle.remove [id\|near\|mine]` | remove one, or all of yours |
 | `opx77.admin.vehicle.cleanup` | remove every empty vehicle this resource spawned |
 | **Weapons** | |
-| `opx77.admin.weapon.give <player> <weapon> [1\|2\|3\|auto] [reserve]` | equip, loaded |
-| `opx77.admin.weapon.ammo <player> [slot\|all] [reserve]` | refill |
-| `opx77.admin.weapon.remove <player> <slot\|all>` | clear a slot; the item stays in the inventory |
+| `opx77.admin.weapon.give <holder> <weapon> [rounds]` | put the weapon item in the bag, carrying `rounds`; the player draws it from the inventory |
+| `opx77.admin.weapon.ammo <holder> [weapon\|all] [rounds]` | set the rounds of every weapon item of that name, or of all of them; a full load when `rounds` is left out |
+| `opx77.admin.weapon.remove <holder> <weapon\|all>` | take every weapon item of that name, or every weapon, out of the bag |
 | `opx77.admin.weapon.holster <player>` | holster |
-| `opx77.admin.weapon.read <player>` | the three slots, as that client reads them |
+| `opx77.admin.weapon.read <holder>` | the weapon items in the bag: slot, rounds, serial, and which one is drawn |
+| **Inventory** | |
+| `opx77.admin.inventory.view <holder>` | every stack in the bag, with its slot, the slots used and the weight |
+| `opx77.admin.inventory.give <holder> <item> [count]` | add items from the inventory's catalogue; 1 when `count` is left out |
+| `opx77.admin.inventory.remove <holder> <item> [count]` | take items; 1 when `count` is left out |
+| `opx77.admin.inventory.clear <holder>` | empty the bag |
 | **World** | |
 | `opx77.admin.world.announce <text>` | a toast on every screen and a chat line |
 | `opx77.admin.world.loc.add <name> [label]` | save where you stand, until the next restart |
@@ -151,12 +163,13 @@ accepted answers `opx77_chat` does not print: the server half sends the answer, 
 configured locale, to this resource's own client half.
 
 - **An action's outcome is a toast** through `opx77_notify`, titled *STAFF*, in one slot that
-  each answer replaces: a success when it was done, *info* when a request is only on its way (a
-  weapon asked of a client), a warning for what was typed wrong — a usage, a bad number, an
-  unknown name, a command run again too fast — and an error when it could not be done.
+  each answer replaces: a success when it was done, a warning for what was typed wrong — a
+  usage, a bad number, an unknown name, a command run again too fast — or for nothing to act
+  on, and an error when it could not be done: a full bag, the inventory not answering.
 - **A report stays a chat line**: `read.players`, `read.status`, `read.audit`,
-  `read.locations` and `weapon.read` are lists someone asked to read, scrolled back and
-  compared, which a toast would cut short.
+  `read.locations`, `weapon.read` and `inventory.view` are lists someone asked to read,
+  scrolled back and compared, which a toast would cut short. So is the list of holders the menu
+  asks `opx77_inventory` for.
 - Either way, when the menu sent the command, the first line is also written under the list.
 
 `opx77_notify` stays optional: while it is stopped, or when it refuses a toast, the same text
@@ -173,8 +186,62 @@ are `LINKS` in `config.lua`, so a rename in those resources is followed there.
 | Set job / Set gang | `opx77.job <id> <job> <grade>` / `opx77.gang ...` | `opx77_core` |
 | Money | `opx77.money <id> <TYPE> <amount>` | `opx77_core` |
 | Characters in the world / Save every character | `opx77` / `opx77.save` | `opx77_core` |
+| Open the bag beside mine | `opx77.inventory.open <id>` | `opx77_inventory` |
+| Who holds an item | `opx77.inventory.holders <item>` | `opx77_inventory` |
 | Weather presets, roll, hold | `opx77.weather.set`, `.next`, `.freeze` | `opx77_weather` |
 | Time, hold the clock | `opx77.weather.time`, `.time.freeze` | `opx77_weather` |
+
+### Weapons and bags
+
+`opx77_inventory` is the only record of what a character carries. A weapon is one of its items,
+drawn by the player from the bag, and the inventory takes off, every `WEAPONS.SCAN_MS`, any
+weapon in a game slot that no item backs. So no command here puts a record in a slot any more:
+
+| Action | Goes through | Permission |
+|---|---|---|
+| `weapon.give` | `CanCarry`, then `AddItem(holder, weapon, 1, { ammo = rounds })` | `command.opx77.admin.weapon.give` |
+| `weapon.ammo` | `GetInventory`, `GetHeldWeapon`, `SetMetadata` per weapon item; the drawn one's rounds also through the relay's `setAmmo` first | `command.opx77.admin.weapon.ammo` |
+| `weapon.remove` | `GetInventory`, `RemoveItem` per weapon name and count; the inventory holsters a drawn one itself | `command.opx77.admin.weapon.remove` |
+| `weapon.read` | `GetInventory`, `GetHeldWeapon` | `command.opx77.admin.weapon.read` |
+| `weapon.holster` | the relay's `holster` | `command.opx77.admin.weapon.holster` |
+| `inventory.view` | `GetInventory`, every page | `command.opx77.admin.inventory.view` |
+| `inventory.give` | `GetItems`, `CanCarry`, `AddItem` | `command.opx77.admin.inventory.give` |
+| `inventory.remove` | `RemoveItem` | `command.opx77.admin.inventory.remove` |
+| `inventory.clear` | `ClearInventory` | `command.opx77.admin.inventory.clear` |
+| Open the bag beside mine | the inventory's `/opx77.inventory.open` | `command.opx77.inventory.open` |
+| Who holds an item | the inventory's `/opx77.inventory.holders` | `command.opx77.inventory.holders` |
+| The item and weapon pickers | `GetItems`; the removal picker `GetInventory` | the menu's grant, and the view or remove grant for a bag |
+
+**Why these are this resource's commands, and those two are links.** The menu drives another
+resource's own command where that resource publishes no door this one may use: `opx77_core`
+gives it no writing export for a job or money, so those rows run `opx77.job` and `opx77.money`.
+`opx77_inventory` does: it lists `opx77_admin` in `EXPORTS.WRITERS`. So a weapon or bag action
+is a command here, gated on `command.opx77.admin.…` like every other staff action, audited in
+this resource's ledger and answered in its toasts, and it calls the inventory's exports, which
+check every argument again. Opening another character's bag on a staff screen and listing an
+item's holders have no export — the second is a query the inventory makes with the core's
+inventory scope, which only it holds — so those two rows run the inventory's commands, gated on
+`command.opx77.inventory.…`. Either way the host resolves the grant before anything runs: a staff
+member without it gets the host's refusal, from the chat box or from the menu, whose row is
+greyed.
+
+`command.opx77.admin.inventory.give` and `command.opx77.inventory.give` both create items, and
+`command.opx77.admin.weapon.give` creates weapons: grant them like money.
+
+**What stays on the relay, and why.** The inventory has no export that holsters, so the holster
+is still the platform's `Open77.weapons.holster`: it changes no item and leaves the weapon in
+its slot. A refill of the weapon the player has drawn states its new rounds to the engine with
+`setAmmo` before its item is written, because the inventory lowers a drawn weapon's item to what
+the engine reads back and never raises it: an item written first would be lowered again at the
+next reading.
+
+**Without `opx77_inventory`** — stopped, or its exports answering `export_not_found` or not at
+all — every weapon command but the holster and every inventory command answers a refusal toast,
+and the menu greys the weapon rows and hides the inventory ones. There is no fallback to the
+relay: this resource cannot read the running inventory's `WEAPONS.REMOVE_UNBACKED`, and a weapon
+put in a slot while the inventory is down is exactly the unbacked weapon it removes once it is
+back, or keeps unrecorded when that is off. `caller_denied` means `opx77_admin` is not in its
+`EXPORTS.WRITERS`, and the toast says so.
 
 ### An `acl.jsonc` example
 
@@ -210,6 +277,10 @@ developer terminal writes a ready-to-paste `aclPrincipal`. Three desks, from lea
         "command.opx77.admin.moderate.*",
         "command.opx77.admin.vehicle.*",
         "command.opx77.admin.world.announce",
+        "command.opx77.admin.inventory.view",
+        "command.opx77.admin.weapon.read",
+        "command.opx77.inventory.open",
+        "command.opx77.inventory.holders",
         "command.opx77",
         "command.opx77.where"
       ]
@@ -228,8 +299,9 @@ developer terminal writes a ready-to-paste `aclPrincipal`. Three desks, from lea
 }
 ```
 
-`command.opx77.admin.weapon.give` hands a loaded weapon to anybody, the operator included; it is
-left out of the moderator above on purpose. `command.opx77.*` covers every OPX//77 staff
+`command.opx77.admin.weapon.give` hands a loaded weapon to anybody, the operator included, and
+`command.opx77.admin.inventory.give` any item; both are left out of the moderator above on
+purpose, who may search a bag and see who holds something, and take nothing out of one. `command.opx77.*` covers every OPX//77 staff
 command on the server, the core's money included — grant it only to whoever may have all of it.
 `acl.check <playerId> <permission>` in the console answers the exact question the host asks.
 
@@ -300,10 +372,17 @@ resource stops.
 - A command's answer is written under the list, and also raised as a toast, or a chat line for
   a report; see [Answers](#answers). A refusal from the host — no grant — is written there in
   words, and `opx77_chat` toasts it.
-- Kill, kick, ban, clearing a loadout, the vehicle cleanup, an announcement and saving every
-  character go through a confirmation screen with Cancel first. Nothing else does.
-- Forms — a reason, an amount, a point — are `opx77_input`'s. The menu steps aside while one is
-  up and comes back where it was.
+- Kill, kick, ban, taking every weapon, emptying a bag, the vehicle cleanup, an announcement
+  and saving every character go through a confirmation screen with Cancel first. Nothing else
+  does.
+- Forms — a reason, an amount, a point, a count — are `opx77_input`'s. The menu steps aside
+  while one is up and comes back where it was.
+- A player's **INVENTORY** rows, drawn while `opx77_inventory` runs: *Show the bag in chat*;
+  *Open the bag beside mine*, which closes the menu for the inventory's screen; *Give an item*,
+  a category and an item of the inventory's catalogue, then a count; *Take an item*, a stack
+  of that bag, read again each time the screen opens, then a count; *Empty the bag*. The
+  **Server** screen adds *Who holds an item*. The weapon lists come from the same catalogue,
+  grouped by the classes of `data/weapons.lua`.
 - The roster shows the platform's verified display name, the state (*in world*, *down*,
   *joining*, *loading*), the routing bucket and the distance. It does not show the character's
   name: that is in `opx77_core`'s VM. *Character record* runs `opx77.where` for it.
@@ -311,11 +390,13 @@ resource stops.
 ## Safety
 
 - **Nothing touches a body behind a closed readiness gate.** Every teleport, kill, heal, god
-  toggle, weapon request and vehicle delivery first needs a life state — the continue screen has
-  none — and `Open77.ready.isReady` true. It fails closed when the gate cannot be read. Acting
-  server-side on a client that is not incarnated crashes it. On a resource set with nothing that
-  sends `open77:session:gameplayReady` the gate never opens, and every such command refuses;
-  `opx77_appearance` is what sends it. Kick and ban act on the session and are not gated.
+  toggle, holster, weapon relay request and vehicle delivery first needs a life state — the
+  continue screen has none — and `Open77.ready.isReady` true. It fails closed when the gate
+  cannot be read. Acting server-side on a client that is not incarnated crashes it. On a resource
+  set with nothing that sends `open77:session:gameplayReady` the gate never opens, and every such
+  command refuses; `opx77_appearance` is what sends it. Kick and ban act on the session and are
+  not gated, and neither is a change to a bag, which `opx77_inventory` makes in its own records
+  and pushes when the player is there to see it.
 - **Placement is kill then respawn**, never a transform write: only the respawn carries the fade,
   the streaming preload and the grace window. A refused respawn revives the player where they
   fell rather than leaving a body.
@@ -325,8 +406,9 @@ resource stops.
 - **A vehicle with somebody aboard** is never removed, and never given a `full` or `mechanical`
   repair, both of which may respawn it.
 - **Nobody is moved in silence.** A target is told by toast what was done to them.
-- **Catalogues are allowlists.** Only a row of `data/vehicles.lua` or `data/weapons.lua` ever
-  reaches the host, whatever a client types.
+- **Catalogues are allowlists.** Only a row of `data/vehicles.lua` is ever spawned, and only an
+  item of `opx77_inventory`'s catalogue is ever given, whatever a client types; the inventory
+  checks the name again.
 - **Travel modes follow the grant.** Noclip and map travel are switched off within two seconds
   of the permission that switched them on being removed, and when this resource stops.
 
@@ -345,11 +427,9 @@ uptime from memory; the log is the record.
 
 ## Catalogues
 
-The platform has no server-side call that enumerates vehicle or item records, so the two lists
-are hand-picked starters: fourteen vehicles in three classes and seventeen weapons in nine.
-**They are allowlists, not suggestions.**
-
-To extend one, add a row to `data/vehicles.lua` or `data/weapons.lua`:
+The platform has no server-side call that enumerates vehicle records, so `data/vehicles.lua` is
+a hand-picked starter list: fourteen vehicles in three classes. **It is an allowlist, not a
+suggestion.** To extend it, add a row:
 
 ```lua
 { NAME = "outlaw", LABEL = "Herrera Outlaw", CLASS = "sport",
@@ -360,13 +440,17 @@ To extend one, add a row to `data/vehicles.lua` or `data/weapons.lua`:
 record. A malformed row is dropped and named in a boot warning. A record the engine does not
 know is refused when it is spawned, with the host's own reason in the answer.
 
-A weapon class says whether it takes ammunition (`AMMO`) and how many spare rounds a give loads
-(`RESERVE`); the ammunition *type* is read off the record by the engine. The engine caps what a
-character carries per ammunition type, on the spare rounds plus the magazine, and a request
-above the cap is partly applied and then reported as refused — keep `RESERVE` modest. Only the
-three ordinary weapon slots are supported by the platform: no grenades, heavy weapons or arm
-cyberware. A weapon give reads the loadout first, takes the first empty slot, and replaces the
-drawn weapon only when all three are full; naming a slot always replaces it.
+**Weapons and items are `opx77_inventory`'s catalogue**, its `data/items.lua` and
+`data/weapons.lua`, read through its `GetItems` export and kept until that resource starts or
+stops again. There is one list: a weapon staff can hand out is always one the inventory backs,
+and it is added to or trimmed there. Staff type a weapon by its item name, `weapon_lexington`,
+or without the prefix, `lexington`.
+
+`data/weapons.lua` here keeps only the classes: their menu order, their `LABEL`, matched on the
+inventory's `CLASS`, and `ROUNDS`, the rounds a give puts on the item when none are typed. A give
+never puts more than the inventory's `AMMO.MAX` for that ammunition, and a melee weapon carries
+none. A class the inventory uses and this file does not name is listed last, under its key, and
+loads full.
 
 ## Configuration
 
@@ -402,9 +486,9 @@ drawn weapon only when all three are full; naming a slot always replaces it.
 | `VEHICLES.NEAR_RADIUS` | `30.0` | how far `near` looks on foot |
 | `VEHICLES.OCCUPIED_REPAIRS` | all but `mechanical`, `full` | repairs allowed with somebody aboard |
 | `VEHICLES.FLAGS` | `locked engineOn lightsOn invulnerable` | what `flag` may toggle |
-| `WEAPONS.MAX_RESERVE` | `2000` | ceiling on a typed reserve |
-| `WEAPONS.FILL_MAGAZINE` | `true` | fill the magazine after the spare rounds |
-| `LINKS` | see above | other resources' command names; `false` removes the row |
+| `INVENTORY.RESOURCE` | `"opx77_inventory"` | the inventory whose exports the weapon and inventory commands call |
+| `INVENTORY.MAX_COUNT` | `10000` | the largest count `inventory.give` and `inventory.remove` accept |
+| `LINKS` | see above | other resources' command names, `INVENTORY_OPEN` and `INVENTORY_HOLDERS` included; `false` removes the row |
 | `WEATHER_PRESETS`, `TIMES` | | what the sky screens offer |
 | `LOCATIONS` | three starters | saved destinations; `/opx77.admin.self.pos` copies a row |
 
@@ -426,13 +510,15 @@ Net events, all private to this resource — nothing outside it should raise or 
 
 | Event | Direction | Carries |
 |---|---|---|
-| `opx77_admin:open` | server → client | the access map, after the opener command |
+| `opx77_admin:open` | server → client | the access map, after the opener command, and whether `opx77_inventory` runs |
 | `opx77_admin:roster` | server → client | roster rows, twenty per event |
 | `opx77_admin:locations` | server → client | the destination list |
+| `opx77_admin:items` | server → client | `opx77_inventory`'s catalogue, twenty rows per event |
+| `opx77_admin:bag` | server → client | one bag's stacks for the removal picker, twenty per event |
 | `opx77_admin:access` | server → client | a fresh access map |
 | `opx77_admin:travel` | server → client | noclip, speed, map pick, a clipboard row |
 | `opx77_admin:answer` | server → client | a command's answer: the typed line, whether it was done, the text, and `report` or a toast kind; see [Answers](#answers) |
-| `opx77_admin:refresh` | client → server | `roster`, `locations` or `access`; re-checked against `command.opx77.admin` with `Open77.acl.isAllowed` |
+| `opx77_admin:refresh` | client → server | `roster`, `locations`, `access`, `items`, or `bag` with a holder; re-checked against `command.opx77.admin` with `Open77.acl.isAllowed`, and a bag also against the view or the remove grant |
 
 Every mutation arrives as a command through `open77:command:execute`, never as an event of this
 resource's own: a net event carries no authorisation on this platform, and one added here would
@@ -450,9 +536,10 @@ be a hole.
 | Vehicle speed governor | Client-local, not in every client build, and balance rather than moderation. |
 | Door inspector | A developer tool, not a staff one. |
 | Unban | No Lua binding lifts a ban; the server console's `unban` does. |
-| A citizen id as a target | The server cannot map one to a player: that lives in `opx77_core`. |
+| A citizen id as a `<player>` | Those commands act on a body, which needs a connected player id. A bag is reached by citizen id: `opx77_inventory` resolves it. |
+| A fallback to the weapon relay without `opx77_inventory` | A weapon put in a slot with no item is the unbacked weapon the inventory removes, or keeps unrecorded. See [Weapons and bags](#weapons-and-bags). |
 | Destinations that survive a restart | That would need the database, and a staff tool must not require one. `self.pos` copies a config row. |
-| A full vehicle and weapon catalogue | No enumeration binding exists, and shipping a generated list is its own maintenance. See [Catalogues](#catalogues). |
+| A full vehicle catalogue | No enumeration binding exists, and shipping a generated list is its own maintenance. See [Catalogues](#catalogues). |
 | Short aliases like `/tp`, `/noclip` | Each alias is a separate permission, and a bare name can shadow another resource's command. |
 | Its own job, money and weather commands | `opx77_core` and `opx77_weather` own those, and are already ACL-gated. |
 | Ping in the roster | Lua has no reader for it. |
