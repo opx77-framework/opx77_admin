@@ -219,7 +219,7 @@ AddEventHandler("open77:weapons:completed", function(playerId, requestId, operat
     end
     if asked == 0 then
       return answer(step.source, step.raw, false, "admin.done.nothingToRefill",
-        { id = step.target })
+        { id = step.target }, "warning")
     end
     return
   end

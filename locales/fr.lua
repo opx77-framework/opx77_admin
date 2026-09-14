@@ -340,6 +340,8 @@ OpxAdmin.Locale.register("fr", {
   ["admin.client.formUnavailable"]   = "Ce formulaire ne peut pas être construit pour l'instant.",
   ["admin.client.notSent"]           = "La commande n'a pas pu être envoyée.",
   ["admin.client.travelMissing"]     = "Ce client de jeu n'a pas les fonctions de déplacement.",
+  ["admin.client.denied"]            = "Pas d'accès à /{command}.",
+  ["admin.client.unknownCommand"]    = "/{command} n'est pas une commande de ce serveur.",
 
   -- noms des touches, tels que les liste l'onglet des raccourcis du menu pause
   ["admin.key.menu"]                 = "Équipe : ouvrir ou fermer le menu",

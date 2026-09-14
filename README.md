@@ -55,7 +55,7 @@ second set.
 |---|---|
 | `opx77_menu` | the menu itself; every command still runs typed |
 | `opx77_input` | the forms: reasons, amounts, coordinates, announcements |
-| `opx77_notify` | the toast a target sees ("a staff member healed you") |
+| `opx77_notify` | the toast a target sees ("a staff member healed you"), and the toast answering each staff action; without it that answer is a chat line |
 | `opx77_core` | the character rows: record, job, gang, money, save, characters online |
 | `opx77_appearance` | the readiness gate opening at all; see [Safety](#safety) |
 | `opx77_weather` | the weather and time screens |
@@ -141,6 +141,24 @@ prefix. Grant both.
 is the first word of the reason, so `/opx77.admin.moderate.ban 7 3 strikes` never bans for three
 seconds. Bans are written by the host before anybody is disconnected; lifting one is the
 server console's `unban <identity>`, which this resource does not wrap.
+
+### Answers
+
+Every command answers the staff member who ran it, and never on `open77:command:result`, whose
+accepted answers `opx77_chat` does not print: the server half sends the answer, already in the
+configured locale, to this resource's own client half.
+
+- **An action's outcome is a toast** through `opx77_notify`, titled *STAFF*, in one slot that
+  each answer replaces: a success when it was done, *info* when a request is only on its way (a
+  weapon asked of a client), a warning for what was typed wrong — a usage, a bad number, an
+  unknown name, a command run again too fast — and an error when it could not be done.
+- **A report stays a chat line**: `read.players`, `read.status`, `read.audit`,
+  `read.locations` and `weapon.read` are lists someone asked to read, scrolled back and
+  compared, which a toast would cut short.
+- Either way, when the menu sent the command, the first line is also written under the list.
+
+`opx77_notify` stays optional: while it is stopped, or when it refuses a toast, the same text
+is a chat line, and the client log says so once. The console reads English in the server log.
 
 ### Commands the menu drives in other resources
 
@@ -233,8 +251,8 @@ has, and follows a rebind without the menu being reopened.
 
 **It opens nothing by itself.** Pressed with the menu down, it sends `/opx77.admin` through
 `open77:command:execute`, the line the chat box sends, so the host resolves
-`command.opx77.admin` first: a player without the grant gets the host's refusal in the chat box
-and no menu, exactly as if they had typed it. Pressed with the menu up, it closes it locally,
+`command.opx77.admin` first: a player without the grant gets the host's refusal — a toast from
+`opx77_chat` — and no menu, exactly as if they had typed it. Pressed with the menu up, it closes it locally,
 which grants nothing. A press while another surface holds the keyboard — the chat box, a form,
 the pause menu — does nothing. The mapping is registered for every player, staff or not: the
 client cannot know the ACL, and the host is what answers.
@@ -247,7 +265,9 @@ F11 voice mode, X stop animation, V push-to-talk, ALT context menu.
 
 - A row whose command the ACL refuses is drawn greyed, with *no access* beside it. The access map
   is re-read when you leave the root screen, so an `acl.reload` shows without reopening.
-- A command's answer is written under the list, and in the chat box as usual.
+- A command's answer is written under the list, and also raised as a toast, or a chat line for
+  a report; see [Answers](#answers). A refusal from the host — no grant — is written there in
+  words, and `opx77_chat` toasts it.
 - Kill, kick, ban, clearing a loadout, the vehicle cleanup, an announcement and saving every
   character go through a confirmation screen with Cancel first. Nothing else does.
 - Forms — a reason, an amount, a point — are `opx77_input`'s. The menu steps aside while one is
@@ -361,7 +381,7 @@ Client exports. Each answers `{ ok = boolean, ... }` and never raises; the calle
 | `state` | `open`, and which `screen` is up |
 
 `open` answering `ok = true` means *asked*, not *allowed*: a player without the grant gets the
-host's refusal in the chat box and no menu.
+host's refusal, which `opx77_chat` toasts, and no menu.
 
 Net events, all private to this resource — nothing outside it should raise or rely on them:
 
@@ -372,6 +392,7 @@ Net events, all private to this resource — nothing outside it should raise or 
 | `opx77_admin:locations` | server → client | the destination list |
 | `opx77_admin:access` | server → client | a fresh access map |
 | `opx77_admin:travel` | server → client | noclip, speed, map pick, a clipboard row |
+| `opx77_admin:answer` | server → client | a command's answer: the typed line, whether it was done, the text, and `report` or a toast kind; see [Answers](#answers) |
 | `opx77_admin:refresh` | client → server | `roster`, `locations` or `access`; re-checked against `command.opx77.admin` with `Open77.acl.isAllowed` |
 
 Every mutation arrives as a command through `open77:command:execute`, never as an event of this

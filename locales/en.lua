@@ -329,6 +329,8 @@ OpxAdmin.Locale.register("en", {
   ["admin.client.formUnavailable"]   = "That form cannot be built right now.",
   ["admin.client.notSent"]           = "The command could not be sent.",
   ["admin.client.travelMissing"]     = "This game client has no travel natives.",
+  ["admin.client.denied"]            = "No access to /{command}.",
+  ["admin.client.unknownCommand"]    = "/{command} is not a command on this server.",
 
   -- key names, as the pause menu's keybinds tab lists them
   ["admin.key.menu"]                 = "Staff: open or close the menu",

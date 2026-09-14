@@ -94,19 +94,48 @@ local ERRORS = {
   seeded_location = "admin.error.seededLocation",
 }
 
---- One line back to whoever ran the command. A player reads the configured catalogue; the
---- console reads English, because that answer lands in a log an operator greps.
+--- Refusals about what was typed, answered as a warning rather than an error: a second try
+--- with the right word succeeds, where an error needs something in the world to change.
+local TYPED = {
+  too_fast = true, no_target = true, bad_target = true, self_target = true, bad_number = true,
+  bad_coordinates = true, bad_switch = true, bad_duration = true, empty_text = true,
+  unknown_vehicle = true, bad_scope = true, unknown_flag = true, unknown_weapon = true,
+  bad_slot = true, unknown_location = true, bad_location_name = true,
+}
+
+--- The catalogue key a report is answered with. Everything else a command answers is an
+--- action's outcome.
+local REPORT = "admin.text.lines"
+
+--- Successes that only say a request is on its way; the outcome is somebody else's to tell.
+local UNDER_WAY = { ["admin.done.weaponAsked"] = true, ["admin.done.slotsCleared"] = true }
+
+--- One answer back to whoever ran the command. A player reads the configured catalogue, sent
+--- to this resource's client half: a report as a chat line, an action's outcome as a toast (a
+--- chat line there when it cannot be raised). Not on `open77:command:result`, whose accepted
+--- answers opx77_chat does not print. The console reads English, because that answer lands
+--- in a log an operator greps.
 ---@param source integer
 ---@param raw string
 ---@param ok boolean
 ---@param key string
 ---@param params? table
+---@param kind? "info"|"success"|"warning"|"error"  inferred from `ok` and `key` when omitted
 ---@return boolean ok
-function Server.answer(source, raw, ok, key, params)
+function Server.answer(source, raw, ok, key, params, kind)
   local player = tonumber(source) or 0
   if player > 0 then
-    TriggerClientEvent("open77:command:result", player, raw or "", ok == true,
-      locale(key, params))
+    if key == REPORT then
+      kind = "report"
+    elseif kind == nil then
+      if ok then
+        kind = UNDER_WAY[key] and "info" or "success"
+      else
+        kind = key:sub(1, 12) == "admin.usage." and "warning" or "error"
+      end
+    end
+    TriggerClientEvent("opx77_admin:answer", player, raw or "", ok == true,
+      locale(key, params), kind)
   else
     local line = OpxAdmin.Locale.english(key, params)
     if ok then Open77.log.info(line) else Open77.log.warn(line) end
@@ -124,7 +153,8 @@ function Server.refuse(source, raw, code, params)
   params = params or {}
   params.code = code
   params.reason = params.reason and Text.clean(params.reason, 64) or code
-  Server.answer(source, raw, false, ERRORS[code] or ERRORS.failed, params)
+  Server.answer(source, raw, false, ERRORS[code] or ERRORS.failed, params,
+    TYPED[code] and "warning" or "error")
   return false
 end
 

@@ -12,9 +12,11 @@ OpxAdmin.Client = Client
 local RESOURCE = GetCurrentResourceName()
 Client.RESOURCE = RESOURCE
 
---- The dispatcher acknowledges a queued command on the same event as the command's own
---- answer, and only its English wording tells the two apart. See opx77_chat/docs/unknowns.md.
-local QUEUE_ACK = "' queued by resource "
+--- The dispatcher acknowledges a queued command on the same event as a command's own answer,
+--- and only its English wording tells the two apart. Matched as the fragment both known
+--- wordings share -- `queued by <resource>` and `command '<name>' queued by resource
+--- <resource>` -- not anchored. See opx77_chat/docs/unknowns.md.
+local QUEUE_ACK = "queued by "
 
 --- The scheduler clock in milliseconds; `monotonic` answers SECONDS. A non-finite reading is
 --- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
@@ -72,18 +74,49 @@ function Client.need(resource)
   return false
 end
 
---- A toast of this resource's own, when opx77_notify is up. Best-effort.
+--- Whether a toast that could not be raised has been logged: one line, not one per answer.
+local toastReported = false
+
+--- The chat line an answer was before it was a toast, for when there is no toast to raise.
+---@param kind string
+---@param message string
+local function chatLine(kind, message)
+  local accepted = kind == "info" or kind == "success"
+  TriggerEvent("chat:addMessage", {
+    type = accepted and "info" or "error",
+    author = locale("admin.toast.title"),
+    text = message,
+    color = accepted and { 120, 220, 232 } or { 255, 76, 92 },
+  })
+end
+
+--- A toast of this resource's own, text already rendered, through opx77_notify while it runs;
+--- a chat line when it does not or refuses the toast. Best-effort, never a dependency.
+---@param kind string  info | success | warning | error
+---@param message string
+function Client.notice(kind, message)
+  CreateThread(function()
+    local _, failure = Client.call("opx77_notify", "show", {
+      -- one slot, replaced: staff clicking through a screen see the last answer, not a stack
+      id = "opx77_admin", replace = true, type = kind,
+      title = locale("admin.toast.title"), message = message, durationMs = 5000,
+    })
+    if failure == nil then return end
+    if not toastReported then
+      toastReported = true
+      Open77.log.warn(("no toast (%s): staff answers go to the chat box instead")
+        :format(failure))
+    end
+    chatLine(kind, message)
+  end)
+end
+
+--- `Client.notice` from a catalogue key.
 ---@param key string
 ---@param params? table
 ---@param kind? string
 function Client.toast(key, params, kind)
-  if not Client.running("opx77_notify") then return end
-  CreateThread(function()
-    Client.call("opx77_notify", "show", {
-      id = "opx77_admin", replace = true, type = kind or "info",
-      title = locale("admin.toast.title"), message = locale(key, params), durationMs = 5000,
-    })
-  end)
+  Client.notice(kind or "info", locale(key, params))
 end
 
 -- ---------------------------------------------------------------------------
@@ -117,17 +150,46 @@ function Client.execute(tokens)
   return true
 end
 
---- The server's answer to a command this player ran. Other resources share the event, and so
---- does the dispatcher's queue acknowledgement: only a line answering a command this menu sent
---- in the last fifteen seconds goes under the list. The chat box shows every answer anyway.
-RegisterNetEvent("open77:command:result", function(raw, accepted, message)
-  if type(raw) ~= "string" or type(message) ~= "string" then return end
-  if accepted == true and message:find(QUEUE_ACK, 1, true) then return end
+--- Put an answer under the list when it answers a command this menu sent in the last fifteen
+--- seconds. Other resources share the result events.
+---@param raw string
+---@param accepted boolean
+---@param message string
+local function underList(raw, accepted, message)
   local name = (raw:match("^/?(%S+)") or ""):lower()
   local sentAt = awaiting[name]
   if sentAt == nil or Client.nowMs() - sentAt > 15000 then return end
   local Menu = OpxAdmin.Menu
   if Menu then Menu.status(message, accepted == true) end
+end
+
+--- Another resource's answer, or the dispatcher's: its queue acknowledgement, dropped, or a
+--- refusal, whose code is put in words. opx77_chat toasts the refusal as well.
+RegisterNetEvent("open77:command:result", function(raw, accepted, message)
+  if type(raw) ~= "string" or type(message) ~= "string" then return end
+  if accepted == true and message:find(QUEUE_ACK, 1, true) then return end
+  if accepted ~= true then
+    local name = raw:match("^/?(%S+)") or raw
+    if message == "unknown_command" then
+      message = locale("admin.client.unknownCommand", { command = name })
+    elseif message:find("permission_denied:", 1, true) == 1 then
+      message = locale("admin.client.denied", { command = name })
+    end
+  end
+  underList(raw, accepted, message)
+end)
+
+--- This resource's own answer: under the list when the menu sent it, and besides that a chat
+--- line for a report, a toast for an action's outcome, since the menu may be closed and a
+--- typed command has no list.
+RegisterNetEvent("opx77_admin:answer", function(raw, accepted, message, kind)
+  if type(raw) ~= "string" or type(message) ~= "string" or message == "" then return end
+  underList(raw, accepted == true, message)
+  if kind == "report" then return chatLine("info", message) end
+  if kind ~= "info" and kind ~= "success" and kind ~= "warning" and kind ~= "error" then
+    kind = accepted == true and "success" or "error"
+  end
+  Client.notice(kind, message)
 end)
 
 -- ---------------------------------------------------------------------------

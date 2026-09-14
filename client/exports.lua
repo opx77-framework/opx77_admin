@@ -17,7 +17,7 @@ local function caller()
 end
 
 --- Ask for the staff menu. `ok = true` means asked: a player the ACL refuses gets the host's
---- refusal in the chat box and no menu.
+--- refusal, which opx77_chat toasts, and no menu.
 ---@return AdminResponse
 exports("open", function()
   if caller() == nil then return { ok = false, error = "export_call_required" } end
