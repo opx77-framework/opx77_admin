@@ -209,6 +209,7 @@ OpxAdmin.Locale.register("en", {
   ["admin.menu.server"]              = "Server",
   ["admin.menu.back"]                = "Back",
   ["admin.menu.close"]               = "Close",
+  ["admin.menu.closeKey"]            = "{key} opens and closes this menu.",
   ["admin.menu.cancel"]              = "Cancel",
   ["admin.menu.confirm"]             = "Confirm",
   ["admin.menu.denied"]              = "no access",
@@ -328,4 +329,7 @@ OpxAdmin.Locale.register("en", {
   ["admin.client.formUnavailable"]   = "That form cannot be built right now.",
   ["admin.client.notSent"]           = "The command could not be sent.",
   ["admin.client.travelMissing"]     = "This game client has no travel natives.",
+
+  -- key names, as the pause menu's keybinds tab lists them
+  ["admin.key.menu"]                 = "Staff: open or close the menu",
 })

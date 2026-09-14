@@ -27,7 +27,8 @@ second set.
 
 ## Features
 
-- A staff menu on `/opx77.admin`: players, yourself, vehicles, weapons, world and server screens
+- A staff menu on `/opx77.admin` and on a rebindable key, F9 by default: players, yourself,
+  vehicles, weapons, world and server screens
 - Teleport: go to, bring, send to a saved destination, coordinates, map double-click, observe
 - Heal, revive, god mode, health, armour and kill, on yourself or anybody
 - Kick with a reason, and account bans through the platform's own server-local ban list
@@ -69,7 +70,7 @@ noclip will fight, so give each operator one of them.
 1. Copy this directory into the server's `resources/` as `opx77_admin`.
 2. Add it to `resources.load` in `server.jsonc` if the server uses an explicit list.
 3. Grant the permissions below in `acl.jsonc`, then run `acl.reload` in the console.
-4. Connect, and type `/opx77.admin`.
+4. Connect, and press F9 or type `/opx77.admin`.
 
 `reload_policy` is `local`: the resource owns no page, so a reload rebuilds both halves without
 a reconnect. Destinations saved in game survive a reload and not a restart.
@@ -214,9 +215,35 @@ command on the server, the core's money included — grant it only to whoever ma
 
 ## The menu
 
-`/opx77.admin` opens it; the arrow keys move, Enter chooses, Backspace goes back a screen.
-Each screen is its own `opx77_menu` menu — a roster of thirty players with twenty actions each
-is past what one menu tree may hold — and the stack of screens lives in this resource.
+`/opx77.admin` or the menu key opens it; the arrow keys move, Enter chooses, Backspace goes
+back a screen. Each screen is its own `opx77_menu` menu — a roster of thirty players with twenty
+actions each is past what one menu tree may hold — and the stack of screens lives in this
+resource.
+
+### The key
+
+| Mapping id | Name in the pause menu | Default | Does |
+|---|---|---|---|
+| `opx77_admin.menu` | *Staff: open or close the menu* | `F9` | opens the menu, or closes it when it is up |
+
+The key is declared with `RegisterKeyMapping`, so the pause menu's key bindings tab lists it
+under the name above — read from the configured locale when the resource starts — and every
+player can rebind it there. The root screen's **Close** row names the key the player actually
+has, and follows a rebind without the menu being reopened.
+
+**It opens nothing by itself.** Pressed with the menu down, it sends `/opx77.admin` through
+`open77:command:execute`, the line the chat box sends, so the host resolves
+`command.opx77.admin` first: a player without the grant gets the host's refusal in the chat box
+and no menu, exactly as if they had typed it. Pressed with the menu up, it closes it locally,
+which grants nothing. A press while another surface holds the keyboard — the chat box, a form,
+the pause menu — does nothing. The mapping is registered for every player, staff or not: the
+client cannot know the ACL, and the host is what answers.
+
+`KEYS.MENU` in `config.lua` sets the default, which a player's own rebind overrides;
+`KEYS.MENU = false` registers no mapping. A value that is neither a key name nor `false` is a
+client log warning and the default. F9 was chosen clear of the keys the rest of a stock
+resource set takes: F2 wardrobe, F3 animation picker, F6 perspective, F8 HUD,
+F11 voice mode, X stop animation, V push-to-talk, ALT context menu.
 
 - A row whose command the ACL refuses is drawn greyed, with *no access* beside it. The access map
   is re-read when you leave the root screen, so an `acl.reload` shows without reopening.
@@ -296,6 +323,7 @@ drawn weapon only when all three are full; naming a slot always replaces it.
 | Key | Default | |
 |---|---|---|
 | `LOCALE` | `"en"` | which `locales/<code>.lua` catalogue player-facing text uses |
+| `KEYS.MENU` | `"F9"` | the menu key's default, or `false` for none; see [The key](#the-key) |
 | `RATE.ACTION_MS` | `400` | floor between two runs of one mutating command, per operator |
 | `RATE.READ_MS` | `1000` | the same for a reading command |
 | `RATE.REFRESH_MS` | `750` | floor between two menu refresh requests |

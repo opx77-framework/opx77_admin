@@ -219,6 +219,7 @@ OpxAdmin.Locale.register("fr", {
   ["admin.menu.server"]              = "Serveur",
   ["admin.menu.back"]                = "Retour",
   ["admin.menu.close"]               = "Fermer",
+  ["admin.menu.closeKey"]            = "{key} ouvre et ferme ce menu.",
   ["admin.menu.cancel"]              = "Annuler",
   ["admin.menu.confirm"]             = "Confirmer",
   ["admin.menu.denied"]              = "sans accès",
@@ -339,4 +340,7 @@ OpxAdmin.Locale.register("fr", {
   ["admin.client.formUnavailable"]   = "Ce formulaire ne peut pas être construit pour l'instant.",
   ["admin.client.notSent"]           = "La commande n'a pas pu être envoyée.",
   ["admin.client.travelMissing"]     = "Ce client de jeu n'a pas les fonctions de déplacement.",
+
+  -- noms des touches, tels que les liste l'onglet des raccourcis du menu pause
+  ["admin.key.menu"]                 = "Équipe : ouvrir ou fermer le menu",
 })
