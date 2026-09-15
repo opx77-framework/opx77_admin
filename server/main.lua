@@ -432,17 +432,17 @@ local byName = {}
 
 --- @author DemiAutomatic
 --- @type {table<string, integer>}
---- @description Last run per operator and command, in milliseconds.
+--- @description Last run per operator and command or refresh topic, in milliseconds.
 local lastRun = {}
 
 --- @author DemiAutomatic
---- @method cooled
+--- @method OpxAdmin.Server.Cooled
 --- @description Whether a run falls inside the operator's floor, recording it otherwise.
 --- @param player {integer}
 --- @param name {string}
 --- @param intervalMs {number}
 --- @returns {boolean}
-local function cooled(player, name, intervalMs)
+function OpxAdmin.Server.Cooled(player, name, intervalMs)
 	if player <= 0 then return false end
 	local slot = player .. ':' .. name
 	local atMs = nowMs()
@@ -471,7 +471,7 @@ function OpxAdmin.Server.Command(name, spec)
 		raw = type(raw) == 'string' and raw or name
 		args = type(args) == 'table' and args or { n = 0 }
 		if spec.inGame and player <= 0 then return Server.Refuse(player, raw, 'in_game_only') end
-		if cooled(player, name, interval) then return Server.Refuse(player, raw, 'too_fast') end
+		if Server.Cooled(player, name, interval) then return Server.Refuse(player, raw, 'too_fast') end
 		local ran, failure = pcall(spec.handler, player, args, raw)
 		if not ran then
 			Open77.log.error(('%s raised: %s'):format(name, tostring(failure)))
@@ -512,7 +512,7 @@ end
 --- @description Sends chat suggestions for the commands the ACL grants.
 RegisterNetEvent('chat:ready', function()
 	local player = tonumber(source) or 0
-	if player <= 0 or cooled(player, 'chat:ready', 2000) then return end
+	if player <= 0 or Server.Cooled(player, 'chat:ready', 2000) then return end
 	local suggestions = {}
 	for _, command in ipairs(commands) do
 		if Server.Permitted(player, command.name) == true then
@@ -536,7 +536,7 @@ end)
 
 --- @author DemiAutomatic
 --- @event onPlayerDisconnected
---- @description Forgets a departing player's command floors.
+--- @description Forgets a departing player's command and refresh floors.
 --- @param playerId {integer|string}
 AddEventHandler('onPlayerDisconnected', function(playerId)
 	local prefix = tostring(tonumber(playerId) or 0) .. ':'

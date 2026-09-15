@@ -17,11 +17,6 @@ local OPENER = 'opx77.admin'
 local ROSTER_CHUNK = 20
 
 --- @author DemiAutomatic
---- @type {table<string, integer>}
---- @description Last refresh per player and topic, for the rate floor.
-local lastRefresh = {}
-
---- @author DemiAutomatic
 --- @method menuCommands
 --- @description Lists every command name the menu may issue, linked ones included.
 --- @returns {string[]}
@@ -162,11 +157,9 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 	end
 	if topic == 'bag' and (type(arg) ~= 'string' or #arg > 32) then return end
 
-	local atMs = Server.NowMs()
-	local slot = player .. ':' .. topic
-	local floor = Server.Setting((Config.RATE or {}).REFRESH_MS, 750)
-	if lastRefresh[slot] ~= nil and atMs - lastRefresh[slot] < floor then return end
-	lastRefresh[slot] = atMs
+	if Server.Cooled(player, 'refresh:' .. topic, Server.Setting((Config.RATE or {}).REFRESH_MS, 750)) then
+		return
+	end
 
 	if Server.Permitted(player, OPENER) ~= true then return end
 
@@ -189,21 +182,5 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 	end
 end)
 
---- @author DemiAutomatic
---- @event onPlayerDisconnected
---- @description Forgets a departing player's refresh floors.
---- @param playerId {integer|string}
-AddEventHandler('onPlayerDisconnected', function(playerId)
-	local prefix = tostring(tonumber(playerId) or 0) .. ':'
-	for slot in pairs(lastRefresh) do
-		if slot:sub(1, #prefix) == prefix then lastRefresh[slot] = nil end
-	end
-end)
-
---- @author DemiAutomatic
---- @type {string[]}
---- @description Registered command names, counted for the boot line.
-local names = {}
-for _, command in ipairs(Server.Commands()) do names[#names + 1] = command.name end
 Open77.log.info(('ready -- %d restricted commands; grant command.%s to open the menu')
-	:format(#names, OPENER))
+	:format(#Server.Commands(), OPENER))

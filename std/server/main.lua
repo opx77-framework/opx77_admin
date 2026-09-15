@@ -123,6 +123,15 @@ function OpxAdmin.Server.Recent(count) end
 ---@param spec AdminCommandSpec
 function OpxAdmin.Server.Command(name, spec) end
 
+--- Whether this run falls inside the player's floor for `name`, recording it when it does not.
+--- Every command, `chat:ready` and each menu refresh topic keep their own slot; the console is
+--- never cooled.
+---@param player integer
+---@param name string
+---@param intervalMs number
+---@return boolean cooled true when the run is to be dropped
+function OpxAdmin.Server.Cooled(player, name, intervalMs) end
+
 --- Every registered command, in registration order.
 ---@return AdminCommand[]
 function OpxAdmin.Server.Commands() end
