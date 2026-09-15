@@ -19,7 +19,7 @@
 ---| "kill_refused"          the first half of a placement was refused
 ---| "respawn_refused"       the second half was refused; the player was revived in place
 ---| "refused"               a native answered false; `reason` carries the host's own word
----| "bad_coordinates"       a point that is not three finite numbers inside a million
+---| "bad_coordinates"       a point that is not three finite numbers inside a million, or a heading that is not a number
 ---| "bad_switch"            not on, off, or nothing
 ---| "bad_duration"          looks like a ban duration and is out of range
 ---| "empty_text"            an announcement with nothing in it

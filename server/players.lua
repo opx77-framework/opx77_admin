@@ -376,7 +376,8 @@ Server.Command('opx77.admin.player.tp', {
 		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		local point = pointOf(args[2], args[3], args[4])
-		local heading = given == 5 and Text.Finite(args[5]) or 0.0
+		local heading = 0.0
+		if given == 5 then heading = Text.Finite(args[5]) end
 		if point == nil or heading == nil then return refuse(source, raw, 'bad_coordinates') end
 		local placed, code, reason = Server.Place(playerId, point, heading, nil, 'tp')
 		audit(source, 'admin.player.tp', placed, playerId,
