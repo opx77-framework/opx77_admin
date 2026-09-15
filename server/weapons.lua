@@ -28,19 +28,6 @@ local function available()
 end
 
 --- @author DemiAutomatic
---- @method typedCount
---- @description Parses an ammunition count: nil omitted, false out of range.
---- @param token {any}
---- @param least {integer} Zero for a give, one elsewhere.
---- @returns {integer|false|nil}
-local function typedCount(token, least)
-	if token == nil then return nil end
-	local count = Text.Integer(token)
-	if count == nil or count < least or count > Inventory.MAX_COUNT then return false end
-	return count
-end
-
---- @author DemiAutomatic
 --- @method ammoOf
 --- @description Finds the ammunition item a weapon takes, nil for melee.
 --- @param catalog {InventoryCatalog}
@@ -119,30 +106,7 @@ CreateThread(function()
 	end
 end)
 
---- @author DemiAutomatic
---- @type {AdminParameter}
---- @description Suggestion parameter for a holder: player, me or citizen id.
-local TARGET = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
-
---- @author DemiAutomatic
---- @method resolve
---- @description Answers the refusals that need no export call.
---- @param source {integer}
---- @param raw {string}
---- @param token {any}
---- @returns {integer|string|nil, string|nil, integer|nil}
-local function resolve(source, raw, token)
-	local target, who, playerId, code = Inventory.Target(source, token)
-	if target == nil then
-		refuse(source, raw, code)
-		return nil
-	end
-	if not Inventory.Running() then
-		refuse(source, raw, 'inventory_unavailable')
-		return nil
-	end
-	return target, who, playerId
-end
+local TARGET = Inventory.HOLDER
 
 --- @author DemiAutomatic
 --- @method giveWithAmmo
@@ -228,12 +192,12 @@ Server.Command('opx77.admin.weapon.give', {
 		{ name = 'ammo', help = 'admin.help.giveAmmoCount', optional = true } },
 	handler = function(source, args, raw)
 		if Text.Clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
-		local count = typedCount(args[3], 0)
+		local count = Inventory.Count(args[3], 0)
 		if count == false then
 			return refuse(source, raw, 'bad_count', { max = Inventory.MAX_COUNT })
 		end
 		count = count or 0
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.give'
@@ -287,11 +251,11 @@ Server.Command('opx77.admin.weapon.giveammo', {
 		if Text.Clean(args[2], 48) == nil then
 			return refuse(source, raw, 'unknown_ammo', { item = '?' })
 		end
-		local typed = typedCount(args[3], 1)
+		local typed = Inventory.Count(args[3], 1)
 		if typed == false then
 			return refuse(source, raw, 'bad_count', { max = Inventory.MAX_COUNT })
 		end
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.giveammo'
@@ -327,11 +291,11 @@ Server.Command('opx77.admin.weapon.ammo', {
 		{ name = 'count', help = 'admin.help.refillCount', optional = true } },
 	handler = function(source, args, raw)
 		local all = args[2] == nil or tostring(args[2]):lower() == 'all'
-		local typed = typedCount(args[3], 1)
+		local typed = Inventory.Count(args[3], 1)
 		if typed == false then
 			return refuse(source, raw, 'bad_count', { max = Inventory.MAX_COUNT })
 		end
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.ammo'
@@ -399,7 +363,7 @@ Server.Command('opx77.admin.weapon.remove', {
 	handler = function(source, args, raw)
 		if Text.Clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
 		local all = tostring(args[2]):lower() == 'all'
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.remove'
@@ -478,7 +442,7 @@ Server.Command('opx77.admin.weapon.holster', {
 Server.Command('opx77.admin.weapon.read', {
 	help = 'admin.help.loadout', params = { TARGET }, read = true,
 	handler = function(source, args, raw)
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.read'

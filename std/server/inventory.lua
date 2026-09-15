@@ -33,10 +33,25 @@ function OpxAdmin.Inventory.Call(name, ...) end
 ---@return string|nil code no_target, console_has_no_player, bad_holder or not_connected
 function OpxAdmin.Inventory.Target(source, token) end
 
---- A typed count: 1 when omitted, otherwise a whole number in 1..MAX_COUNT, or nil.
+--- A typed count: nil when omitted, false when it is not a whole number in `least`..MAX_COUNT.
 ---@param token any
----@return integer|nil
-function OpxAdmin.Inventory.Count(token) end
+---@param least integer 0 where 0 means none, 1 elsewhere
+---@return integer|false|nil
+function OpxAdmin.Inventory.Count(token, least) end
+
+--- The holder, resolved as `OpxAdmin.Inventory.Target` does, with the refusal answered, and
+--- `inventory_unavailable` answered while the inventory is not running.
+---@param source integer
+---@param raw string
+---@param token any
+---@return integer|string|nil target
+---@return string|nil who
+---@return integer|nil playerId
+function OpxAdmin.Inventory.Resolve(source, raw, token) end
+
+--- The suggestion parameter of a holder: a player id, `me` or a citizen id.
+---@type AdminParameter
+OpxAdmin.Inventory.HOLDER = {}
 
 --- The inventory's catalogue through GetItems, page by page, cached until it starts or stops
 --- again or five minutes pass. Coroutine only.

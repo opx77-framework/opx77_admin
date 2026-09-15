@@ -145,13 +145,14 @@ end
 
 --- @author DemiAutomatic
 --- @method OpxAdmin.Inventory.Count
---- @description Parses a typed count: one when omitted, else 1..MAX_COUNT.
+--- @description Parses a typed count: nil omitted, false outside least..MAX_COUNT.
 --- @param token {any}
---- @returns {integer|nil}
-function OpxAdmin.Inventory.Count(token)
-	if token == nil then return 1 end
+--- @param least {integer} Zero where zero means none, one elsewhere.
+--- @returns {integer|false|nil}
+function OpxAdmin.Inventory.Count(token, least)
+	if token == nil then return nil end
 	local count = Text.Integer(token)
-	if count == nil or count < 1 or count > MAX_COUNT then return nil end
+	if count == nil or count < least or count > MAX_COUNT then return false end
 	return count
 end
 
@@ -373,7 +374,9 @@ end
 --- @author DemiAutomatic
 --- @type {AdminParameter}
 --- @description Suggestion parameter for a holder: player, me or citizen id.
-local TARGET = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
+OpxAdmin.Inventory.HOLDER = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
+
+local TARGET = Inventory.HOLDER
 
 --- @author DemiAutomatic
 --- @type {AdminParameter}
@@ -386,13 +389,13 @@ local ITEM = { name = 'item', help = 'admin.help.itemName' }
 local COUNT = { name = 'count', help = 'admin.help.count', optional = true }
 
 --- @author DemiAutomatic
---- @method resolve
---- @description Answers the refusals that need no export call.
+--- @method OpxAdmin.Inventory.Resolve
+--- @description Resolves a holder, answering the refusals that need no export call.
 --- @param source {integer}
 --- @param raw {string}
 --- @param token {any}
 --- @returns {integer|string|nil, string|nil, integer|nil}
-local function resolve(source, raw, token)
+function OpxAdmin.Inventory.Resolve(source, raw, token)
 	local target, who, playerId, code = Inventory.Target(source, token)
 	if target == nil then
 		refuse(source, raw, code)
@@ -435,7 +438,7 @@ end
 Server.Command('opx77.admin.inventory.view', {
 	help = 'admin.help.invView', params = { TARGET }, read = true,
 	handler = function(source, args, raw)
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local bag, code, reason = Inventory.Bag(target)
@@ -469,9 +472,10 @@ Server.Command('opx77.admin.inventory.give', {
 		if Text.Clean(args[2], 48) == nil then
 			return refuse(source, raw, 'unknown_item', { item = '?' })
 		end
-		local count = Inventory.Count(args[3])
-		if count == nil then return refuse(source, raw, 'bad_count', { max = MAX_COUNT }) end
-		local target, who, playerId = resolve(source, raw, args[1])
+		local count = Inventory.Count(args[3], 1)
+		if count == false then return refuse(source, raw, 'bad_count', { max = MAX_COUNT }) end
+		count = count or 1
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.inventory.give'
@@ -506,9 +510,10 @@ Server.Command('opx77.admin.inventory.remove', {
 		if name == nil or #name > 48 or not name:match('^[%w_%-%.]+$') then
 			return refuse(source, raw, 'unknown_item', { item = Text.Clean(args[2], 48) or '?' })
 		end
-		local count = Inventory.Count(args[3])
-		if count == nil then return refuse(source, raw, 'bad_count', { max = MAX_COUNT }) end
-		local target, who, playerId = resolve(source, raw, args[1])
+		local count = Inventory.Count(args[3], 1)
+		if count == false then return refuse(source, raw, 'bad_count', { max = MAX_COUNT }) end
+		count = count or 1
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.inventory.remove'
@@ -534,7 +539,7 @@ Server.Command('opx77.admin.inventory.remove', {
 Server.Command('opx77.admin.inventory.clear', {
 	help = 'admin.help.invClear', params = { TARGET },
 	handler = function(source, args, raw)
-		local target, who, playerId = resolve(source, raw, args[1])
+		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.inventory.clear'
