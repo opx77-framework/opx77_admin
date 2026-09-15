@@ -1,102 +1,148 @@
--- Operator configuration. Shared, so a client downloads it: no secrets, and no grants. Who may
--- run what lives in acl.jsonc and nowhere else; nothing in this file authorises anybody.
+--- @author DemiAutomatic
+--- @file config.lua
+--- @description Operator configuration, shared with clients: no secrets and no grants.
+--- @field LOCALE {string} Catalogue code in locales/ player-facing text is read from.
+--- @field KEYS {table} Default keys players can rebind; false registers none.
+--- @field KEYS.MENU {string|false} Opens the staff menu, or closes it.
+--- @field KEYS.SPEED_UP {string|false} Raises noclip speed while noclip is on; repeats held.
+--- @field KEYS.SPEED_DOWN {string|false} Lowers noclip speed while noclip is on; repeats held.
+--- @field RATE {table} Per-operator floors between command runs, in milliseconds.
+--- @field RATE.ACTION_MS {integer} Floor between two runs of one mutating command.
+--- @field RATE.READ_MS {integer} Floor between two runs of one reading command.
+--- @field RATE.REFRESH_MS {integer} Floor between two menu refresh requests.
+--- @field AUDIT_ENTRIES {integer} Actions read.audit can look back over this uptime; at least 10.
+--- @field TOAST_MS {integer} How long a target's staff action toast stays up.
+--- @field PLACEMENT {table} How a moved player lands.
+--- @field PLACEMENT.HEALTH {number} Fraction of full health after a move, 0.01..1.0.
+--- @field PLACEMENT.GRACE_MS {integer} Respawn protection after a move, in milliseconds.
+--- @field PLACEMENT.BESIDE {table} Offset from the other player on goto and bring.
+--- @field PLACEMENT.BESIDE.X {number} Metres along the world X axis.
+--- @field PLACEMENT.BESIDE.Y {number} Metres along the world Y axis.
+--- @field PLACEMENT.BESIDE.Z {number} Metres along the world Z axis.
+--- @field PLACEMENT.OBSERVE_HEIGHT {number} Metres above the target an observer lands, noclip on.
+--- @field NOCLIP {table} Noclip speed and its on-screen controls.
+--- @field NOCLIP.SPEED {number} Metres per second the first time noclip goes on, 0.1..500.
+--- @field NOCLIP.MIN_SPEED {number} Lowest speed the keys reach, 0.1..500.
+--- @field NOCLIP.MAX_SPEED {number} Highest speed the keys reach, MIN_SPEED..500.
+--- @field NOCLIP.STEP {number} Fraction of the speed one press changes, 0.01..1.
+--- @field NOCLIP.SEND_AFTER_MS {integer} Quiet time before sending; never below RATE.ACTION_MS plus 100.
+--- @field NOCLIP.PROMPTS {boolean} Travel controls in opx77_prompts' strip; false for none.
+--- @field ANNOUNCE {table} How an announcement reaches every player.
+--- @field ANNOUNCE.DURATION_MS {integer} Announcement toast lifetime on every client.
+--- @field ANNOUNCE.CHAT {boolean} Also write the announcement into the chat box.
+--- @field ANNOUNCE.MAX_CHARACTERS {integer} Longest announcement, in characters.
+--- @field BAN_DURATIONS {string[]} Durations the ban form offers; typed bans take any duration.
+--- @field VEHICLES {table} Vehicle spawning, the near search and repairs.
+--- @field VEHICLES.SPAWN_OFFSET {table} World-axis offset from whoever the vehicle is for.
+--- @field VEHICLES.SPAWN_OFFSET.X {number} Metres along the world X axis.
+--- @field VEHICLES.SPAWN_OFFSET.Y {number} Metres along the world Y axis.
+--- @field VEHICLES.SPAWN_OFFSET.Z {number} Metres along the world Z axis.
+--- @field VEHICLES.PER_OWNER {integer} Vehicles this resource keeps out per player at once.
+--- @field VEHICLES.NEAR_RADIUS {number} Metres near looks when the operator is on foot.
+--- @field VEHICLES.OCCUPIED_REPAIRS {table<string, boolean>} Repair scopes allowed with somebody aboard.
+--- @field VEHICLES.FLAGS {string[]} Open77.vehicles.flags names the flag command may toggle.
+--- @field INVENTORY {table} The opx77_inventory the weapon and bag commands call.
+--- @field INVENTORY.RESOURCE {string} Inventory resource name, to match a renamed folder.
+--- @field INVENTORY.MAX_COUNT {integer} Largest count an item or ammunition give or removal accepts.
+--- @field LINKS {table} Other resources' command names the menu drives; false removes the row.
+--- @field LINKS.CHARACTERS {string|false} opx77_core: every loaded character.
+--- @field LINKS.WHERE {string|false} opx77_core: what the server believes about one player.
+--- @field LINKS.JOB {string|false} opx77_core: sets a job and grade.
+--- @field LINKS.GANG {string|false} opx77_core: sets a gang and grade.
+--- @field LINKS.MONEY {string|false} opx77_core: adds or takes money of one type.
+--- @field LINKS.SAVE {string|false} opx77_core: writes every character now.
+--- @field LINKS.INVENTORY_OPEN {string|false} opx77_inventory: opens a character's bag in game.
+--- @field LINKS.INVENTORY_HOLDERS {string|false} opx77_inventory: lists the containers holding an item.
+--- @field LINKS.WEATHER_SET {string|false} opx77_weather: sets a weather preset.
+--- @field LINKS.WEATHER_NEXT {string|false} opx77_weather: rolls the next weather.
+--- @field LINKS.WEATHER_FREEZE {string|false} opx77_weather: holds or releases the weather.
+--- @field LINKS.TIME {string|false} opx77_weather: sets the time of day.
+--- @field LINKS.TIME_FREEZE {string|false} opx77_weather: holds or releases the clock.
+--- @field WEATHER_PRESETS {string[]} Weather names the sky screen offers, from opx77_weather.
+--- @field TIMES {string[]} Times of day the time screen offers, HH:MM.
+--- @field LOCATIONS {table[]} Saved destinations; self.pos copies a row.
+--- @field LOCATIONS[].NAME {string} What staff type: letters, digits, _ and -.
+--- @field LOCATIONS[].LABEL {string} What the menu shows.
+--- @field LOCATIONS[].X {number} World X coordinate.
+--- @field LOCATIONS[].Y {number} World Y coordinate.
+--- @field LOCATIONS[].Z {number} World Z coordinate.
+--- @field LOCATIONS[].HEADING {number} Heading in degrees on arrival.
 
 OPX_ADMIN_CONFIG = {
-	LOCALE = 'en', -- which locales/<code>.lua player-facing text is read from
+	LOCALE = 'en',
 
-	-- Default keys, which each player can rebind in the pause menu; false registers none. A key
-	-- sends /opx77.admin like the chat box does, so the ACL still decides who gets a menu.
 	KEYS = {
-		MENU = 'F9', -- open the staff menu, or close it
-		-- Noclip speed up and down, only while noclip is on; held, they repeat. Not the mouse
-		-- wheel: no client API on this platform reads it. Each change still goes through
-		-- /opx77.admin.self.speed, so the ACL decides.
+		MENU = 'F9',
 		SPEED_UP = 'PAGEUP',
 		SPEED_DOWN = 'PAGEDOWN',
 	},
 
 	RATE = {
-		ACTION_MS = 400, -- floor between two runs of one mutating command, per operator
-		READ_MS = 1000, -- the same for a command that only reads
-		REFRESH_MS = 750, -- floor between two menu refresh requests, per operator
+		ACTION_MS = 400,
+		READ_MS = 1000,
+		REFRESH_MS = 750,
 	},
 
-	AUDIT_ENTRIES = 200, -- how many actions /opx77.admin.read.audit can look back over, this uptime
-	TOAST_MS = 6000, -- how long a target's "an administrator did this" toast stays up
+	AUDIT_ENTRIES = 200,
+	TOAST_MS = 6000,
 
 	PLACEMENT = {
-		HEALTH = 1.0, -- fraction of full health after a move, 0.01..1.0
-		GRACE_MS = 5000, -- respawn protection after a move
-		BESIDE = { X = 1.5, Y = 0.0, Z = 0.0 }, -- offset from the other player on goto and bring
-		OBSERVE_HEIGHT = 2.0, -- metres above the target an observer lands, noclip on
+		HEALTH = 1.0,
+		GRACE_MS = 5000,
+		BESIDE = { X = 1.5, Y = 0.0, Z = 0.0 },
+		OBSERVE_HEIGHT = 2.0,
 	},
 
 	NOCLIP = {
-		SPEED = 40.0, -- m/s, applied the first time noclip goes on; the native accepts 0.1..500
-		MIN_SPEED = 1.0, -- the lowest the speed keys go, 0.1..500
-		MAX_SPEED = 500.0, -- the highest, MIN_SPEED..500
-		STEP = 0.15, -- one press changes the speed by this fraction of itself, 0.01..1
-		-- quiet time after the last press before the speed is sent; never below RATE.ACTION_MS
-		-- plus 100, or a second change inside the floor would be refused
+		SPEED = 40.0,
+		MIN_SPEED = 1.0,
+		MAX_SPEED = 500.0,
+		STEP = 0.15,
 		SEND_AFTER_MS = 500,
-		PROMPTS = true, -- the controls in opx77_prompts' strip while noclip is on; false for none
+		PROMPTS = true,
 	},
 
 	ANNOUNCE = {
-		DURATION_MS = 12000, -- toast lifetime on every client
-		CHAT = true, -- also write the announcement into the chat box
+		DURATION_MS = 12000,
+		CHAT = true,
 		MAX_CHARACTERS = 240,
 	},
 
-	-- Ban durations the menu offers. A typed ban takes any `<n>s|m|h|d` up to 3650d, or `perm`.
 	BAN_DURATIONS = { '1h', '1d', '7d', '30d', 'perm' },
 
 	VEHICLES = {
-		SPAWN_OFFSET = { X = 3.0, Y = 0.0, Z = 0.25 }, -- world axes, from whoever it is spawned for
-		PER_OWNER = 8, -- vehicles this resource keeps out per player at once
-		NEAR_RADIUS = 30.0, -- how far `near` looks when the operator is not in a vehicle, metres
-		-- Repairs safe with somebody aboard. `full` and `mechanical` may respawn the vehicle.
+		SPAWN_OFFSET = { X = 3.0, Y = 0.0, Z = 0.25 },
+		PER_OWNER = 8,
+		NEAR_RADIUS = 30.0,
 		OCCUPIED_REPAIRS = { glass = true, body = true, lights = true, tires = true, visual = true },
-		FLAGS = { 'locked', 'engineOn', 'lightsOn', 'invulnerable' }, -- Open77.vehicles.flags names
+		FLAGS = { 'locked', 'engineOn', 'lightsOn', 'invulnerable' },
 	},
 
-	-- Weapons and bags are opx77_inventory's: every weapon and inventory command calls its server
-	-- exports, which need this resource in its EXPORTS.WRITERS (shipped so). Without it running
-	-- they refuse. A weapon is given empty; its rounds are that resource's ammo items, whose full
-	-- load is AMMO.MAX in its data/weapons.lua.
 	INVENTORY = {
-		RESOURCE = 'opx77_inventory', -- match a renamed folder
-		MAX_COUNT = 10000, -- the largest count an inventory or ammunition give or removal accepts
+		RESOURCE = 'opx77_inventory',
+		MAX_COUNT = 10000,
 	},
 
-	-- Commands of other OPX//77 resources the menu drives instead of doing the same thing twice.
-	-- Match any rename made in those resources' own config; false removes the row.
 	LINKS = {
-		CHARACTERS = 'opx77', -- opx77_core: every loaded character
-		WHERE = 'opx77.where', -- opx77_core: what the server believes about one player
-		JOB = 'opx77.job', -- opx77_core: <playerId|citizenId> <job> [grade]
-		GANG = 'opx77.gang', -- opx77_core: <playerId|citizenId> <gang> [grade]
-		MONEY = 'opx77.money', -- opx77_core: <playerId|citizenId> <TYPE> <amount>
-		SAVE = 'opx77.save', -- opx77_core: write every character now
-		-- opx77_inventory: no export opens another character's bag on a staff screen, or lists the
-		-- containers holding an item, so the menu runs its commands for those two
-		INVENTORY_OPEN = 'opx77.inventory.open', -- <playerId|citizenId>, in game
-		INVENTORY_HOLDERS = 'opx77.inventory.holders', -- <item>
-		WEATHER_SET = 'opx77.weather.set', -- opx77_weather
+		CHARACTERS = 'opx77',
+		WHERE = 'opx77.where',
+		JOB = 'opx77.job',
+		GANG = 'opx77.gang',
+		MONEY = 'opx77.money',
+		SAVE = 'opx77.save',
+		INVENTORY_OPEN = 'opx77.inventory.open',
+		INVENTORY_HOLDERS = 'opx77.inventory.holders',
+		WEATHER_SET = 'opx77.weather.set',
 		WEATHER_NEXT = 'opx77.weather.next',
 		WEATHER_FREEZE = 'opx77.weather.freeze',
 		TIME = 'opx77.weather.time',
 		TIME_FREEZE = 'opx77.weather.time.freeze',
 	},
 
-	-- What the World > Weather screen offers. Names from opx77_weather's own WEATHER table.
 	WEATHER_PRESETS = { 'sunny', 'lightclouds', 'cloudy', 'rain', 'heavyclouds', 'fog',
 		'pollution', 'sandstorm' },
 	TIMES = { '06:00', '09:00', '12:00', '17:30', '20:30', '23:00', '03:00' },
 
-	-- Saved destinations. NAME is what staff type: letters, digits, _ and -. Copy a row with
-	-- /opx77.admin.self.pos while standing where you want one. The platform's freeroam destinations,
-	-- landing spots it captured on build 2.31; replace them with your own.
 	LOCATIONS = {
 		{ NAME = 'watson', LABEL = 'Watson, west', X = -667.14, Y = -382.61, Z = 9.16, HEADING = 0.0 },
 		{ NAME = 'heights', LABEL = 'Northwest heights', X = -1441.0, Y = 1269.0, Z = 123.0,

@@ -1,16 +1,6 @@
---- Weapon commands. A weapon is an opx77_inventory item: a unit in a bag carrying a serial and its
---- rounds, which the player draws by using it. Ammunition is an item of its own, a stack the
---- player spends on the drawn weapon that takes it. So a give adds an empty weapon item, and its
---- ammunition, when asked for, as a separate stack; a refill adds ammunition items; a removal
---- takes the weapon item; a read lists the weapon items and which one is drawn -- all through the
---- inventory's server exports (server/inventory.lua), never by putting a record in a game slot or
---- rounds on an item. The inventory takes off, every WEAPONS.SCAN_MS, any weapon a bag does not
---- back, so a weapon handed over any other way would not last, and would not be recorded.
----
---- One thing stays on `Open77.weapons`, the platform's relay to the target client's
---- open77_weapons half, because the inventory has no export for it and it changes no item:
---- holstering. A relay step answers in two halves: `open77:weapons:completed` carries the
---- client's verdict.
+--- @author DemiAutomatic
+--- @file server/weapons.lua
+--- @description Weapon and ammunition commands through opx77_inventory, and the holster.
 
 local Server = OpxAdmin.Server
 local Inventory = OpxAdmin.Inventory
@@ -18,24 +8,31 @@ local Text = OpxAdmin.Text
 
 local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
 
---- tostring(requestId) -> the holster a completion answers.
+--- @author DemiAutomatic
+--- @type {table<string, table>}
+--- @description Holster requests awaiting their relay completion, by request id.
 local pending = {}
 
---- A relay that never answers is a timeout on the platform's side; this bounds the table in
---- case the completion never reaches this VM at all.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Age past which a pending holster request is forgotten.
 local PENDING_MS = 30000
 
----@return boolean
+--- @author DemiAutomatic
+--- @method available
+--- @description Whether the platform weapon relay offers a holster.
+--- @returns {boolean}
 local function available()
 	local weapons = Open77.weapons
 	return type(weapons) == 'table' and type(weapons.holster) == 'function'
 end
 
---- A typed count of ammunition items: nil when omitted, false when it is not a whole number in
---- `least`..INVENTORY.MAX_COUNT.
----@param token any
----@param least integer  0 for a give, where 0 means none; 1 elsewhere
----@return integer|false|nil
+--- @author DemiAutomatic
+--- @method typedCount
+--- @description Parses an ammunition count: nil omitted, false out of range.
+--- @param token {any}
+--- @param least {integer} Zero for a give, one elsewhere.
+--- @returns {integer|false|nil}
 local function typedCount(token, least)
 	if token == nil then return nil end
 	local count = Text.Integer(token)
@@ -43,21 +40,24 @@ local function typedCount(token, least)
 	return count
 end
 
---- The ammunition item that loads a weapon item, or nil for a melee weapon.
----@param catalog table
----@param entry table  a weapon item of the inventory's catalogue
----@return table|nil
+--- @author DemiAutomatic
+--- @method ammoOf
+--- @description Finds the ammunition item a weapon takes, nil for melee.
+--- @param catalog {InventoryCatalog}
+--- @param entry {InventoryItem}
+--- @returns {InventoryItem|nil}
 local function ammoOf(catalog, entry)
 	local name = entry.weapon and entry.weapon.ammo
 	local ammo = name and catalog.byName[name] or nil
 	return ammo and ammo.ammoMax and ammo or nil
 end
 
---- What was typed for ammunition: an ammo item's name, or a weapon's name, short or not, standing
---- for the ammunition that loads it.
----@param catalog table
----@param token any
----@return table|nil ammo, string|nil code, table|nil weapon
+--- @author DemiAutomatic
+--- @method ammoFor
+--- @description Resolves typed ammunition: an ammo item, or a weapon taking one.
+--- @param catalog {InventoryCatalog}
+--- @param token {any}
+--- @returns {InventoryItem|nil, string|nil, InventoryItem|nil}
 local function ammoFor(catalog, token)
 	local item = Inventory.Item(catalog, token)
 	if item and item.ammoMax then return item, nil, nil end
@@ -68,10 +68,12 @@ local function ammoFor(catalog, token)
 	return ammo, nil, weapon
 end
 
---- The serials of one weapon's items in a bag.
----@param bag table
----@param name string
----@return table<string, true>
+--- @author DemiAutomatic
+--- @method serialsOf
+--- @description Collects the serials of one weapon's items in a bag.
+--- @param bag {InventoryBag}
+--- @param name {string}
+--- @returns {table<string, boolean>}
 local function serialsOf(bag, name)
 	local serials = {}
 	for _, row in ipairs(bag.items) do
@@ -81,10 +83,15 @@ local function serialsOf(bag, name)
 	return serials
 end
 
--- ---------------------------------------------------------------------------
--- The holster, on the relay
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @event open77:weapons:completed
+--- @description Answers a pending holster once the target client has replied.
+--- @param playerId {integer}
+--- @param requestId {integer}
+--- @param operation {string}
+--- @param accepted {boolean}
+--- @param reason {string|nil}
+--- @param result {any}
 AddEventHandler('open77:weapons:completed', function(playerId, requestId, operation, accepted,
 	reason, result)
 	local key = tostring(requestId)
@@ -112,14 +119,18 @@ CreateThread(function()
 	end
 end)
 
--- ---------------------------------------------------------------------------
--- The commands
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {AdminParameter}
+--- @description Suggestion parameter for a holder: player, me or citizen id.
 local TARGET = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
 
---- The refusals that need no call, answered before a thread is started.
----@return integer|string|nil target, string|nil who, integer|nil playerId
+--- @author DemiAutomatic
+--- @method resolve
+--- @description Answers the refusals that need no export call.
+--- @param source {integer}
+--- @param raw {string}
+--- @param token {any}
+--- @returns {integer|string|nil, string|nil, integer|nil}
 local function resolve(source, raw, token)
 	local target, who, playerId, code = Inventory.Target(source, token)
 	if target == nil then
@@ -133,10 +144,19 @@ local function resolve(source, raw, token)
 	return target, who, playerId
 end
 
---- The weapon and its ammunition, both or neither. Coroutine only. The bag is read first so the
---- two are checked together -- CanCarry weighs one item at a time -- and so the weapon just added
---- can be told from a copy already there, by its serial, if the ammunition is then refused.
----@return boolean given
+--- @author DemiAutomatic
+--- @method giveWithAmmo
+--- @description Gives a weapon and its ammunition together, both or neither.
+--- @param source {integer}
+--- @param raw {string}
+--- @param event {string}
+--- @param target {integer|string}
+--- @param who {string}
+--- @param playerId {integer|nil}
+--- @param entry {InventoryItem}
+--- @param ammo {InventoryItem}
+--- @param count {integer}
+--- @returns {boolean}
 local function giveWithAmmo(source, raw, event, target, who, playerId, entry, ammo, count)
 	local both = locale('admin.inventory.pair', { label = entry.label, count = count,
 		ammo = ammo.label })
@@ -177,7 +197,6 @@ local function giveWithAmmo(source, raw, event, target, who, playerId, entry, am
 	added, addCode, addReason = Inventory.Call('AddItem', target, ammo.name, count)
 	if added then return true end
 
-	-- the inventory decides last: the weapon goes back out, so nothing is given
 	local after = Inventory.Bag(target)
 	local taken
 	for _, row in ipairs(after and after.items or {}) do
@@ -199,6 +218,9 @@ local function giveWithAmmo(source, raw, event, target, who, playerId, entry, am
 	return false
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.give
+--- @description Puts an empty weapon item in a bag, optionally with ammunition.
 Server.Command('opx77.admin.weapon.give', {
 	help = 'admin.help.giveWeapon',
 	params = { TARGET,
@@ -228,7 +250,6 @@ Server.Command('opx77.admin.weapon.give', {
 					{ label = entry.label })
 			end
 
-			-- empty: rounds come from ammunition items the player spends on it, never with the weapon
 			if count == 0 then
 				if not Inventory.Give(source, raw, event, target, who, playerId, entry.name, 1,
 					ammo and { ammo = 0 } or nil, entry.label) then
@@ -254,6 +275,9 @@ Server.Command('opx77.admin.weapon.give', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.giveammo
+--- @description Adds ammunition items, one full load when no count is typed.
 Server.Command('opx77.admin.weapon.giveammo', {
 	help = 'admin.help.giveAmmo',
 	params = { TARGET,
@@ -278,7 +302,6 @@ Server.Command('opx77.admin.weapon.giveammo', {
 				return Inventory.Fail(source, raw, event, playerId, who, ammoCode, Text.Clean(args[2], 48),
 					{ item = Text.Clean(args[2], 48), label = weapon and weapon.label })
 			end
-			-- one full load of that ammunition when no count is typed
 			local count = typed or ammo.ammoMax
 			if not Inventory.Give(source, raw, event, target, who, playerId, ammo.name, count, nil,
 				ammo.label) then
@@ -294,6 +317,9 @@ Server.Command('opx77.admin.weapon.giveammo', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.ammo
+--- @description Adds ammunition for each ammunition type the bag's weapons take.
 Server.Command('opx77.admin.weapon.ammo', {
 	help = 'admin.help.ammo',
 	params = { TARGET,
@@ -324,7 +350,6 @@ Server.Command('opx77.admin.weapon.ammo', {
 				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 			end
 
-			-- one ammunition type once, however many weapons of the bag it loads
 			local types, seen = {}, {}
 			for _, row in ipairs(bag.items) do
 				local entry = catalog.byName[row.name]
@@ -365,11 +390,13 @@ Server.Command('opx77.admin.weapon.ammo', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.remove
+--- @description Takes one weapon's items, or every weapon, out of a bag.
 Server.Command('opx77.admin.weapon.remove', {
 	help = 'admin.help.removeWeapon',
 	params = { TARGET, { name = 'weapon|all', help = 'admin.help.weaponOrAll' } },
 	handler = function(source, args, raw)
-		-- no default: taking every weapon is never what a forgotten argument meant
 		if Text.Clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
 		local all = tostring(args[2]):lower() == 'all'
 		local target, who, playerId = resolve(source, raw, args[1])
@@ -391,7 +418,6 @@ Server.Command('opx77.admin.weapon.remove', {
 				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 			end
 
-			-- by name and count, not by slot: a slot read a moment ago may hold something else now
 			local counts, order = {}, {}
 			for _, row in ipairs(bag.items) do
 				local entry = catalog.byName[row.name]
@@ -415,7 +441,6 @@ Server.Command('opx77.admin.weapon.remove', {
 			if removed == 0 then
 				return Inventory.Fail(source, raw, event, playerId, who, failure.code, failure.reason)
 			end
-			-- the inventory puts a drawn weapon away itself once its item has left the bag
 			audit(source, event, true, playerId, ('%d weapon(s) from %s%s'):format(removed, who,
 				failure and (', then ' .. tostring(failure.reason)) or ''))
 			if playerId and playerId ~= source then
@@ -426,6 +451,9 @@ Server.Command('opx77.admin.weapon.remove', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.holster
+--- @description Asks the target client to holster through the platform relay.
 Server.Command('opx77.admin.weapon.holster', {
 	help = 'admin.help.holster',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
@@ -433,7 +461,6 @@ Server.Command('opx77.admin.weapon.holster', {
 		if not available() then return refuse(source, raw, 'weapons_unavailable') end
 		local playerId, code = Server.Target(source, args[1])
 		if playerId == nil then return refuse(source, raw, code) end
-		-- asking an unincarnated client for its loadout is asking the menu puppet
 		local admitted, gateCode = Server.Admit(playerId)
 		if not admitted then
 			audit(source, 'admin.weapon.holster', false, playerId, gateCode)
@@ -448,6 +475,9 @@ Server.Command('opx77.admin.weapon.holster', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.weapon.read
+--- @description Lists a bag's weapon items and which one is drawn.
 Server.Command('opx77.admin.weapon.read', {
 	help = 'admin.help.loadout', params = { TARGET }, read = true,
 	handler = function(source, args, raw)
@@ -489,8 +519,10 @@ Server.Command('opx77.admin.weapon.read', {
 	end,
 })
 
---- Whether the relay the holster uses exists on this host.
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.WeaponsAvailable
+--- @description Whether the relay the holster uses exists on this host.
+--- @returns {boolean}
 function OpxAdmin.Server.WeaponsAvailable()
 	return available()
 end

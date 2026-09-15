@@ -1,6 +1,6 @@
---- Saved destinations, announcements, and the read commands: the roster, the server status and
---- the audit. Time and weather are not here: opx77_weather owns them, its commands are already
---- ACL-gated, and the menu drives those commands rather than standing up a second authority.
+--- @author DemiAutomatic
+--- @file server/world.lua
+--- @description Saved destinations, announcements, and the roster, status and audit reads.
 
 local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
@@ -9,20 +9,24 @@ local Text = OpxAdmin.Text
 local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
 local count = Server.Count
 
--- ---------------------------------------------------------------------------
--- Destinations
---
--- The configured list is the durable one. Destinations added in game live in Open77.state,
--- which the host carries across a reload of this resource and drops when it stops: a runtime
--- addition is a scratchpad, and /opx77.admin.self.pos is how a spot becomes a config row.
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Shape version of the destinations carried across a reload.
 local STATE_PROTOCOL = 1
 
---- name -> { name, label, x, y, z, heading, runtime }
+--- @author DemiAutomatic
+--- @type {table<string, AdminLocation>}
+--- @description Every destination by name, configured and added in game.
 local locations = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, AdminLocation>}
+--- @description Destinations added in game this run, by name.
 local runtime = {}
 
+--- @author DemiAutomatic
+--- @method seed
+--- @description Rebuilds the destination list from config, then the in-game additions.
 local function seed()
 	locations = {}
 	for position, row in ipairs(type(Config.LOCATIONS) == 'table' and Config.LOCATIONS or {}) do
@@ -39,16 +43,21 @@ local function seed()
 				z = z, heading = Text.Finite(row.HEADING) or 0.0, runtime = false }
 		end
 	end
-	-- an in-game addition under a configured name replaces it for this run
 	for name, row in pairs(runtime) do locations[name] = row end
 end
 
----@return boolean
+--- @author DemiAutomatic
+--- @method hasState
+--- @description Whether the host offers the reload state store.
+--- @returns {boolean}
 local function hasState()
 	return type(Open77.state) == 'table' and type(Open77.state.save) == 'function'
 		and type(Open77.state.load) == 'function'
 end
 
+--- @author DemiAutomatic
+--- @method save
+--- @description Hands the in-game destinations to the host reload store.
 local function save()
 	if not hasState() then return end
 	local list = {}
@@ -56,8 +65,9 @@ local function save()
 	pcall(Open77.state.save, { protocol = STATE_PROTOCOL, locations = list })
 end
 
---- Carried state is untrusted input: a reload may have changed this file, so a shape this
---- version does not know is refused whole rather than half-adopted.
+--- @author DemiAutomatic
+--- @method restore
+--- @description Adopts the destinations carried across a reload, when the shape matches.
 local function restore()
 	if not hasState() then return end
 	local read, carried = pcall(Open77.state.load)
@@ -78,8 +88,10 @@ end
 restore()
 seed()
 
---- Every destination, sorted by name, as the menu draws it.
----@return AdminLocation[]
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Locations
+--- @description Answers every destination, sorted by name, as the menu draws it.
+--- @returns {AdminLocation[]}
 function OpxAdmin.Server.Locations()
 	local list = {}
 	for _, row in pairs(locations) do list[#list + 1] = row end
@@ -87,6 +99,9 @@ function OpxAdmin.Server.Locations()
 	return list
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.send
+--- @description Places a player at a saved destination.
 Server.Command('opx77.admin.player.send', {
 	help = 'admin.help.send',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -108,6 +123,9 @@ Server.Command('opx77.admin.player.send', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.world.loc.add
+--- @description Saves where the operator stands as a destination until restart.
 Server.Command('opx77.admin.world.loc.add', {
 	help = 'admin.help.locAdd',
 	params = { { name = 'name', help = 'admin.help.locationName' },
@@ -129,6 +147,9 @@ Server.Command('opx77.admin.world.loc.add', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.world.loc.remove
+--- @description Forgets a destination that was added in game.
 Server.Command('opx77.admin.world.loc.remove', {
 	help = 'admin.help.locRemove', params = { { name = 'name', help = 'admin.help.locationName' } },
 	handler = function(source, args, raw)
@@ -143,6 +164,9 @@ Server.Command('opx77.admin.world.loc.remove', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.read.locations
+--- @description Lists every destination as a chat report.
 Server.Command('opx77.admin.read.locations', {
 	help = 'admin.help.readLocations', read = true,
 	handler = function(source, _, raw)
@@ -156,10 +180,9 @@ Server.Command('opx77.admin.read.locations', {
 	end,
 })
 
--- ---------------------------------------------------------------------------
--- Announcements
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @command /opx77.admin.world.announce
+--- @description Sends an announcement toast to every player, and a chat line.
 Server.Command('opx77.admin.world.announce', {
 	help = 'admin.help.announce', params = { { name = 'text', help = 'admin.help.announceText' } },
 	handler = function(source, args, raw)
@@ -195,17 +218,17 @@ Server.Command('opx77.admin.world.announce', {
 	end,
 })
 
--- ---------------------------------------------------------------------------
--- Reads
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Host clock when this file loaded, for the uptime.
 local startedAtMs = Server.NowMs()
 
---- One roster row as the server sees it. No character: the citizen id and name live in
---- opx77_core's VM, which nothing here can ask. The menu's record row runs opx77.where.
----@param playerId integer
----@param origin table|nil  the operator's position, for the distance
----@return AdminRosterRow|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.RosterRow
+--- @description Builds one roster row as the server sees the player.
+--- @param playerId {integer}
+--- @param origin {table|nil} The operator's position, for the distance.
+--- @returns {AdminRosterRow|nil}
 function OpxAdmin.Server.RosterRow(playerId, origin)
 	local name = Server.NameOf(playerId)
 	if name == nil then return nil end
@@ -226,8 +249,10 @@ function OpxAdmin.Server.RosterRow(playerId, origin)
 		bucket = position and position.bucket or 0, distance = distance }
 end
 
---- Every connected player id, sorted.
----@return integer[]
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.PlayerIds
+--- @description Answers every connected player id, sorted.
+--- @returns {integer[]}
 function OpxAdmin.Server.PlayerIds()
 	local read, players = pcall(Open77.players.all)
 	local ids = {}
@@ -239,6 +264,9 @@ function OpxAdmin.Server.PlayerIds()
 	return ids
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.read.players
+--- @description Lists every connected player with state, bucket and distance.
 Server.Command('opx77.admin.read.players', {
 	help = 'admin.help.readPlayers', read = true,
 	handler = function(source, _, raw)
@@ -258,12 +286,16 @@ Server.Command('opx77.admin.read.players', {
 	end,
 })
 
---- The OPX//77 set and the platform packages this one leans on or collides with. There is no
---- way to enumerate resources: GetResourceState answers only for a name already known.
+--- @author DemiAutomatic
+--- @type {string[]}
+--- @description Resources whose state the status report names.
 local WATCHED = { 'opx77_core', 'opx77_menu', 'opx77_input', 'opx77_notify', 'opx77_chat',
 	'opx77_appearance', 'opx77_weather', OpxAdmin.Inventory.RESOURCE,
 	'open77_weapons', 'open77_admin' }
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.read.status
+--- @description Reports counts, uptime and the state of related resources.
 Server.Command('opx77.admin.read.status', {
 	help = 'admin.help.readStatus', read = true,
 	handler = function(source, _, raw)
@@ -288,6 +320,9 @@ Server.Command('opx77.admin.read.status', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.read.audit
+--- @description Lists the latest staff actions of this uptime.
 Server.Command('opx77.admin.read.audit', {
 	help = 'admin.help.readAudit',
 	params = { { name = 'count', help = 'admin.help.auditCount', optional = true } }, read = true,

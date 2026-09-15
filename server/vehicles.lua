@@ -1,6 +1,6 @@
---- Vehicle commands: spawn from the catalogue, deliver to a player, repair, flag, remove, and
---- clean up. The host scopes every mutation to the resource that created the vehicle, so this
---- file can only ever touch what it spawned, and says so rather than answering "0 removed".
+--- @author DemiAutomatic
+--- @file server/vehicles.lua
+--- @description Vehicle commands: spawn, deliver, repair, flag, remove and clean up.
 
 local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
@@ -12,29 +12,41 @@ local count = Server.Count
 
 local Settings = Config.VEHICLES or {}
 
---- vehicleId -> { owner, record, label, atMs }. What this resource spawned and for whom.
+--- @author DemiAutomatic
+--- @type {table<integer, table>}
+--- @description Vehicles this resource spawned, by id, with owner and record.
 local spawned = {}
 
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Repair scopes the host accepts.
 local SCOPES = { glass = true, body = true, lights = true, tires = true, visual = true,
 	mechanical = true, full = true }
 
----@return boolean
+--- @author DemiAutomatic
+--- @method available
+--- @description Whether this host exposes the server vehicle bindings.
+--- @returns {boolean}
 local function available()
 	return type(Open77.vehicles) == 'table' and type(Open77.vehicles.create) == 'function'
 end
 
---- The host's snapshot of one vehicle, or nil. The server shape carries x, y, z and bucket at
---- the top level; occupant ids may arrive as strings.
----@param vehicleId integer
----@return table|nil
+--- @author DemiAutomatic
+--- @method snapshotOf
+--- @description The host's live snapshot of one vehicle, or nil.
+--- @param vehicleId {integer}
+--- @returns {table|nil}
 local function snapshotOf(vehicleId)
 	local read, snapshot = pcall(Open77.vehicles.get, vehicleId)
 	if not read or type(snapshot) ~= 'table' then return nil end
 	return snapshot
 end
 
----@param snapshot table
----@return integer[]
+--- @author DemiAutomatic
+--- @method occupantsOf
+--- @description The player ids aboard a vehicle snapshot, as numbers.
+--- @param snapshot {table}
+--- @returns {integer[]}
 local function occupantsOf(snapshot)
 	local list = {}
 	for _, occupant in ipairs(type(snapshot.occupants) == 'table' and snapshot.occupants or {}) do
@@ -44,15 +56,20 @@ local function occupantsOf(snapshot)
 	return list
 end
 
---- Forget ledger rows whose vehicle the host no longer knows, whoever removed it.
+--- @author DemiAutomatic
+--- @method prune
+--- @description Forgets spawned rows whose vehicle the host no longer knows.
 local function prune()
 	for vehicleId in pairs(spawned) do
 		if snapshotOf(vehicleId) == nil then spawned[vehicleId] = nil end
 	end
 end
 
----@param owner integer
----@return integer
+--- @author DemiAutomatic
+--- @method ownedBy
+--- @description How many spawned vehicles count against one player's cap.
+--- @param owner {integer}
+--- @returns {integer}
 local function ownedBy(owner)
 	local total = 0
 	for _, entry in pairs(spawned) do
@@ -61,11 +78,11 @@ local function ownedBy(owner)
 	return total
 end
 
---- The vehicle a `near` token means for this operator: the one they sit in, otherwise the
---- nearest in their bucket within NEAR_RADIUS. Answered from the live snapshot, never from a
---- list a menu drew seconds ago.
----@param source integer
----@return integer|nil vehicleId, string|nil code
+--- @author DemiAutomatic
+--- @method nearest
+--- @description The vehicle the operator sits in, else the nearest in range.
+--- @param source {integer}
+--- @returns {integer|nil, string|nil}
 local function nearest(source)
 	if source <= 0 then return nil, 'console_has_no_player' end
 	local origin = Server.PositionOf(source)
@@ -94,8 +111,13 @@ local function nearest(source)
 	return best, nil
 end
 
---- `near` or a vehicle id, resolved, or the refusal answered.
----@return integer|nil
+--- @author DemiAutomatic
+--- @method vehicleOf
+--- @description Resolves near or a vehicle id, or answers the refusal.
+--- @param source {integer}
+--- @param raw {string}
+--- @param token {any}
+--- @returns {integer|nil}
 local function vehicleOf(source, raw, token)
 	if type(token) == 'string' and token:lower() == 'near' then
 		local vehicleId, code = nearest(source)
@@ -110,14 +132,15 @@ local function vehicleOf(source, raw, token)
 	return vehicleId
 end
 
---- Spawn one catalogue row beside a player.
----@param source integer   who asked
----@param raw string
----@param owner integer    who it is for, and whose cap it counts against
----@param entry CatalogEntry
----@param event string
+--- @author DemiAutomatic
+--- @method spawnFor
+--- @description Spawns one catalogue row beside a player, within their cap.
+--- @param source {integer} Who asked.
+--- @param raw {string}
+--- @param owner {integer} Whose cap it counts against.
+--- @param entry {CatalogEntry}
+--- @param event {string}
 local function spawnFor(source, raw, owner, entry, event)
-	-- a vehicle dropped beside a player still in the menu world lands beside nobody
 	local admitted, code = Server.Admit(owner)
 	if not admitted then
 		audit(source, event, false, owner, code)
@@ -154,6 +177,9 @@ local function spawnFor(source, raw, owner, entry, event)
 		{ vehicle = vehicleId, label = entry.label, id = owner })
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.spawn
+--- @description Spawns a catalogue vehicle beside the operator.
 Server.Command('opx77.admin.vehicle.spawn', {
 	help = 'admin.help.spawn', params = { { name = 'vehicle', help = 'admin.help.vehicleName' } },
 	inGame = true,
@@ -165,6 +191,9 @@ Server.Command('opx77.admin.vehicle.spawn', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.give
+--- @description Spawns a catalogue vehicle beside another player.
 Server.Command('opx77.admin.vehicle.give', {
 	help = 'admin.help.giveVehicle',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -179,10 +208,11 @@ Server.Command('opx77.admin.vehicle.give', {
 	end,
 })
 
---- Remove one vehicle. Refused with somebody aboard: removing an occupied vehicle drops the
---- occupants wherever it was, and the case that matters is the one where somebody climbed in
---- after the menu was drawn.
----@return boolean removed, string|nil code
+--- @author DemiAutomatic
+--- @method removeOne
+--- @description Removes one empty vehicle, refusing when somebody is aboard.
+--- @param vehicleId {integer}
+--- @returns {boolean, string|nil}
 local function removeOne(vehicleId)
 	local snapshot = snapshotOf(vehicleId)
 	if snapshot == nil then
@@ -196,6 +226,9 @@ local function removeOne(vehicleId)
 	return true
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.remove
+--- @description Removes one vehicle, the nearest, or every one the operator owns.
 Server.Command('opx77.admin.vehicle.remove', {
 	help = 'admin.help.removeVehicle',
 	params = { { name = 'vehicleId|near|mine', help = 'admin.help.removeTarget', optional = true } },
@@ -225,6 +258,9 @@ Server.Command('opx77.admin.vehicle.remove', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.cleanup
+--- @description Removes every empty vehicle this resource spawned.
 Server.Command('opx77.admin.vehicle.cleanup', {
 	help = 'admin.help.cleanup',
 	handler = function(source, _, raw)
@@ -238,6 +274,9 @@ Server.Command('opx77.admin.vehicle.cleanup', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.repair
+--- @description Repairs a vehicle by scope, refusing unsafe scopes with occupants.
 Server.Command('opx77.admin.vehicle.repair', {
 	help = 'admin.help.repair',
 	params = { { name = 'vehicleId|near', help = 'admin.help.repairTarget', optional = true },
@@ -250,7 +289,6 @@ Server.Command('opx77.admin.vehicle.repair', {
 		if vehicleId == nil then return end
 		local snapshot = snapshotOf(vehicleId)
 		local safe = Settings.OCCUPIED_REPAIRS or {}
-		-- read at the moment of the call: `full` and `mechanical` may respawn the vehicle
 		if snapshot and #occupantsOf(snapshot) > 0 and safe[scope] ~= true then
 			return refuse(source, raw, 'unsafe_repair', { scope = scope })
 		end
@@ -262,9 +300,11 @@ Server.Command('opx77.admin.vehicle.repair', {
 	end,
 })
 
---- The flags an operator may toggle, as configured, validated against the host's masks.
----@param name any
----@return integer|nil mask, string|nil flag
+--- @author DemiAutomatic
+--- @method maskOf
+--- @description A configured flag's host mask and exact name, or nil.
+--- @param name {any}
+--- @returns {integer|nil, string|nil}
 local function maskOf(name)
 	if type(name) ~= 'string' then return nil end
 	local masks = Open77.vehicles.flags
@@ -277,6 +317,9 @@ local function maskOf(name)
 	return nil
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.flag
+--- @description Switches one configured flag on a vehicle, toggling by default.
 Server.Command('opx77.admin.vehicle.flag', {
 	help = 'admin.help.flag',
 	params = { { name = 'vehicleId|near', help = 'admin.help.vehicleTarget' },
@@ -296,7 +339,6 @@ Server.Command('opx77.admin.vehicle.flag', {
 		if vehicleId == nil then return end
 		local snapshot = snapshotOf(vehicleId)
 		if snapshot == nil then return refuse(source, raw, 'no_vehicle') end
-		-- read-modify-write on the live bits: the patch replaces the whole set
 		local bits = Text.Integer(snapshot.flags) or 0
 		if wanted == nil then wanted = (bits & mask) == 0 end
 		local nextBits = wanted and (bits | mask) or (bits & ~mask)
@@ -310,8 +352,10 @@ Server.Command('opx77.admin.vehicle.flag', {
 	end,
 })
 
---- For the status readout.
----@return integer
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.SpawnedCount
+--- @description How many spawned vehicles still exist, for the status readout.
+--- @returns {integer}
 function OpxAdmin.Server.SpawnedCount()
 	prune()
 	local total = 0

@@ -1,15 +1,6 @@
---- The bridge to opx77_inventory, and the staff commands on a character's bag.
----
---- opx77_inventory is the only authority on what a character carries, weapons included. Its
---- server exports take a player id or a citizen id, check every argument again, and write through
---- opx77_core; this resource is listed in its EXPORTS.WRITERS. So a staff action on a bag is a
---- command of this resource, gated by the host on `command.<name>` like every other one, whose
---- handler calls those exports and answers in this resource's own toasts and reports. Opening a
---- bag on a staff screen and listing an item's holders have no export: the menu drives the
---- inventory's own commands for those (LINKS), as it drives opx77_core's for a job or money.
----
---- Every call here awaits, so it runs in a thread of its own: a yield is not safe under the pcall
---- a command handler runs in.
+--- @author DemiAutomatic
+--- @file server/inventory.lua
+--- @description The bridge to opx77_inventory, and the staff bag commands.
 
 local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
@@ -17,18 +8,41 @@ local Text = OpxAdmin.Text
 
 local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The INVENTORY section of the configuration, or an empty table.
 local Settings = type(Config.INVENTORY) == 'table' and Config.INVENTORY or {}
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Name of the inventory resource whose exports are called.
 local RESOURCE = type(Settings.RESOURCE) == 'string' and Settings.RESOURCE:match('^[%w_%-%.]+$')
 	and Settings.RESOURCE or 'opx77_inventory'
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Largest count a give or a removal accepts.
 local MAX_COUNT = math.max(1, math.floor(Server.Setting(Settings.MAX_COUNT, 10000)))
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The inventory bridge other server files call.
 OpxAdmin.Inventory = {}
 local Inventory = OpxAdmin.Inventory
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Name of the inventory resource, for the status readout.
 Inventory.RESOURCE = RESOURCE
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Largest count a give or a removal accepts.
 Inventory.MAX_COUNT = MAX_COUNT
 
---- Host reasons that mean the inventory is not there to answer, rather than that it refused.
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Host reasons meaning the inventory is absent, not refusing.
 local UNAVAILABLE = {
 	export_not_found = true,
 	export_resource_unavailable = true,
@@ -40,8 +54,9 @@ local UNAVAILABLE = {
 	not_running = true,
 }
 
---- The inventory's refusal codes this resource answers in its own words. Any other one is
---- `refused`, with the inventory's code as the reason.
+--- @author DemiAutomatic
+--- @type {table<string, string>}
+--- @description Inventory refusal codes answered in this resource's own words.
 local CODES = {
 	caller_denied = 'inventory_denied',
 	no_room = 'bag_no_room',
@@ -55,26 +70,28 @@ local CODES = {
 	bad_count = 'bad_count',
 }
 
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Running
+--- @description Whether the host reports the inventory resource as running.
+--- @returns {boolean}
 function OpxAdmin.Inventory.Running()
 	local read, state = pcall(GetResourceState, RESOURCE)
 	return read and state == 'running'
 end
 
---- One call to an inventory server export. Coroutine only. Answers the result, or nil with this
---- resource's refusal code and the raw reason for the audit.
----@param name string
----@return table|nil result, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Call
+--- @description Calls one inventory server export and awaits it, coroutine only.
+--- @param name {string}
+--- @returns {table|nil, string|nil, string|nil}
 function OpxAdmin.Inventory.Call(name, ...)
 	if not Inventory.Running() then return nil, 'inventory_unavailable', 'not_running' end
 	local exported = Open77.exports
 	if type(exported) ~= 'table' or type(exported.call) ~= 'function' then
 		return nil, 'inventory_unavailable', 'no_exports'
 	end
-	-- the dispatch only: `await` below yields, and a yield is not safe under a pcall
 	local dispatched, promise, reason = pcall(exported.call, RESOURCE, name, ...)
 	if not dispatched then return nil, 'refused', Text.Clean(promise, 64) end
-	-- tested for presence, never for its Lua type: the host's promise is userdata
 	if not promise then
 		reason = tostring(reason or 'not_dispatched')
 		return nil, UNAVAILABLE[reason] and 'inventory_unavailable' or 'refused', reason
@@ -93,22 +110,21 @@ function OpxAdmin.Inventory.Call(name, ...)
 	return result, nil, nil
 end
 
--- ---------------------------------------------------------------------------
--- Targets
--- ---------------------------------------------------------------------------
-
---- `name [id]` for a connected player, the citizen id otherwise.
----@param playerId integer
----@return string
+--- @author DemiAutomatic
+--- @method playerLabel
+--- @description Formats a connected player as name and id in brackets.
+--- @param playerId {integer}
+--- @returns {string}
 local function playerLabel(playerId)
 	return ('%s [%d]'):format(Server.NameOf(playerId) or '?', playerId)
 end
 
---- What was typed for a bag: `me`, a connected player id, or a citizen id, which also reaches a
---- character that is not in the world. The inventory resolves and checks the citizen id itself.
----@param source integer
----@param token any
----@return integer|string|nil target, string|nil who, integer|nil playerId, string|nil code
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Target
+--- @description Resolves a typed holder: me, a player id or a citizen id.
+--- @param source {integer}
+--- @param token {any}
+--- @returns {integer|string|nil, string|nil, integer|nil, string|nil}
 function OpxAdmin.Inventory.Target(source, token)
 	if token == nil then return nil, nil, nil, 'no_target' end
 	local word = tostring(token)
@@ -127,9 +143,11 @@ function OpxAdmin.Inventory.Target(source, token)
 	return word, word, nil, nil
 end
 
---- A typed count: 1 when omitted, otherwise a whole number in 1..MAX_COUNT.
----@param token any
----@return integer|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Count
+--- @description Parses a typed count: one when omitted, else 1..MAX_COUNT.
+--- @param token {any}
+--- @returns {integer|nil}
 function OpxAdmin.Inventory.Count(token)
 	if token == nil then return 1 end
 	local count = Text.Integer(token)
@@ -137,24 +155,40 @@ function OpxAdmin.Inventory.Count(token)
 	return count
 end
 
--- ---------------------------------------------------------------------------
--- The catalogue
--- ---------------------------------------------------------------------------
-
---- The inventory's catalogue, read through GetItems and kept until the inventory starts or stops
---- again. It is data/items.lua and data/weapons.lua of that resource and changes only with it.
----@type { items: table[], byName: table<string, table>, atMs: integer }|nil
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description The inventory catalogue as last read through GetItems.
 local cache
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Longest a cached catalogue is reused, in milliseconds.
 local CACHE_MS = 300000
 
+--- @author DemiAutomatic
+--- @method forget
+--- @description Drops the cached catalogue when the inventory starts or stops.
+--- @param name {string}
 local function forget(name)
 	if name == RESOURCE then cache = nil end
 end
+
+--- @author DemiAutomatic
+--- @event open77:resource:started
+--- @description Forgets the cached catalogue when the inventory starts.
+--- @param name {string}
 AddEventHandler('open77:resource:started', forget)
+
+--- @author DemiAutomatic
+--- @event open77:resource:stopped
+--- @description Forgets the cached catalogue when the inventory stops.
+--- @param name {string}
 AddEventHandler('open77:resource:stopped', forget)
 
---- Coroutine only.
----@return { items: table[], byName: table<string, table> }|nil, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Catalog
+--- @description Reads the inventory catalogue page by page, cached, coroutine only.
+--- @returns {InventoryCatalog|nil, string|nil, string|nil}
 function OpxAdmin.Inventory.Catalog()
 	if cache and Server.NowMs() - cache.atMs < CACHE_MS and Inventory.Running() then return cache end
 	local items, byName, offset = {}, {}, 0
@@ -189,19 +223,23 @@ function OpxAdmin.Inventory.Catalog()
 	return cache, nil, nil
 end
 
---- A catalogue item by its exact name, without case.
----@param catalog table
----@param token any
----@return table|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Item
+--- @description Finds a catalogue item by its exact name, ignoring case.
+--- @param catalog {InventoryCatalog}
+--- @param token {any}
+--- @returns {InventoryItem|nil}
 function OpxAdmin.Inventory.Item(catalog, token)
 	if type(token) ~= 'string' then return nil end
 	return catalog.byName[token:lower()]
 end
 
---- A weapon item by its name, or by the name without its `weapon_` prefix.
----@param catalog table
----@param token any
----@return table|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Weapon
+--- @description Finds a weapon item by name, with or without its prefix.
+--- @param catalog {InventoryCatalog}
+--- @param token {any}
+--- @returns {InventoryItem|nil}
 function OpxAdmin.Inventory.Weapon(catalog, token)
 	if type(token) ~= 'string' then return nil end
 	local lowered = token:lower()
@@ -210,22 +248,22 @@ function OpxAdmin.Inventory.Weapon(catalog, token)
 	return entry
 end
 
---- A label for a stored item the catalogue may no longer carry.
----@param catalog table|nil
----@param name string
----@return string
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.LabelOf
+--- @description Labels a stored item, falling back to its name.
+--- @param catalog {InventoryCatalog|nil}
+--- @param name {string}
+--- @returns {string}
 function OpxAdmin.Inventory.LabelOf(catalog, name)
 	local entry = catalog and catalog.byName[name]
 	return entry and entry.label or name
 end
 
--- ---------------------------------------------------------------------------
--- A bag
--- ---------------------------------------------------------------------------
-
---- Every stack of a bag, page by page, in slot order. Coroutine only.
----@param target integer|string
----@return table|nil bag, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Bag
+--- @description Reads every stack of a bag, page by page, coroutine only.
+--- @param target {integer|string}
+--- @returns {InventoryBag|nil, string|nil, string|nil}
 function OpxAdmin.Inventory.Bag(target)
 	local bag, offset = nil, 0
 	for _ = 1, 64 do
@@ -255,15 +293,17 @@ function OpxAdmin.Inventory.Bag(target)
 	return bag, nil, nil
 end
 
---- A refusal, audited. `params` may carry the words the refusal is answered with.
----@param source integer
----@param raw string
----@param event string
----@param playerId integer|nil
----@param who string|nil
----@param code string
----@param reason string|nil
----@param params table|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Fail
+--- @description Audits a refused bag action and answers the refusal.
+--- @param source {integer}
+--- @param raw {string}
+--- @param event {string}
+--- @param playerId {integer|nil}
+--- @param who {string|nil}
+--- @param code {string}
+--- @param reason {string|nil}
+--- @param params {table|nil}
 function OpxAdmin.Inventory.Fail(source, raw, event, playerId, who, code, reason, params)
 	audit(source, event, false, playerId, ('%s: %s'):format(who or '-', tostring(reason or code)))
 	params = params or {}
@@ -273,9 +313,14 @@ function OpxAdmin.Inventory.Fail(source, raw, event, playerId, who, code, reason
 	refuse(source, raw, code, params)
 end
 
---- CanCarry. Coroutine only. True when the bag takes those items; otherwise false, this
---- resource's refusal code and the raw reason.
----@return boolean carried, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Carry
+--- @description Asks CanCarry whether the bag takes those items, coroutine only.
+--- @param target {integer|string}
+--- @param name {string}
+--- @param count {integer}
+--- @param metadata {table|nil}
+--- @returns {boolean, string|nil, string|nil}
 function OpxAdmin.Inventory.Carry(target, name, count, metadata)
 	local carry, code, reason = Inventory.Call('CanCarry', target, name, count, metadata)
 	if not carry then return false, code, reason end
@@ -286,8 +331,14 @@ function OpxAdmin.Inventory.Carry(target, name, count, metadata)
 	return true, nil, nil
 end
 
---- CanCarry, then AddItem, answering nothing. Coroutine only.
----@return boolean added, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Add
+--- @description Runs CanCarry then AddItem without answering, coroutine only.
+--- @param target {integer|string}
+--- @param name {string}
+--- @param count {integer}
+--- @param metadata {table|nil}
+--- @returns {boolean, string|nil, string|nil}
 function OpxAdmin.Inventory.Add(target, name, count, metadata)
 	local carried, code, reason = Inventory.Carry(target, name, count, metadata)
 	if not carried then return false, code, reason end
@@ -296,9 +347,20 @@ function OpxAdmin.Inventory.Add(target, name, count, metadata)
 	return true, nil, nil
 end
 
---- CanCarry, then AddItem. Coroutine only. True once the items are in the bag; otherwise the
---- refusal has been answered and audited.
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Inventory.Give
+--- @description Adds items to a bag, answering and auditing a refusal.
+--- @param source {integer}
+--- @param raw {string}
+--- @param event {string}
+--- @param target {integer|string}
+--- @param who {string}
+--- @param playerId {integer|nil}
+--- @param name {string}
+--- @param count {integer}
+--- @param metadata {table|nil}
+--- @param label {string}
+--- @returns {boolean}
 function OpxAdmin.Inventory.Give(source, raw, event, target, who, playerId, name, count, metadata, label)
 	local added, code, reason = Inventory.Add(target, name, count, metadata)
 	if not added then
@@ -308,16 +370,28 @@ function OpxAdmin.Inventory.Give(source, raw, event, target, who, playerId, name
 	return true
 end
 
--- ---------------------------------------------------------------------------
--- The commands
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {AdminParameter}
+--- @description Suggestion parameter for a holder: player, me or citizen id.
 local TARGET = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
+
+--- @author DemiAutomatic
+--- @type {AdminParameter}
+--- @description Suggestion parameter for an item name.
 local ITEM = { name = 'item', help = 'admin.help.itemName' }
+
+--- @author DemiAutomatic
+--- @type {AdminParameter}
+--- @description Suggestion parameter for an optional item count.
 local COUNT = { name = 'count', help = 'admin.help.count', optional = true }
 
---- The refusals that need no call, answered before a thread is started.
----@return integer|string|nil target, string|nil who, integer|nil playerId
+--- @author DemiAutomatic
+--- @method resolve
+--- @description Answers the refusals that need no export call.
+--- @param source {integer}
+--- @param raw {string}
+--- @param token {any}
+--- @returns {integer|string|nil, string|nil, integer|nil}
 local function resolve(source, raw, token)
 	local target, who, playerId, code = Inventory.Target(source, token)
 	if target == nil then
@@ -331,8 +405,11 @@ local function resolve(source, raw, token)
 	return target, who, playerId
 end
 
----@param metadata table|nil
----@return string
+--- @author DemiAutomatic
+--- @method extraOf
+--- @description Formats a stack's rounds and serial for a report row.
+--- @param metadata {table|nil}
+--- @returns {string}
 local function extraOf(metadata)
 	if type(metadata) ~= 'table' then return '' end
 	local parts = {}
@@ -343,12 +420,18 @@ local function extraOf(metadata)
 	return #parts > 0 and ('  ' .. table.concat(parts, '  ')) or ''
 end
 
----@param grams integer
----@return string
+--- @author DemiAutomatic
+--- @method kilograms
+--- @description Formats grams as kilograms with one decimal.
+--- @param grams {integer}
+--- @returns {string}
 local function kilograms(grams)
 	return ('%.1f'):format(grams / 1000)
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.inventory.view
+--- @description Lists every stack of a bag as a chat report.
 Server.Command('opx77.admin.inventory.view', {
 	help = 'admin.help.invView', params = { TARGET }, read = true,
 	handler = function(source, args, raw)
@@ -371,13 +454,15 @@ Server.Command('opx77.admin.inventory.view', {
 				})
 			end
 			if #bag.items == 0 then lines[#lines + 1] = locale('admin.inventory.empty') end
-			-- somebody's belongings were read: that is worth a line, as the inventory's own search is
 			audit(source, 'admin.inventory.view', true, playerId, bag.citizenId)
 			answer(source, raw, true, 'admin.text.lines', { lines = table.concat(lines, '\n') })
 		end)
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.inventory.give
+--- @description Adds catalogue items to a bag.
 Server.Command('opx77.admin.inventory.give', {
 	help = 'admin.help.invGive', params = { TARGET, ITEM, COUNT },
 	handler = function(source, args, raw)
@@ -411,10 +496,12 @@ Server.Command('opx77.admin.inventory.give', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.inventory.remove
+--- @description Takes items out of a bag by name and count.
 Server.Command('opx77.admin.inventory.remove', {
 	help = 'admin.help.invRemove', params = { TARGET, ITEM, COUNT },
 	handler = function(source, args, raw)
-		-- not only catalogue names: an item taken out of the catalogue stays in bags until removed
 		local name = type(args[2]) == 'string' and args[2]:lower() or nil
 		if name == nil or #name > 48 or not name:match('^[%w_%-%.]+$') then
 			return refuse(source, raw, 'unknown_item', { item = Text.Clean(args[2], 48) or '?' })
@@ -441,6 +528,9 @@ Server.Command('opx77.admin.inventory.remove', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.inventory.clear
+--- @description Empties every stack out of a bag.
 Server.Command('opx77.admin.inventory.clear', {
 	help = 'admin.help.invClear', params = { TARGET },
 	handler = function(source, args, raw)
@@ -461,7 +551,6 @@ Server.Command('opx77.admin.inventory.clear', {
 	end,
 })
 
---- In a thread, not at file scope: a resource listed after this one is not running yet here.
 CreateThread(function()
 	Wait(5000)
 	if not Inventory.Running() then

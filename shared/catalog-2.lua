@@ -1,4 +1,5 @@
---- A part of the vehicle index: shared/catalog.lua says why data/vehicles.lua is indexed over
---- several files. Listed in open77.lua right after the file before it.
+--- @author DemiAutomatic
+--- @file shared/catalog-2.lua
+--- @description Indexes one part of the vehicle rows at load.
 
 OpxAdmin.Catalog.IndexVehicles(OpxAdmin.Catalog.PART)

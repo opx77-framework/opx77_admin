@@ -1,5 +1,6 @@
---- Commands that act on a body or a session: the operator's own, somebody else's, and the two
---- moderation commands. Every one of them is restricted; see server/main.lua.
+--- @author DemiAutomatic
+--- @file server/players.lua
+--- @description Commands acting on a body or a session: self, players, moderation.
 
 local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
@@ -8,18 +9,32 @@ local Text = OpxAdmin.Text
 local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
 local count = Server.Count
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description This resource's name, which staff kills are attributed to.
 local RESOURCE = GetCurrentResourceName()
 
---- Resolve the typed target, or answer why not.
----@return integer|nil
+--- @author DemiAutomatic
+--- @method targetOf
+--- @description Resolves the typed target, or answers why not.
+--- @param source {integer}
+--- @param raw {string}
+--- @param token {any}
+--- @returns {integer|nil}
 local function targetOf(source, raw, token)
 	local playerId, code = Server.Target(source, token)
 	if playerId == nil then refuse(source, raw, code) end
 	return playerId
 end
 
---- The gate, answered and audited when it is closed.
----@return boolean
+--- @author DemiAutomatic
+--- @method admitted
+--- @description Checks the readiness gate, answering and auditing a closed one.
+--- @param source {integer}
+--- @param raw {string}
+--- @param playerId {integer}
+--- @param event {string}
+--- @returns {boolean}
 local function admitted(source, raw, playerId, event)
 	local ok, code = Server.Admit(playerId)
 	if ok then return true end
@@ -28,55 +43,75 @@ local function admitted(source, raw, playerId, event)
 	return false
 end
 
---- A native mutator answered `false, reason`: tell the operator, keep the reason in the audit.
----@return false
+--- @author DemiAutomatic
+--- @method nativeRefused
+--- @description Answers a refused native mutator and keeps its reason in the audit.
+--- @param source {integer}
+--- @param raw {string}
+--- @param event {string}
+--- @param playerId {integer}
+--- @param reason {any}
+--- @returns {boolean}
 local function nativeRefused(source, raw, event, playerId, reason)
 	refuse(source, raw, 'refused', { reason = tostring(reason) })
 	audit(source, event, false, playerId, 'refused: ' .. tostring(reason))
 	return false
 end
 
---- The three words that make a point, or nil.
----@return { x: number, y: number, z: number }|nil
+--- @author DemiAutomatic
+--- @method pointOf
+--- @description The three typed words as a point within a million, or nil.
+--- @param x {any}
+--- @param y {any}
+--- @param z {any}
+--- @returns {table|nil}
 local function pointOf(x, y, z)
 	x, y, z = Text.Finite(x), Text.Finite(y), Text.Finite(z)
 	if x == nil or y == nil or z == nil then return nil end
-	-- the world is a few kilometres across; past a million is a typo, not a destination
 	if math.abs(x) > 1e6 or math.abs(y) > 1e6 or math.abs(z) > 1e6 then return nil end
 	return { x = x, y = y, z = z }
 end
 
----@return number maximum, table|nil health
+--- @author DemiAutomatic
+--- @method healthOf
+--- @description A player's maximum health in absolute points, and the raw reading.
+--- @param playerId {integer}
+--- @returns {number, table|nil}
 local function healthOf(playerId)
 	local read, health = pcall(Open77.players.getHealth, playerId)
 	if not read or type(health) ~= 'table' then return 100.0, nil end
 	local maximum = Text.Finite(health.maxHealth)
-	-- getHealth answers ABSOLUTE points; revive and respawn take a FRACTION. Never mix the two.
 	if maximum == nil or maximum <= 0 then maximum = 100.0 end
 	return maximum, health
 end
 
--- ---------------------------------------------------------------------------
--- Travel: noclip and map travel
---
--- Both are client capabilities. The ACL decides here; the client half applies it through its
--- own `player.travel` grant. This is not what stops a patched client flying -- nothing on the
--- server can -- it is what keeps the switch in staff hands on an honest one.
--- ---------------------------------------------------------------------------
-
---- playerId -> the command name that switched it on, so a revoked grant switches it off.
+--- @author DemiAutomatic
+--- @type {table<integer, string>, table<integer, string>}
+--- @description Command name that switched noclip and map travel on, per player.
 local noclip, mapPick = {}, {}
+
+--- @author DemiAutomatic
+--- @type {table<integer, number>}
+--- @description Noclip speed a player chose, so switching on keeps it.
 local speedChosen = {}
 
----@param playerId integer
----@param action string  noclip | speed | mapPick | copy
+--- @author DemiAutomatic
+--- @method travel
+--- @description Sends one travel instruction to a player's client half.
+--- @param playerId {integer}
+--- @param action {string} noclip, speed, mapPick or copy.
+--- @param value {any}
+--- @param detail {any}
 local function travel(playerId, action, value, detail)
 	TriggerClientEvent('opx77_admin:travel', playerId, action, value, detail)
 end
 
----@param playerId integer
----@param on boolean
----@param grant string|nil
+--- @author DemiAutomatic
+--- @method setNoclip
+--- @description Switches a player's noclip, sending the default speed the first time.
+--- @param playerId {integer}
+--- @param on {boolean}
+--- @param grant {string|nil} The command whose grant keeps it on.
 local function setNoclip(playerId, on, grant)
 	noclip[playerId] = on and grant or nil
 	travel(playerId, 'noclip', on == true)
@@ -85,6 +120,9 @@ local function setNoclip(playerId, on, grant)
 	end
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.noclip
+--- @description Switches noclip for the operator, toggling when no word is typed.
 Server.Command('opx77.admin.self.noclip', {
 	help = 'admin.help.noclip',
 	params = { { name = 'on|off', help = 'admin.help.toggle', optional = true } },
@@ -99,6 +137,9 @@ Server.Command('opx77.admin.self.noclip', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.speed
+--- @description Sets the operator's noclip speed, 0.1 to 500 metres a second.
 Server.Command('opx77.admin.self.speed', {
 	help = 'admin.help.speed', params = { { name = 'm/s', help = 'admin.help.speedValue' } },
 	inGame = true,
@@ -114,6 +155,9 @@ Server.Command('opx77.admin.self.speed', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.maptravel
+--- @description Arms map travel, or jumps to the point a double-click sends.
 Server.Command('opx77.admin.self.maptravel', {
 	help = 'admin.help.maptravel',
 	params = { { name = 'on|off|x', help = 'admin.help.maptravelValue', optional = true },
@@ -122,8 +166,6 @@ Server.Command('opx77.admin.self.maptravel', {
 	inGame = true,
 	handler = function(source, args, raw)
 		if count(args) == 3 then
-			-- the double click: the client sends the point back through this same command, so the
-			-- ACL is resolved again on every jump rather than once when the gesture was armed
 			local point = pointOf(args[1], args[2], args[3])
 			if point == nil then return refuse(source, raw, 'bad_coordinates') end
 			local placed, code, reason = Server.Place(source, point, 0.0, nil, 'maptravel')
@@ -146,8 +188,6 @@ Server.Command('opx77.admin.self.maptravel', {
 	end,
 })
 
---- Switch a revoked grant's travel mode off. Rechecked on a timer because a grant can be
---- removed with acl.reload while the mode is on, and no event says so.
 CreateThread(function()
 	while true do
 		Wait(2000)
@@ -170,30 +210,37 @@ CreateThread(function()
 	end
 end)
 
+--- @author DemiAutomatic
+--- @event onPlayerDisconnected
+--- @description Forgets a departing player's travel switches and chosen speed.
+--- @param playerId {integer|string}
 AddEventHandler('onPlayerDisconnected', function(playerId)
 	local player = tonumber(playerId) or 0
-	-- a recycled id must not inherit the last occupant's switches
 	noclip[player], mapPick[player], speedChosen[player] = nil, nil, nil
 end)
 
+--- @author DemiAutomatic
+--- @event onResourceStop
+--- @description Switches every travel mode this resource turned on back off.
+--- @param name {string}
 AddEventHandler('onResourceStop', function(name)
 	if name ~= RESOURCE then return end
-	-- the client half turns both off on its own stop as well; this reaches one that is not
-	-- stopping, such as a server-only reload
 	for playerId in pairs(noclip) do travel(playerId, 'noclip', false) end
 	for playerId in pairs(mapPick) do travel(playerId, 'mapPick', false) end
 end)
 
+--- @author DemiAutomatic
+--- @type {fun(playerId: integer, on: boolean, grant: string|nil)}
+--- @description Switches a player's noclip, published for other server files.
 Server.Noclip = setNoclip
 
--- ---------------------------------------------------------------------------
--- The operator's own body
--- ---------------------------------------------------------------------------
-
----@param source integer
----@param raw string
----@param playerId integer
----@param event string
+--- @author DemiAutomatic
+--- @method heal
+--- @description Heals a player to their maximum health, audited and answered.
+--- @param source {integer}
+--- @param raw {string}
+--- @param playerId {integer}
+--- @param event {string}
 local function heal(source, raw, playerId, event)
 	if not admitted(source, raw, playerId, event) then return end
 	local maximum = healthOf(playerId)
@@ -205,10 +252,13 @@ local function heal(source, raw, playerId, event)
 		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
----@param source integer
----@param raw string
----@param playerId integer
----@param event string
+--- @author DemiAutomatic
+--- @method revive
+--- @description Revives a player where they lie, audited and answered.
+--- @param source {integer}
+--- @param raw {string}
+--- @param playerId {integer}
+--- @param event {string}
 local function revive(source, raw, playerId, event)
 	if not admitted(source, raw, playerId, event) then return end
 	local placement = Config.PLACEMENT or {}
@@ -223,11 +273,14 @@ local function revive(source, raw, playerId, event)
 		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
----@param source integer
----@param raw string
----@param playerId integer
----@param word any
----@param event string
+--- @author DemiAutomatic
+--- @method god
+--- @description Switches a player's god mode, toggling when no word is typed.
+--- @param source {integer}
+--- @param raw {string}
+--- @param playerId {integer}
+--- @param word {any}
+--- @param event {string}
 local function god(source, raw, playerId, word, event)
 	local wanted, invalid = Text.Switch(word)
 	if invalid then return refuse(source, raw, 'bad_switch') end
@@ -246,16 +299,25 @@ local function god(source, raw, playerId, word, event)
 		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.heal
+--- @description Heals the operator to their maximum health.
 Server.Command('opx77.admin.self.heal', {
 	help = 'admin.help.selfHeal', inGame = true,
 	handler = function(source, _, raw) heal(source, raw, source, 'admin.self.heal') end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.revive
+--- @description Revives the operator where they lie.
 Server.Command('opx77.admin.self.revive', {
 	help = 'admin.help.selfRevive', inGame = true,
 	handler = function(source, _, raw) revive(source, raw, source, 'admin.self.revive') end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.god
+--- @description Switches the operator's own god mode.
 Server.Command('opx77.admin.self.god', {
 	help = 'admin.help.selfGod',
 	params = { { name = 'on|off', help = 'admin.help.toggle', optional = true } },
@@ -263,6 +325,9 @@ Server.Command('opx77.admin.self.god', {
 	handler = function(source, args, raw) god(source, raw, source, args[1], 'admin.self.god') end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.pos
+--- @description Copies where the operator stands as a LOCATIONS config row.
 Server.Command('opx77.admin.self.pos', {
 	help = 'admin.help.pos', inGame = true, read = true,
 	handler = function(source, _, raw)
@@ -275,13 +340,11 @@ Server.Command('opx77.admin.self.pos', {
 	end,
 })
 
--- ---------------------------------------------------------------------------
--- Somebody else's body
--- ---------------------------------------------------------------------------
-
---- Where to land beside a player, in their bucket.
----@param playerId integer
----@return { x: number, y: number, z: number }|nil, integer|nil
+--- @author DemiAutomatic
+--- @method beside
+--- @description Where to land beside a player, and their bucket.
+--- @param playerId {integer}
+--- @returns {table|nil, integer|nil}
 local function beside(playerId)
 	local position = Server.PositionOf(playerId)
 	if position == nil then return nil, nil end
@@ -293,6 +356,9 @@ local function beside(playerId)
 	}, position.bucket
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.goto
+--- @description Teleports the operator beside a player, into their bucket.
 Server.Command('opx77.admin.player.goto', {
 	help = 'admin.help.goto', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
@@ -300,7 +366,6 @@ Server.Command('opx77.admin.player.goto', {
 		local playerId = targetOf(source, raw, args[1])
 		if playerId == nil then return end
 		if playerId == source then return refuse(source, raw, 'self_target') end
-		-- the destination has to be a real body too: an unincarnated player stands in a menu world
 		if not admitted(source, raw, playerId, 'admin.player.goto') then return end
 		local point, bucket = beside(playerId)
 		if point == nil then return refuse(source, raw, 'no_position') end
@@ -312,6 +377,9 @@ Server.Command('opx77.admin.player.goto', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.bring
+--- @description Teleports a player beside the operator.
 Server.Command('opx77.admin.player.bring', {
 	help = 'admin.help.bring', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
@@ -330,6 +398,9 @@ Server.Command('opx77.admin.player.bring', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.tp
+--- @description Teleports a player to typed coordinates and an optional heading.
 Server.Command('opx77.admin.player.tp', {
 	help = 'admin.help.tp',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -356,6 +427,9 @@ Server.Command('opx77.admin.player.tp', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.observe
+--- @description Lands the operator above a player with noclip on.
 Server.Command('opx77.admin.player.observe', {
 	help = 'admin.help.observe', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
@@ -372,14 +446,15 @@ Server.Command('opx77.admin.player.observe', {
 			'observe')
 		audit(source, 'admin.player.observe', placed, playerId, code)
 		if not placed then return refuse(source, raw, code, { reason = reason }) end
-		-- there is no free camera on this platform: this is a teleport with noclip, and the
-		-- target can see the observer. The answer says so.
 		setNoclip(source, true, 'opx77.admin.player.observe')
 		answer(source, raw, true, 'admin.done.observe',
 			{ id = playerId, name = Server.NameOf(playerId) or '?' })
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.heal
+--- @description Heals a player to their maximum health.
 Server.Command('opx77.admin.player.heal', {
 	help = 'admin.help.heal', params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
@@ -388,6 +463,9 @@ Server.Command('opx77.admin.player.heal', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.revive
+--- @description Revives a player where they lie.
 Server.Command('opx77.admin.player.revive', {
 	help = 'admin.help.revive',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
@@ -397,6 +475,9 @@ Server.Command('opx77.admin.player.revive', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.god
+--- @description Switches a player's god mode.
 Server.Command('opx77.admin.player.god', {
 	help = 'admin.help.god',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -407,6 +488,9 @@ Server.Command('opx77.admin.player.god', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.kill
+--- @description Kills a player, attributed to the operator.
 Server.Command('opx77.admin.player.kill', {
 	help = 'admin.help.kill', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	handler = function(source, args, raw)
@@ -426,6 +510,9 @@ Server.Command('opx77.admin.player.kill', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.health
+--- @description Sets a player's health in points, capped at their maximum.
 Server.Command('opx77.admin.player.health', {
 	help = 'admin.help.health',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -448,6 +535,9 @@ Server.Command('opx77.admin.player.health', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.armor
+--- @description Sets a player's armour in points, 0 to 10000.
 Server.Command('opx77.admin.player.armor', {
 	help = 'admin.help.armor',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
@@ -468,21 +558,26 @@ Server.Command('opx77.admin.player.armor', {
 	end,
 })
 
--- ---------------------------------------------------------------------------
--- Moderation. These act on the session, not the body, so the readiness gate does not apply:
--- a player stuck on the loading screen must still be removable.
--- ---------------------------------------------------------------------------
-
---- The platform refuses a disconnect reason past 127 UTF-8 bytes, outright.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Longest disconnect reason the platform accepts, in UTF-8 bytes.
 local KICK_REASON_BYTES = 127
 
---- `30m`, `12h`, `7d`, `3600s`, or `perm`. A bare number is not a duration: `/ban 7 3 strikes`
---- is a reason, not three seconds.
+--- @author DemiAutomatic
+--- @type {table<string, integer>}
+--- @description Seconds per ban duration unit.
 local UNITS = { s = 1, m = 60, h = 3600, d = 86400 }
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Longest timed ban, ten years in seconds.
 local MAX_BAN_SECONDS = 3650 * 86400
 
----@param token any
----@return integer|false|nil  seconds, false for permanent, nil for "not a duration"
+--- @author DemiAutomatic
+--- @method duration
+--- @description A typed ban duration in seconds, false for permanent, nil otherwise.
+--- @param token {any}
+--- @returns {integer|false|nil}
 local function duration(token)
 	if type(token) ~= 'string' then return nil end
 	local word = token:lower()
@@ -494,6 +589,9 @@ local function duration(token)
 	return seconds
 end
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.moderate.kick
+--- @description Disconnects a player with a reason cut to the platform limit.
 Server.Command('opx77.admin.moderate.kick', {
 	help = 'admin.help.kick',
 	params = { { name = 'playerId', help = 'admin.help.playerId' },
@@ -511,6 +609,9 @@ Server.Command('opx77.admin.moderate.kick', {
 	end,
 })
 
+--- @author DemiAutomatic
+--- @command /opx77.admin.moderate.ban
+--- @description Bans a player's account on this server, timed or permanent.
 Server.Command('opx77.admin.moderate.ban', {
 	help = 'admin.help.ban',
 	params = { { name = 'playerId', help = 'admin.help.playerId' },
@@ -527,7 +628,6 @@ Server.Command('opx77.admin.moderate.ban', {
 		elseif parsed ~= nil then
 			seconds, reasonFrom = parsed, 3
 		elseif type(args[2]) == 'string' and args[2]:lower():match('^%-?%d+[smhd]$') then
-			-- it looks like a duration and is out of range: refusing beats banning for ever
 			return refuse(source, raw, 'bad_duration')
 		end
 
@@ -540,7 +640,6 @@ Server.Command('opx77.admin.moderate.ban', {
 
 		local reason = Text.Clean(Text.Rest(args, reasonFrom), 200) or locale('admin.ban.defaultReason')
 		local name = Server.NameOf(playerId) or '?'
-		-- the host writes the ban before it disconnects anybody, and answers false if it could not
 		local ok, failure = access.ban(identifier, reason, seconds, name)
 		if not ok then return nativeRefused(source, raw, 'admin.moderate.ban', playerId, failure) end
 		audit(source, 'admin.moderate.ban', true, playerId,

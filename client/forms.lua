@@ -1,6 +1,6 @@
---- The values a menu row cannot hold -- a reason, an amount, a point, a count -- asked for through
---- opx77_input. A form's answer becomes a command line like any row's, and the menu comes back
---- where it was.
+--- @author DemiAutomatic
+--- @file client/forms.lua
+--- @description Forms through opx77_input for values a menu row cannot hold.
 
 OpxAdmin = OpxAdmin or {}
 
@@ -8,40 +8,74 @@ local Config = OPX_ADMIN_CONFIG
 local Client = OpxAdmin.Client
 local Text = OpxAdmin.Text
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The form helpers the menu calls.
 OpxAdmin.Forms = {}
 local Forms = OpxAdmin.Forms
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource that draws the forms.
 local INPUT = 'opx77_input'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource whose exports list jobs, gangs and money types.
 local CORE = 'opx77_core'
 
---- The name opx77_input raises this resource's answers on. Private to this file.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The local event opx77_input raises this resource's answers on.
 local EVENT = 'opx77_admin:form'
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The LINKS config table, or an empty one.
 local LINKS = type(Config.LINKS) == 'table' and Config.LINKS or {}
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Pattern a typed decimal number must match.
 local NUMBER = '^%-?%d+%.?%d*$'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Pattern a typed whole number must match.
 local INTEGER = '^%-?%d+$'
 
---- The form's handle while one is up.
+--- @author DemiAutomatic
+--- @type {integer|nil}
+--- @description The open form's handle while one is up.
 local handle
 
----@return table
+--- @author DemiAutomatic
+--- @method menu
+--- @description The menu module, read when called because it loads later.
+--- @returns {table}
 local function menu()
 	return OpxAdmin.Menu
 end
 
---- A text field.
----@return table
+--- @author DemiAutomatic
+--- @method text
+--- @description One text field with its label and extra properties.
+--- @param id {string}
+--- @param labelKey {string}
+--- @param extra {table|nil}
+--- @returns {table}
 local function text(id, labelKey, extra)
 	local field = { id = id, label = locale(labelKey) }
 	for key, value in pairs(extra or {}) do field[key] = value end
 	return field
 end
 
---- Options from one of opx77_core's group exports, sorted by label. Coroutine only.
----@param export string  GetJobs | GetGangs
----@param key string     jobs | gangs
----@return table[]|nil
+--- @author DemiAutomatic
+--- @method groupOptions
+--- @description Options from one of opx77_core's group exports, sorted by label.
+--- @param export {string} GetJobs or GetGangs.
+--- @param key {string} jobs or gangs.
+--- @returns {table[]|nil}
 local function groupOptions(export, key)
 	local result = Client.Call(CORE, export)
 	if result == nil or type(result[key]) ~= 'table' then return nil end
@@ -54,10 +88,14 @@ local function groupOptions(export, key)
 	return options
 end
 
---- Every form: how to build it (coroutine) and what its answer runs.
----@type table<string, { build: fun(arg: any): table|nil, submit: fun(values: table, arg: any) }>
+--- @author DemiAutomatic
+--- @type {table<string, table>}
+--- @description Every form by kind: how it is built and what it runs.
 local FORMS = {}
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Health slider ending in the player health command.
 FORMS.health = {
 	build = function()
 		return { title = locale('admin.form.health'), fields = {
@@ -66,12 +104,14 @@ FORMS.health = {
 		} }
 	end,
 	submit = function(values, arg)
-		-- a slider answers a float, and `%d` raises on one with a fraction
 		local points = math.floor(Text.Finite(values.points) or 0)
 		menu().Run({ 'opx77.admin.player.health', tostring(arg), ('%d'):format(points) })
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Armour points ending in the player armour command.
 FORMS.armor = {
 	build = function()
 		return { title = locale('admin.form.armor'), fields = {
@@ -84,11 +124,14 @@ FORMS.armor = {
 	end,
 }
 
---- Job and gang share a shape; the grade is typed because its range depends on the group.
----@param export string
----@param key string
----@param titleKey string
----@param link string|nil
+--- @author DemiAutomatic
+--- @method groupForm
+--- @description A job or gang form: group options and a typed grade.
+--- @param export {string}
+--- @param key {string}
+--- @param titleKey {string}
+--- @param link {string|nil}
+--- @returns {table}
 local function groupForm(export, key, titleKey, link)
 	return {
 		build = function()
@@ -107,9 +150,19 @@ local function groupForm(export, key, titleKey, link)
 	}
 end
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Job form ending in opx77_core's job command.
 FORMS.job = groupForm('GetJobs', 'jobs', 'admin.form.job', LINKS.JOB)
+
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Gang form ending in opx77_core's gang command.
 FORMS.gang = groupForm('GetGangs', 'gangs', 'admin.form.gang', LINKS.GANG)
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Money type and amount ending in opx77_core's money command.
 FORMS.money = {
 	build = function()
 		local result = Client.Call(CORE, 'GetSharedConfig')
@@ -132,11 +185,13 @@ FORMS.money = {
 	end,
 }
 
---- How many of an item, for a give or a removal from a bag. `arg` is the picker's row:
---- `t` the target, `n` the item, `l` its label, `c` how many the stack holds, for a removal.
----@param titleKey string
----@param commandName string
----@param refresh string|nil
+--- @author DemiAutomatic
+--- @method countForm
+--- @description A count form for giving or removing items of a picked row.
+--- @param titleKey {string}
+--- @param commandName {string}
+--- @param refresh {string|nil}
+--- @returns {table}
 local function countForm(titleKey, commandName, refresh)
 	return {
 		build = function(arg)
@@ -157,11 +212,19 @@ local function countForm(titleKey, commandName, refresh)
 	}
 end
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Count of an item to give to a bag.
 FORMS.itemGive = countForm('admin.form.itemGive', 'opx77.admin.inventory.give')
+
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Count of a stack to take from a bag.
 FORMS.itemRemove = countForm('admin.form.itemRemove', 'opx77.admin.inventory.remove', 'bag')
 
---- How many ammunition items, starting at one full load. `arg` is the picker's row: `t` the
---- target, `n` the ammo item, `l` its label, `x` its full load.
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Count of ammunition items, starting at one full load.
 FORMS.ammoGive = {
 	build = function(arg)
 		if type(arg) ~= 'table' or type(arg.n) ~= 'string' then return nil end
@@ -179,6 +242,9 @@ FORMS.ammoGive = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Optional kick reason, confirmed before it runs.
 FORMS.kick = {
 	build = function()
 		return { title = locale('admin.form.kick'), fields = {
@@ -192,6 +258,9 @@ FORMS.kick = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Ban duration and optional reason, confirmed before it runs.
 FORMS.ban = {
 	build = function()
 		local options = {}
@@ -211,6 +280,9 @@ FORMS.ban = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Announcement text, confirmed before it reaches everybody.
 FORMS.announce = {
 	build = function()
 		local maximum = math.floor(Text.Finite((Config.ANNOUNCE or {}).MAX_CHARACTERS) or 240)
@@ -223,6 +295,9 @@ FORMS.announce = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description A point and optional heading ending in the teleport command.
 FORMS.coords = {
 	build = function()
 		return { title = locale('admin.form.coords'), fields = {
@@ -239,6 +314,9 @@ FORMS.coords = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Name and label of a destination saved where the operator stands.
 FORMS.location = {
 	build = function()
 		return { title = locale('admin.form.location'), fields = {
@@ -254,6 +332,9 @@ FORMS.location = {
 	end,
 }
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description A typed clock time ending in opx77_weather's time command.
 FORMS.time = {
 	build = function()
 		return { title = locale('admin.form.time'), fields = {
@@ -267,11 +348,12 @@ FORMS.time = {
 	end,
 }
 
---- Put a form up. The menu is taken down first -- a form and a list both reading the arrow
---- keys is one too many -- and comes back when the form is answered either way.
----@param kind string
----@param arg any
----@return boolean asked
+--- @author DemiAutomatic
+--- @method OpxAdmin.Forms.Open
+--- @description Takes the menu down and puts one form up.
+--- @param kind {string}
+--- @param arg {any}
+--- @returns {boolean}
 function OpxAdmin.Forms.Open(kind, arg)
 	local form = FORMS[kind]
 	if form == nil then return false end
@@ -300,11 +382,17 @@ function OpxAdmin.Forms.Open(kind, arg)
 	return true
 end
 
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Forms.IsOpen
+--- @description Whether a form of this resource is up.
+--- @returns {boolean}
 function OpxAdmin.Forms.IsOpen()
 	return handle ~= nil
 end
 
+--- @author DemiAutomatic
+--- @method OpxAdmin.Forms.Close
+--- @description Takes the open form down, if there is one.
 function OpxAdmin.Forms.Close()
 	if handle == nil then return end
 	local closing = handle
@@ -312,8 +400,10 @@ function OpxAdmin.Forms.Close()
 	CreateThread(function() Client.Call(INPUT, 'close', closing) end)
 end
 
---- The answer. Any resource on this machine can raise this name, so the shape and the owner are
---- checked; the command line it turns into is gated by the host like any other.
+--- @author DemiAutomatic
+--- @event opx77_admin:form
+--- @description Turns a submitted form into its command, or brings the menu back.
+--- @param payload {table}
 AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.owner ~= Client.RESOURCE then return end
 	if payload.handle ~= nil and handle ~= nil and payload.handle ~= handle then return end

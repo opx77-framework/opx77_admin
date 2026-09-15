@@ -1,12 +1,14 @@
---- The public export surface. Every call answers a table carrying `ok` and never raises.
---- Nothing here authorises anything: `open` sends the opener command, which the host resolves
---- against the caller's player's ACL like a typed one.
+--- @author DemiAutomatic
+--- @file client/exports.lua
+--- @description The three client exports, each answering a table with ok.
 
 local Client = OpxAdmin.Client
 local Menu = OpxAdmin.Menu
 
---- Who is calling, asked of the host: a caller cannot claim to be another resource.
----@return string|nil
+--- @author DemiAutomatic
+--- @method caller
+--- @description Reads the invoking resource name from the host.
+--- @returns {string|nil}
 local function caller()
 	local owner = GetInvokingResource()
 	if type(owner) ~= 'string' or owner == '' or #owner > 64 or
@@ -16,9 +18,10 @@ local function caller()
 	return owner
 end
 
---- Ask for the staff menu. `ok = true` means asked: a player the ACL refuses gets the host's
---- refusal, which opx77_chat toasts, and no menu.
----@return AdminResponse
+--- @author DemiAutomatic
+--- @export open
+--- @description Sends the opener command; ok means asked, not allowed.
+--- @returns {AdminResponse}
 exports('open', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
 	if not Client.Running('opx77_menu') then return { ok = false, error = 'menu_not_running' } end
@@ -27,16 +30,20 @@ exports('open', function()
 	return { ok = true, queued = true }
 end)
 
---- Take the staff menu, and any form it put up, down.
----@return AdminResponse
+--- @author DemiAutomatic
+--- @export close
+--- @description Takes the staff menu and any form it opened down.
+--- @returns {AdminResponse}
 exports('close', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
 	Menu.Close()
 	return { ok = true }
 end)
 
---- Whether the staff menu is up, and which screen.
----@return AdminState
+--- @author DemiAutomatic
+--- @export state
+--- @description Whether the staff menu is up, and which screen.
+--- @returns {AdminState}
 exports('state', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
 	return { ok = true, open = Menu.IsOpen(), screen = Menu.Screen() }

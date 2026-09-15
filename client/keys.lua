@@ -1,24 +1,32 @@
---- The rebindable keys. Each one is declared to the host with RegisterKeyMapping, so the pause
---- menu's keybinds tab lists it under the localised name given here and a player rebinds it
---- there. Nothing here reads a key or decides anything: a key does what its command does.
+--- @author DemiAutomatic
+--- @file client/keys.lua
+--- @description Rebindable key mappings declared to the host and their rebinds.
 
 OpxAdmin = OpxAdmin or {}
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The key mapping helpers the other client files call.
 OpxAdmin.Keys = {}
 local Keys = OpxAdmin.Keys
 
---- id -> the key the host answered at registration. Absent: switched off, or refused.
----@type table<string, string>
+--- @author DemiAutomatic
+--- @type {table<string, string>}
+--- @description Mapping id to the key the host answered at registration.
 local registered = {}
 
----@type fun()[]
+--- @author DemiAutomatic
+--- @type {fun()[]}
+--- @description Functions run whenever a player rebinds or resets a mapping.
 local listeners = {}
 
---- A configured key: a key name, or false for none. Anything else is the default, said once.
----@param path string  how the warning names it, e.g. "KEYS.MENU"
----@param value any
----@param default string
----@return string|false
+--- @author DemiAutomatic
+--- @method OpxAdmin.Keys.Setting
+--- @description A configured key name, false for none, else the default.
+--- @param path {string} How the warning names it, e.g. KEYS.MENU.
+--- @param value {any}
+--- @param default {string}
+--- @returns {string|false}
 function OpxAdmin.Keys.Setting(path, value, default)
 	if value == false then return false end
 	if value == nil then return default end
@@ -29,9 +37,10 @@ function OpxAdmin.Keys.Setting(path, value, default)
 	return default
 end
 
---- Whether another surface holds the keyboard: chat's composer, an opx77_input form, the pause
---- menu. A key typed into one of them must not open anything behind it.
----@return boolean
+--- @author DemiAutomatic
+--- @method captured
+--- @description Whether another surface holds the keyboard right now.
+--- @returns {boolean}
 local function captured()
 	local input = type(Open77) == 'table' and Open77.input or nil
 	if type(input) ~= 'table' or type(input.isCaptured) ~= 'function' then return false end
@@ -39,13 +48,15 @@ local function captured()
 	return read and answer == true
 end
 
---- Declare one mapping. A refusal is one log line; the command it stands for still works.
----@param id string       namespaced by this resource, and stable: a rebind is stored under it
----@param nameKey string  catalogue key of the name the pause menu lists
----@param key string|false
----@param onPressed fun()
----@param onReleased? fun()  makes it a hold mapping: the host calls this on key-up
----@return boolean registered
+--- @author DemiAutomatic
+--- @method OpxAdmin.Keys.Register
+--- @description Declares one key mapping, logging a refusal once.
+--- @param id {string} Stable mapping id a rebind is stored under.
+--- @param nameKey {string} Catalogue key of the pause menu name.
+--- @param key {string|false}
+--- @param onPressed {fun()}
+--- @param onReleased {fun()|nil} Makes it a hold mapping.
+--- @returns {boolean}
 function OpxAdmin.Keys.Register(id, nameKey, key, onPressed, onReleased)
 	if key == false then return false end
 	if type(RegisterKeyMapping) ~= 'function' then
@@ -62,16 +73,12 @@ function OpxAdmin.Keys.Register(id, nameKey, key, onPressed, onReleased)
 	if onReleased == nil then
 		called, ok, answer = pcall(RegisterKeyMapping, id, locale(nameKey), key, pressed)
 	else
-		-- a release is never swallowed: a key let go behind a surface must not stay held here.
-		-- Only passed when there is one: a fifth argument is what makes a mapping a hold mapping.
 		local function released()
 			local ran, failure = pcall(onReleased)
 			if not ran then Open77.log.error(('key %s: %s'):format(id, tostring(failure))) end
 		end
 		called, ok, answer = pcall(RegisterKeyMapping, id, locale(nameKey), key, pressed, released)
 	end
-	-- two documented shapes: the key guide answers `true, key`, the API reference the key alone;
-	-- either one is a registration, and `false|nil, reason` is a refusal
 	local effective = type(ok) == 'string' and ok ~= '' and ok or
 		(ok == true and type(answer) == 'string' and answer ~= '' and answer) or nil
 	if not called or (ok ~= true and effective == nil) then
@@ -83,10 +90,11 @@ function OpxAdmin.Keys.Register(id, nameKey, key, onPressed, onReleased)
 	return true
 end
 
---- The key a mapping answers to now, a player's rebind included. Nil when it is off or was
---- refused, so a hint that has no key to name says nothing.
----@param id string
----@return string|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Keys.Effective
+--- @description The key a mapping answers to now, rebinds included.
+--- @param id {string}
+--- @returns {string|nil}
 function OpxAdmin.Keys.Effective(id)
 	local known = registered[id]
 	if known == nil then return nil end
@@ -98,12 +106,17 @@ function OpxAdmin.Keys.Effective(id)
 	return known
 end
 
---- Run `listener` whenever a player rebinds or resets a mapping, so a hint on screen follows.
----@param listener fun()
+--- @author DemiAutomatic
+--- @method OpxAdmin.Keys.OnChanged
+--- @description Runs a listener whenever a player rebinds or resets a mapping.
+--- @param listener {fun()}
 function OpxAdmin.Keys.OnChanged(listener)
 	listeners[#listeners + 1] = listener
 end
 
+--- @author DemiAutomatic
+--- @event open77:keybinds:changed
+--- @description Runs every rebind listener, each under its own pcall.
 AddEventHandler('open77:keybinds:changed', function()
 	for index = 1, #listeners do
 		local ran, failure = pcall(listeners[index])

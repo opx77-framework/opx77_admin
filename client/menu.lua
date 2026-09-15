@@ -1,10 +1,6 @@
---- The staff menu, drawn by opx77_menu. Every row that does something is a command line sent
---- through Client.Execute, so the host resolves the ACL for it exactly as for a typed command.
---- The access map the server sends only greys out what would be refused; it decides nothing.
----
---- Each screen is its own opx77_menu `open`, not a submenu of one big tree: opx77_menu refuses a
---- spec past 400 rows across the whole tree, and a roster of thirty players with twenty actions
---- each is past it. The stack of screens is kept here instead.
+--- @author DemiAutomatic
+--- @file client/menu.lua
+--- @description The staff menu screens drawn by opx77_menu, and the menu key.
 
 OpxAdmin = OpxAdmin or {}
 
@@ -14,93 +10,141 @@ local Catalog = OpxAdmin.Catalog
 local Forms = OpxAdmin.Forms
 local Keys = OpxAdmin.Keys
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The menu functions forms, answers and exports call.
 OpxAdmin.Menu = {}
 local Menu = OpxAdmin.Menu
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource that draws the menu.
 local MENU = 'opx77_menu'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The local event opx77_menu raises row selections on.
 local EVENT = 'opx77_admin:row'
+
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The LINKS config table, or an empty one.
 local LINKS = type(Config.LINKS) == 'table' and Config.LINKS or {}
 
---- The mapping that opens and closes the menu, and the command it sends. The id is stable: a
---- player's rebind is stored under it.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Stable mapping id of the menu key.
 local KEY_MENU = 'opx77_admin.menu'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The command the menu key and open export send.
 local OPENER = 'opx77.admin'
 
---- opx77_menu refuses a level past 200 rows; the navigation rows need room.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Most list rows one level draws, leaving navigation room.
 local MAX_LISTED = 190
 
---- Rows a catalogue list draws at once; a longer list is drawn a page at a time. opx77_menu
---- checks every row of a spec in one handler, at a few hundred VM instructions a row, and the
---- host stops a client handler once it runs past 10 000 of them.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Rows one page of a catalogue list draws.
 local PAGE_ROWS = 20
 
---- What the server said at open: `you`, `access`, `aclKnown`, `weapons`, `inventory`.
----@type table|nil
+--- @author DemiAutomatic
+--- @type {AdminSession|nil}
+--- @description What the server sent when the menu opened.
 local session
 
+--- @author DemiAutomatic
+--- @type {table[], table<integer, table>, table[]}
+--- @description The roster, its index by id, and chunks still arriving.
 local roster, rosterById, incoming = {}, {}, {}
+
+--- @author DemiAutomatic
+--- @type {table[]}
+--- @description The destination rows the server last sent.
 local locations = {}
 
---- opx77_inventory's catalogue as the server read it: `{ name, label, category, class, max }`,
---- and whether it has arrived. Weapons are the rows with a class, ammunition the `ammo` category
---- with its full load in `max`.
+--- @author DemiAutomatic
+--- @type {table}
+--- @description opx77_inventory's catalogue rows as the server read them.
 local catalog = { rows = {}, incoming = {}, loaded = false, error = nil }
 
---- The stacks of the one bag the remove picker is drawing, by the target the server was asked.
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The stacks of the one bag the remove picker draws.
 local bag = { target = nil, rows = {}, incoming = {}, loaded = false, error = nil }
 
---- { screen, arg, cursor } from the root down.
+--- @author DemiAutomatic
+--- @type {table[]}
+--- @description Screen, argument and cursor from the root down.
 local stack = {}
 
---- The open menu's handle, and whether it was taken down on purpose to put a form up.
+--- @author DemiAutomatic
+--- @type {integer|nil}
+--- @description The open menu's handle.
 local handle
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the menu was taken down to put a form up.
 local suspended = false
 
---- A status line to write when the next screen opens.
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description A status line to write when the next screen opens.
 local queuedStatus
 
---- Bumped by every draw, so a slow `open` that lost the race does not claim the handle.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Bumped by every draw, so a stale open claims nothing.
 local drawn = 0
 
--- ---------------------------------------------------------------------------
--- Rows
--- ---------------------------------------------------------------------------
-
---- Whether the ACL grants a command, as far as the server could tell. Without an ACL reader on
---- the host every row is drawn enabled and the host answers for each one.
----@param name any
----@return boolean
+--- @author DemiAutomatic
+--- @method permitted
+--- @description Whether the access map grants a command, true without an ACL reader.
+--- @param name {any}
+--- @returns {boolean}
 local function permitted(name)
 	if session == nil or type(name) ~= 'string' or name == '' then return false end
 	if not session.aclKnown then return true end
 	return session.access[name] == true
 end
 
---- A catalogue key, or `{ text = ... }` for words that are data rather than this resource's.
----@param label string|table
----@return string
+--- @author DemiAutomatic
+--- @method text
+--- @description A catalogue key's text, or the words of a text table.
+--- @param label {string|table}
+--- @returns {string}
 local function text(label)
 	if type(label) == 'table' then return tostring(label.text) end
 	return locale(label)
 end
 
----@param id string
----@param label string
----@param data table|nil
----@param extra table|nil
----@return table
+--- @author DemiAutomatic
+--- @method row
+--- @description One menu row with its data and extra properties.
+--- @param id {string}
+--- @param label {string}
+--- @param data {table|nil}
+--- @param extra {table|nil}
+--- @returns {table}
 local function row(id, label, data, extra)
 	local item = { id = id, label = label, data = data }
 	for key, value in pairs(extra or {}) do item[key] = value end
 	return item
 end
 
---- A row that runs a command line. Greyed, with the reason beside it, when the ACL refuses it.
----@param id string
----@param label string|table
----@param tokens table
----@param refresh string|nil  roster | locations: what to ask for again after it ran
----@param extra table|nil
+--- @author DemiAutomatic
+--- @method command
+--- @description A row running a command line, greyed when the ACL refuses it.
+--- @param id {string}
+--- @param label {string|table}
+--- @param tokens {table}
+--- @param refresh {string|nil} What to ask for again after it ran.
+--- @param extra {table|nil}
+--- @returns {table}
 local function command(id, label, tokens, refresh, extra)
 	local item = row(id, text(label), { run = tokens, refresh = refresh }, extra)
 	if not permitted(tokens[1]) then
@@ -110,14 +154,29 @@ local function command(id, label, tokens, refresh, extra)
 	return item
 end
 
---- A row that asks before it runs: kill, kick, ban and anything that reaches everybody.
+--- @author DemiAutomatic
+--- @method guarded
+--- @description A command row that goes through a confirmation screen first.
+--- @param id {string}
+--- @param labelKey {string}
+--- @param tokens {table}
+--- @param confirmKey {string}
+--- @returns {table}
 local function guarded(id, labelKey, tokens, confirmKey)
 	local item = command(id, labelKey, tokens)
 	item.data = { confirm = tokens, key = confirmKey }
 	return item
 end
 
---- A row that opens a form. `name` is the command the form ends in, for the grey-out.
+--- @author DemiAutomatic
+--- @method form
+--- @description A row opening a form, greyed when its command is refused.
+--- @param id {string}
+--- @param labelKey {string}
+--- @param kind {string}
+--- @param arg {any}
+--- @param name {string|nil} The command the form ends in.
+--- @returns {table}
 local function form(id, labelKey, kind, arg, name)
 	local item = row(id, locale(labelKey), { form = kind, arg = arg })
 	if not permitted(name) then
@@ -127,23 +186,28 @@ local function form(id, labelKey, kind, arg, name)
 	return item
 end
 
----@param id string
----@param label string|table
----@param screen string
----@param arg any
----@param extra table|nil
+--- @author DemiAutomatic
+--- @method go
+--- @description A row that pushes another screen.
+--- @param id {string}
+--- @param label {string|table}
+--- @param screen {string}
+--- @param arg {any}
+--- @param extra {table|nil}
+--- @returns {table}
 local function go(id, label, screen, arg, extra)
 	return row(id, text(label), { go = screen, arg = arg }, extra)
 end
 
---- One page of a catalogue list: the rows `build` makes for it, then a row to the next page
---- when there is one. `arg` is the screen's argument, its page in `p`; the title gains the page.
----@param list table[]
----@param screen string
----@param arg table
----@param title string
----@param build fun(entry: table): table
----@return string title, table[] items
+--- @author DemiAutomatic
+--- @method paged
+--- @description One page of a catalogue list, with a row to the next.
+--- @param list {table[]}
+--- @param screen {string}
+--- @param arg {table}
+--- @param title {string}
+--- @param build {fun(entry: table): table}
+--- @returns {string, table[]}
 local function paged(list, screen, arg, title, build)
 	local pages = math.max(1, math.ceil(#list / PAGE_ROWS))
 	local page = math.min(math.max(math.floor(tonumber(arg.p) or 1), 1), pages)
@@ -163,49 +227,67 @@ local function paged(list, screen, arg, title, build)
 	return title, items
 end
 
----@param labelKey string|nil
+--- @author DemiAutomatic
+--- @method section
+--- @description A separator row, with a label when given.
+--- @param labelKey {string|nil}
+--- @returns {table}
 local function section(labelKey)
 	return { separator = true, label = labelKey and locale(labelKey) or nil }
 end
 
---- Whether the server could reach opx77_inventory when the menu opened or last refreshed.
----@return boolean
+--- @author DemiAutomatic
+--- @method inventoryUp
+--- @description Whether the server last reported opx77_inventory running.
+--- @returns {boolean}
 local function inventoryUp()
 	return session ~= nil and session.inventory == true
 end
 
---- A row greyed with a word beside it, for what cannot be done here at all.
----@param item table
----@param key string
----@return table
+--- @author DemiAutomatic
+--- @method unavailable
+--- @description Greys a row with a word beside it.
+--- @param item {table}
+--- @param key {string|nil}
+--- @returns {table}
 local function unavailable(item, key)
 	item.disabled, item.value = true, locale(key or 'admin.menu.unavailable')
 	return item
 end
 
---- A row that goes to a picker, greyed when the ACL refuses the command the picker ends in.
+--- @author DemiAutomatic
+--- @method goFor
+--- @description A row to a picker, greyed when its final command is refused.
+--- @param id {string}
+--- @param labelKey {string}
+--- @param screen {string}
+--- @param arg {any}
+--- @param name {string|nil}
+--- @returns {table}
 local function goFor(id, labelKey, screen, arg, name)
 	local item = go(id, labelKey, screen, arg)
 	if not permitted(name) then unavailable(item, 'admin.menu.denied') end
 	return item
 end
 
---- The one row a picker shows while its list is on its way, or when it cannot be had.
----@param list table  `catalog` or `bag`
----@param emptyKey string
----@return table
+--- @author DemiAutomatic
+--- @method placeholder
+--- @description The one row a picker shows while loading, failed or empty.
+--- @param list {table} catalog or bag.
+--- @param emptyKey {string}
+--- @returns {table}
 local function placeholder(list, emptyKey)
 	local key = not list.loaded and 'admin.menu.loading' or list.error and 'admin.menu.inventoryError'
 		or emptyKey
 	return row('empty', locale(key), nil, { disabled = true })
 end
 
---- The weapon rows for a target, "me" or a player id. A weapon and its ammunition are
---- opx77_inventory items, so every row but the holster needs that resource; the holster needs
---- the platform's weapon relay.
----@param target string
----@param giveKey string
----@return table[]
+--- @author DemiAutomatic
+--- @method weaponRows
+--- @description The weapon rows for a target, greyed without their provider.
+--- @param target {string}
+--- @param giveKey {string}
+--- @returns {table[]}
 local function weaponRows(target, giveKey)
 	local items = {
 		goFor('giveWeapon', giveKey, 'weaponClasses', target, 'opx77.admin.weapon.give'),
@@ -226,20 +308,25 @@ local function weaponRows(target, giveKey)
 	return items
 end
 
---- The name of a roster player, for a title.
----@param id integer
----@return string
+--- @author DemiAutomatic
+--- @method nameOf
+--- @description A roster player's name and id, for a title.
+--- @param id {integer}
+--- @returns {string}
 local function nameOf(id)
 	local entry = rosterById[id]
 	return entry and ('%s [%d]'):format(entry.name, id) or ('[%s]'):format(tostring(id))
 end
 
--- ---------------------------------------------------------------------------
--- Screens: each answers a title and its rows
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {table<string, function>}
+--- @description Every screen by name, each answering a title and rows.
 local SCREENS = {}
 
+--- @author DemiAutomatic
+--- @method SCREENS.root
+--- @description The root screen listing the six sections.
+--- @returns {string, table[]}
 SCREENS.root = function()
 	return locale('admin.menu.title'), {
 		go('players', 'admin.menu.players', 'players', nil, { value = tostring(#roster) }),
@@ -251,6 +338,10 @@ SCREENS.root = function()
 	}
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.players
+--- @description The roster with state, bucket and distance per player.
+--- @returns {string, table[]}
 SCREENS.players = function()
 	local items = {}
 	for index = 1, math.min(#roster, MAX_LISTED) do
@@ -267,6 +358,11 @@ SCREENS.players = function()
 	return locale('admin.menu.players'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.player
+--- @description Every action on one player, by section.
+--- @param id {integer}
+--- @returns {string, table[]}
 SCREENS.player = function(id)
 	local target = tostring(id)
 	local items = {
@@ -311,7 +407,6 @@ SCREENS.player = function(id)
 		items[#items + 1] = command('invView', 'admin.menu.invView',
 			{ 'opx77.admin.inventory.view', target })
 		if LINKS.INVENTORY_OPEN then
-			-- the inventory's screen takes the keyboard: the menu steps aside rather than sit under it
 			items[#items + 1] = command('invOpen', 'admin.menu.invOpen', { LINKS.INVENTORY_OPEN, target })
 			items[#items].data.closeAfter = true
 		end
@@ -329,6 +424,10 @@ SCREENS.player = function(id)
 	return nameOf(id), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.self
+--- @description The operator's own travel, health and position rows.
+--- @returns {string, table[]}
 SCREENS.self = function()
 	return locale('admin.menu.self'), {
 		command('noclip', 'admin.menu.noclip', { 'opx77.admin.self.noclip' }),
@@ -343,6 +442,10 @@ SCREENS.self = function()
 	}
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.vehicles
+--- @description Spawning, and actions on the nearest or own vehicles.
+--- @returns {string, table[]}
 SCREENS.vehicles = function()
 	local items = {
 		go('spawn', 'admin.menu.spawn', 'vehicleClasses', 'me'),
@@ -369,14 +472,22 @@ SCREENS.vehicles = function()
 	return locale('admin.menu.vehicles'), items
 end
 
----@param titleKey string
----@param target any  "me", or a player id
----@return string
+--- @author DemiAutomatic
+--- @method titleFor
+--- @description A picker title, naming the player when not the operator.
+--- @param titleKey {string}
+--- @param target {any} me, or a player id.
+--- @returns {string}
 local function titleFor(titleKey, target)
 	if target == nil or target == 'me' then return locale(titleKey) end
 	return ('%s: %s'):format(locale(titleKey), nameOf(tonumber(target) or target))
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.vehicleClasses
+--- @description The vehicle classes that have rows, with their counts.
+--- @param target {any}
+--- @returns {string, table[]}
 SCREENS.vehicleClasses = function(target)
 	local items = {}
 	for _, class in ipairs(Catalog.vehicleClasses) do
@@ -390,7 +501,11 @@ SCREENS.vehicleClasses = function(target)
 	return titleFor('admin.menu.vehicles', target), items
 end
 
---- The rows of one class, each a spawn for the operator or a delivery to a player.
+--- @author DemiAutomatic
+--- @method SCREENS.vehicleList
+--- @description One class's vehicles, spawned for the operator or delivered.
+--- @param arg {table}
+--- @returns {string, table[]}
 SCREENS.vehicleList = function(arg)
 	local target = type(arg) == 'table' and arg.t or 'me'
 	local found
@@ -408,9 +523,10 @@ SCREENS.vehicleList = function(arg)
 	return title, items
 end
 
---- The weapon items of opx77_inventory's catalogue by class: the classes of data/weapons.lua in
---- their order, then any class that file does not name, under its key.
----@return { key: string, label: string, members: table[] }[]
+--- @author DemiAutomatic
+--- @method weaponGroups
+--- @description The catalogue's weapons by class, known classes first.
+--- @returns {table[], table<string, table>}
 local function weaponGroups()
 	local groups, byKey = {}, {}
 	for _, class in ipairs(Catalog.weaponClasses) do
@@ -430,6 +546,11 @@ local function weaponGroups()
 	return groups, byKey
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.weaponClasses
+--- @description The weapon classes that have weapons, with their counts.
+--- @param target {any}
+--- @returns {string, table[]}
 SCREENS.weaponClasses = function(target)
 	local items = {}
 	for _, group in ipairs(weaponGroups()) do
@@ -442,7 +563,11 @@ SCREENS.weaponClasses = function(target)
 	return titleFor('admin.menu.weapons', target), items
 end
 
---- A weapon row gives it empty: its ammunition is the next picker's.
+--- @author DemiAutomatic
+--- @method SCREENS.weaponList
+--- @description One class's weapons, each row giving the weapon empty.
+--- @param arg {table}
+--- @returns {string, table[]}
 SCREENS.weaponList = function(arg)
 	local target = type(arg) == 'table' and tostring(arg.t) or 'me'
 	local _, byKey = weaponGroups()
@@ -458,7 +583,11 @@ SCREENS.weaponList = function(arg)
 	return title, items
 end
 
---- The ammunition items of opx77_inventory's catalogue, each opening the count form of a give.
+--- @author DemiAutomatic
+--- @method SCREENS.ammoList
+--- @description The ammunition items, each opening the count form of a give.
+--- @param target {any}
+--- @returns {string, table[]}
 SCREENS.ammoList = function(target)
 	local items = {}
 	for _, entry in ipairs(catalog.rows) do
@@ -476,12 +605,19 @@ SCREENS.ammoList = function(target)
 	return titleFor('admin.menu.giveAmmo', target), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.weapons
+--- @description The operator's own weapon rows.
+--- @returns {string, table[]}
 SCREENS.weapons = function()
 	return locale('admin.menu.weapons'), weaponRows('me', 'admin.menu.giveMe')
 end
 
---- The categories of opx77_inventory's catalogue, sorted, for a give (`m = "give"`, to `t`) or
---- for the holders list (`m = "holders"`).
+--- @author DemiAutomatic
+--- @method SCREENS.itemCategories
+--- @description The catalogue's categories, for a give or the holders list.
+--- @param arg {table}
+--- @returns {string, table[]}
 SCREENS.itemCategories = function(arg)
 	local counts, names = {}, {}
 	for _, entry in ipairs(catalog.rows) do
@@ -499,6 +635,11 @@ SCREENS.itemCategories = function(arg)
 	return titleFor(titleKey, arg.t), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.itemList
+--- @description One category's items, each a give form or holders query.
+--- @param arg {table}
+--- @returns {string, table[]}
 SCREENS.itemList = function(arg)
 	local matching = {}
 	for _, entry in ipairs(catalog.rows) do
@@ -521,7 +662,11 @@ SCREENS.itemList = function(arg)
 	return title, items
 end
 
---- One bag's stacks, each opening the count form of a removal.
+--- @author DemiAutomatic
+--- @method SCREENS.bag
+--- @description One bag's stacks, each opening the count form of a removal.
+--- @param target {any}
+--- @returns {string, table[]}
 SCREENS.bag = function(target)
 	local items = {}
 	if bag.target == tostring(target) then
@@ -543,6 +688,11 @@ SCREENS.bag = function(target)
 	return titleFor('admin.menu.invRemove', target), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.locations
+--- @description The destinations, each sending the target there.
+--- @param target {any}
+--- @returns {string, table[]}
 SCREENS.locations = function(target)
 	local items = {}
 	for index = 1, math.min(#locations, MAX_LISTED) do
@@ -559,6 +709,10 @@ SCREENS.locations = function(target)
 	return title, items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.saved
+--- @description The destinations saved in game, each forgotten by its row.
+--- @returns {string, table[]}
 SCREENS.saved = function()
 	local items = {}
 	for _, entry in ipairs(locations) do
@@ -573,6 +727,10 @@ SCREENS.saved = function()
 	return locale('admin.menu.saved'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.world
+--- @description Announcements, destinations, and the sky screens.
+--- @returns {string, table[]}
 SCREENS.world = function()
 	local items = {
 		form('announce', 'admin.menu.announce', 'announce', nil, 'opx77.admin.world.announce'),
@@ -589,6 +747,10 @@ SCREENS.world = function()
 	return locale('admin.menu.world'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.weather
+--- @description Weather presets, roll, hold and release through opx77_weather.
+--- @returns {string, table[]}
 SCREENS.weather = function()
 	local items = {}
 	if LINKS.WEATHER_SET then
@@ -612,6 +774,10 @@ SCREENS.weather = function()
 	return locale('admin.menu.weather'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.time
+--- @description Clock times, a typed time, and the clock hold.
+--- @returns {string, table[]}
 SCREENS.time = function()
 	local items = {}
 	if LINKS.TIME then
@@ -631,6 +797,10 @@ SCREENS.time = function()
 	return locale('admin.menu.time'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.server
+--- @description Server reports, character commands, and the holders picker.
+--- @returns {string, table[]}
 SCREENS.server = function()
 	local items = {
 		command('status', 'admin.menu.status', { 'opx77.admin.read.status' }),
@@ -656,6 +826,11 @@ SCREENS.server = function()
 	return locale('admin.menu.server'), items
 end
 
+--- @author DemiAutomatic
+--- @method SCREENS.confirm
+--- @description The confirmation screen, Cancel first, then Confirm.
+--- @param arg {table}
+--- @returns {string, table[]}
 SCREENS.confirm = function(arg)
 	return locale(arg.key), {
 		row('cancel', locale('admin.menu.cancel'), { back = true }),
@@ -664,17 +839,18 @@ SCREENS.confirm = function(arg)
 	}
 end
 
--- ---------------------------------------------------------------------------
--- Drawing
--- ---------------------------------------------------------------------------
-
----@return table|nil
+--- @author DemiAutomatic
+--- @method top
+--- @description The screen at the top of the stack.
+--- @returns {table|nil}
 local function top()
 	return stack[#stack]
 end
 
---- Put the top screen up. `inPlace` rebuilds the open one without moving the cursor.
----@param inPlace boolean|nil
+--- @author DemiAutomatic
+--- @method draw
+--- @description Puts the top screen up, or rebuilds it in place.
+--- @param inPlace {boolean|nil}
 local function draw(inPlace)
 	local current = top()
 	if current == nil or suspended then return end
@@ -682,7 +858,6 @@ local function draw(inPlace)
 	if builder == nil then return end
 	local title, items = builder(current.arg)
 	if current.screen == 'confirm' then
-		-- Cancel is already the first row: a Back under it would be a second way to say no
 	elseif #stack > 1 then
 		items[#items + 1] = section()
 		items[#items + 1] = row('back', locale('admin.menu.back'), { back = true })
@@ -724,11 +899,13 @@ local function draw(inPlace)
 	end)
 end
 
----@param screen string
----@param arg any
+--- @author DemiAutomatic
+--- @method push
+--- @description Pushes a screen, asks for its data again, and draws it.
+--- @param screen {string}
+--- @param arg {any}
 local function push(screen, arg)
 	stack[#stack + 1] = { screen = screen, arg = arg }
-	-- leaving the root: a grant added or removed with acl.reload shows without reopening
 	if #stack == 2 then TriggerServerEvent('opx77_admin:refresh', 'access') end
 	if screen == 'players' or screen == 'player' then
 		TriggerServerEvent('opx77_admin:refresh', 'roster')
@@ -738,25 +915,28 @@ local function push(screen, arg)
 		(not catalog.loaded or catalog.error) then
 		TriggerServerEvent('opx77_admin:refresh', 'items')
 	elseif screen == 'bag' then
-		-- always read again: a bag changes under a staff member between two visits
 		bag.target, bag.rows, bag.incoming, bag.loaded, bag.error = tostring(arg), {}, {}, false, nil
 		TriggerServerEvent('opx77_admin:refresh', 'bag', tostring(arg))
 	end
 	draw()
 end
 
+--- @author DemiAutomatic
+--- @method pop
+--- @description Goes back a screen, or closes the menu at the root.
 local function pop()
 	if #stack <= 1 then return Menu.Close() end
 	stack[#stack] = nil
 	draw()
 end
 
---- Write the line under the list, or keep it for the next screen when none is up.
----@param text string
----@param ok boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Status
+--- @description Writes the line under the list, or keeps it for later.
+--- @param text {string}
+--- @param ok {boolean}
 function OpxAdmin.Menu.Status(text, ok)
 	if type(text) ~= 'string' then return end
-	-- the line is capped at 120 characters and a listing is many lines: the chat box has it all
 	local line = text:match('^[^\n]*') or text
 	if #line > 116 then line = line:sub(1, 113) .. '...' end
 	if handle == nil then
@@ -766,10 +946,11 @@ function OpxAdmin.Menu.Status(text, ok)
 	CreateThread(function() Client.Call(MENU, 'setStatus', line, ok) end)
 end
 
---- Run a command line from a row or a form, and ask for a list again once it has had time to
---- land. The answer is written under the list when it comes back.
----@param tokens table
----@param refresh string|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Run
+--- @description Runs a command line and asks for a list again later.
+--- @param tokens {table}
+--- @param refresh {string|nil}
 function OpxAdmin.Menu.Run(tokens, refresh)
 	suspended = false
 	if #stack > 0 and handle == nil then draw() end
@@ -778,7 +959,6 @@ function OpxAdmin.Menu.Run(tokens, refresh)
 		return
 	end
 	if refresh then
-		-- a bag is asked for by the target its screen draws
 		local current = top()
 		local arg = refresh == 'bag' and current and current.screen == 'bag' and tostring(current.arg)
 			or nil
@@ -790,9 +970,11 @@ function OpxAdmin.Menu.Run(tokens, refresh)
 	end
 end
 
---- Ask before running.
----@param tokens table
----@param key string
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Confirm
+--- @description Pushes the confirmation screen for a command line.
+--- @param tokens {table}
+--- @param key {string}
 function OpxAdmin.Menu.Confirm(tokens, key)
 	suspended = false
 	if #stack == 0 then return end
@@ -801,7 +983,9 @@ function OpxAdmin.Menu.Confirm(tokens, key)
 	draw()
 end
 
---- Take the menu down for a form, keeping the stack.
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Suspend
+--- @description Takes the menu down for a form, keeping the stack.
 function OpxAdmin.Menu.Suspend()
 	suspended = true
 	if handle == nil then return end
@@ -810,15 +994,20 @@ function OpxAdmin.Menu.Suspend()
 	CreateThread(function() Client.Call(MENU, 'close', closing) end)
 end
 
---- Bring the menu back after a form, with a line under it if there is one.
----@param text string|nil
----@param ok boolean|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Resume
+--- @description Brings the menu back after a form, with an optional line.
+--- @param text {string|nil}
+--- @param ok {boolean|nil}
 function OpxAdmin.Menu.Resume(text, ok)
 	suspended = false
 	if text then queuedStatus = { text = text, ok = ok } end
 	draw()
 end
 
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Close
+--- @description Takes the menu and any form down and empties the stack.
 function OpxAdmin.Menu.Close()
 	stack = {}
 	suspended = false
@@ -829,31 +1018,37 @@ function OpxAdmin.Menu.Close()
 	CreateThread(function() Client.Call(MENU, 'close', closing) end)
 end
 
---- Redraw the open screen in place, for text that changed under it.
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Refresh
+--- @description Redraws the open screen in place for changed text.
 function OpxAdmin.Menu.Refresh()
 	if handle ~= nil and not suspended then draw(true) end
 end
 
----@return boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.IsOpen
+--- @description Whether the menu or one of its forms is up.
+--- @returns {boolean}
 function OpxAdmin.Menu.IsOpen()
 	return handle ~= nil or Forms.IsOpen()
 end
 
----@return string|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Screen
+--- @description The name of the screen at the top of the stack.
+--- @returns {string|nil}
 function OpxAdmin.Menu.Screen()
 	local current = top()
 	return current and current.screen or nil
 end
 
--- ---------------------------------------------------------------------------
--- The wire
--- ---------------------------------------------------------------------------
-
---- The opener's answer. Any client resource can raise this name locally; what it would get is
---- a menu whose every row is a command the host refuses it.
+--- @author DemiAutomatic
+--- @event opx77_admin:open
+--- @description Opens the root screen from the opener's answer, or toggles closed.
+--- @param payload {AdminSession}
 RegisterNetEvent('opx77_admin:open', function(payload)
 	if type(payload) ~= 'table' then return end
-	if #stack > 0 and not suspended then return Menu.Close() end -- the command toggles
+	if #stack > 0 and not suspended then return Menu.Close() end
 	if not Client.Need(MENU) then
 		Client.Toast('admin.client.menuMissing', nil, 'error')
 		return
@@ -865,13 +1060,16 @@ RegisterNetEvent('opx77_admin:open', function(payload)
 		weapons = payload.weapons == true,
 		inventory = payload.inventory == true,
 	}
-	-- the catalogue follows on its own event; one read before it would draw an old one
 	catalog.rows, catalog.incoming, catalog.loaded, catalog.error = {}, {}, false, nil
 	stack = { { screen = 'root' } }
 	suspended = false
 	draw()
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_admin:access
+--- @description Takes a fresh access map and redraws in place.
+--- @param payload {table}
 RegisterNetEvent('opx77_admin:access', function(payload)
 	if session == nil or type(payload) ~= 'table' or type(payload.access) ~= 'table' then return end
 	session.access, session.aclKnown = payload.access, payload.aclKnown == true
@@ -881,12 +1079,13 @@ RegisterNetEvent('opx77_admin:access', function(payload)
 	draw(true)
 end)
 
---- Chunks of a list the server read from opx77_inventory. Rows are data drawn as text; what a
---- row runs is a command line the host gates like any other.
----@param list table  `catalog` or `bag`
----@param payload table
----@param accept fun(entry: table): table|nil
----@return boolean done
+--- @author DemiAutomatic
+--- @method collect
+--- @description Gathers one chunk of an inventory list, answering when complete.
+--- @param list {table} catalog or bag.
+--- @param payload {table}
+--- @param accept {fun(entry: table): table|nil}
+--- @returns {boolean}
 local function collect(list, payload, accept)
 	if payload.offset == 0 then list.incoming = {} end
 	for _, entry in ipairs(payload.rows) do
@@ -900,6 +1099,10 @@ local function collect(list, payload, accept)
 	return true
 end
 
+--- @author DemiAutomatic
+--- @event opx77_admin:items
+--- @description Collects the inventory catalogue chunks and redraws a picker.
+--- @param payload {table}
 RegisterNetEvent('opx77_admin:items', function(payload)
 	if type(payload) ~= 'table' or type(payload.rows) ~= 'table' then return end
 	local done = collect(catalog, payload, function(entry)
@@ -917,6 +1120,10 @@ RegisterNetEvent('opx77_admin:items', function(payload)
 	end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_admin:bag
+--- @description Collects the asked bag's stack chunks and redraws the picker.
+--- @param payload {table}
 RegisterNetEvent('opx77_admin:bag', function(payload)
 	if type(payload) ~= 'table' or type(payload.rows) ~= 'table' then return end
 	if payload.target ~= bag.target then return end
@@ -929,6 +1136,10 @@ RegisterNetEvent('opx77_admin:bag', function(payload)
 	if done and Menu.Screen() == 'bag' then draw(true) end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_admin:roster
+--- @description Collects roster chunks and redraws the screens that show it.
+--- @param payload {table}
 RegisterNetEvent('opx77_admin:roster', function(payload)
 	if type(payload) ~= 'table' or type(payload.rows) ~= 'table' then return end
 	if payload.offset == 0 then incoming = {} end
@@ -951,6 +1162,10 @@ RegisterNetEvent('opx77_admin:roster', function(payload)
 	if screen == 'players' or screen == 'player' or screen == 'root' then draw(true) end
 end)
 
+--- @author DemiAutomatic
+--- @event opx77_admin:locations
+--- @description Takes the destination list and redraws the screens that show it.
+--- @param payload {table}
 RegisterNetEvent('opx77_admin:locations', function(payload)
 	if type(payload) ~= 'table' or type(payload.rows) ~= 'table' then return end
 	local rows = {}
@@ -966,13 +1181,14 @@ RegisterNetEvent('opx77_admin:locations', function(payload)
 	if screen == 'locations' or screen == 'saved' then draw(true) end
 end)
 
---- A row was used. Any resource on this machine can raise this name, so the shape and the
---- owner are checked; whatever a row runs is gated by the host anyway.
+--- @author DemiAutomatic
+--- @event opx77_admin:row
+--- @description Handles a row selection or a menu close from opx77_menu.
+--- @param payload {table}
 AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.owner ~= Client.RESOURCE then return end
 
 	if payload.action == 'close' then
-		-- a screen this one replaced, whose close can arrive before the new handle does
 		if payload.reason == 'reopened' or payload.handle ~= handle then return end
 		handle = nil
 		if suspended then return end
@@ -1009,18 +1225,18 @@ AddEventHandler(EVENT, function(payload)
 	if type(data.form) == 'string' then return Forms.Open(data.form, data.arg) end
 end)
 
--- ---------------------------------------------------------------------------
--- The key
--- ---------------------------------------------------------------------------
-
---- Up, the menu comes down here: closing grants nothing. Down, the key sends the line
---- /opx77.admin sends, so the host resolves command.opx77.admin before the server answers with
---- a menu, and a player without the grant gets the host's refusal and nothing else.
+--- @author DemiAutomatic
+--- @method pressed
+--- @description The menu key: closes an open menu, otherwise sends the opener.
 local function pressed()
 	if Menu.IsOpen() then return Menu.Close() end
 	Client.Execute({ OPENER })
 end
 
+--- @author DemiAutomatic
+--- @event onClientResourceStart
+--- @description Registers the menu key when this resource starts.
+--- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name ~= Client.RESOURCE then return end
 	local keys = Config.KEYS
@@ -1032,11 +1248,13 @@ AddEventHandler('onClientResourceStart', function(name)
 	Keys.Register(KEY_MENU, 'admin.key.menu', Keys.Setting('KEYS.MENU', keys.MENU, 'F9'), pressed)
 end)
 
--- the close row names the key, so a rebind in the pause menu shows without reopening
 Keys.OnChanged(Menu.Refresh)
 
+--- @author DemiAutomatic
+--- @event onClientResourceStop
+--- @description Closes the menu and any form when this resource stops.
+--- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
 	if name ~= Client.RESOURCE then return end
-	-- opx77_menu and opx77_input sweep a stopped owner, but not instantly
 	Menu.Close()
 end)

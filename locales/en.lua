@@ -1,5 +1,8 @@
+--- @author DemiAutomatic
+--- @file locales/en.lua
+--- @description English player-facing text for the staff resource.
+
 OpxAdmin.Locale.register('en', {
-	-- what a command answers
 	['admin.text.lines'] = '{lines}',
 	['admin.done.noclipOn'] = 'Noclip on.',
 	['admin.done.noclipOff'] = 'Noclip off.',
@@ -27,12 +30,9 @@ OpxAdmin.Locale.register('en', {
 	['admin.done.repaired'] = 'Vehicle {vehicle} repaired ({scope}).',
 	['admin.done.flagOn'] = 'Vehicle {vehicle}: {flag} on.',
 	['admin.done.flagOff'] = 'Vehicle {vehicle}: {flag} off.',
-	['admin.done.weaponGiven'] = '{label} is in the bag of {who}, empty: its ammunition ' ..
-		'is given on its own.',
-	['admin.done.weaponGivenAmmo'] = '{label} is in the bag of {who}, empty, with {count}x ' ..
-		'{ammo} beside it.',
-	['admin.done.meleeGiven'] = '{label} is in the bag of {who}; it is drawn from the ' ..
-		'inventory.',
+	['admin.done.weaponGiven'] = '{label} is in the bag of {who}, empty: its ammunition is given on its own.',
+	['admin.done.weaponGivenAmmo'] = '{label} is in the bag of {who}, empty, with {count}x {ammo} beside it.',
+	['admin.done.meleeGiven'] = '{label} is in the bag of {who}; it is drawn from the inventory.',
 	['admin.done.ammoGiven'] = 'Put {count}x {label} in the bag of {who}.',
 	['admin.done.refilled'] = 'Put {items} in the bag of {who}.',
 	['admin.done.nothingToRefill'] = '{who} carries no such weapon that takes ammunition.',
@@ -43,8 +43,7 @@ OpxAdmin.Locale.register('en', {
 	['admin.done.itemRemoved'] = 'Took {count}x {label} from the bag of {who}.',
 	['admin.done.bagCleared'] = 'Emptied the bag of {who}.',
 	['admin.done.sent'] = '{name} [{id}] sent to {label}.',
-	['admin.done.locAdded'] = 'Destination {name} saved as "{label}" until the next ' ..
-		'restart.',
+	['admin.done.locAdded'] = 'Destination {name} saved as "{label}" until the next restart.',
 	['admin.done.locRemoved'] = 'Destination {name} removed.',
 	['admin.done.announced'] = 'Announced to {count} player(s).',
 
@@ -52,7 +51,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.ban.defaultReason'] = 'Banned by staff.',
 	['admin.announce.title'] = 'ANNOUNCEMENT',
 
-	-- refusals
 	['admin.error.inGameOnly'] = 'That command has to be run in game.',
 	['admin.error.tooFast'] = 'Slow down.',
 	['admin.error.failed'] = 'That could not be done.',
@@ -66,8 +64,7 @@ OpxAdmin.Locale.register('en', {
 	['admin.error.gateUnreadable'] = 'The readiness gate cannot be read, so nothing is moved.',
 	['admin.error.noPosition'] = 'No position can be read for that player right now.',
 	['admin.error.killRefused'] = 'The move was refused: {reason}',
-	['admin.error.respawnRefused'] = 'The respawn was refused and the player was revived in ' ..
-		'place: {reason}',
+	['admin.error.respawnRefused'] = 'The respawn was refused and the player was revived in place: {reason}',
 	['admin.error.refused'] = 'Refused: {reason}',
 	['admin.error.badNumber'] = 'That is not a usable number.',
 	['admin.error.badCoordinates'] = 'Those are not usable coordinates.',
@@ -78,25 +75,18 @@ OpxAdmin.Locale.register('en', {
 	['admin.error.vehicleCap'] = 'Player {id} already has {cap} staff vehicles out.',
 	['admin.error.noVehicle'] = 'No such vehicle, and none near you.',
 	['admin.error.occupied'] = 'Somebody is aboard that vehicle.',
-	['admin.error.unsafeRepair'] = 'A {scope} repair is unsafe with somebody aboard; ' ..
-		'use visual.',
-	['admin.error.badScope'] = 'Repair scopes: glass, body, lights, tires, visual, ' ..
-		'mechanical, full.',
+	['admin.error.unsafeRepair'] = 'A {scope} repair is unsafe with somebody aboard; use visual.',
+	['admin.error.badScope'] = 'Repair scopes: glass, body, lights, tires, visual, mechanical, full.',
 	['admin.error.unknownFlag'] = 'Flags: {flags}.',
 	['admin.error.notOurs'] = 'That vehicle was not spawned by the staff tool.',
 	['admin.error.vehiclesUnavailable'] = 'Vehicles are not available on this server build.',
 	['admin.error.unknownWeapon'] = "That is not a weapon in opx77_inventory's catalogue.",
 	['admin.error.weaponsUnavailable'] = 'The weapon relay is not available on this server build.',
-	['admin.error.unknownAmmo'] = '{item} is neither an ammunition item nor a weapon in ' ..
-		"opx77_inventory's catalogue.",
+	['admin.error.unknownAmmo'] = "{item} is neither an ammunition item nor a weapon in opx77_inventory's catalogue.",
 	['admin.error.meleeNoAmmo'] = '{label} is a melee weapon: it takes no ammunition.',
-	['admin.error.givePartial'] = '{label} is in the bag of {who}, but {count}x {ammo} ' ..
-		'could not be added ({reason}) and the weapon could not ' ..
-		'be taken back: remove it.',
-	['admin.error.inventoryUnavailable'] = 'opx77_inventory is not running or not answering; ' ..
-		'nothing was changed.',
-	['admin.error.inventoryDenied'] = 'opx77_inventory refuses this resource: list opx77_admin ' ..
-		'in its EXPORTS.WRITERS.',
+	['admin.error.givePartial'] = '{label} is in the bag of {who}, but {count}x {ammo} could not be added ({reason}) and the weapon could not be taken back: remove it.',
+	['admin.error.inventoryUnavailable'] = 'opx77_inventory is not running or not answering; nothing was changed.',
+	['admin.error.inventoryDenied'] = 'opx77_inventory refuses this resource: list opx77_admin in its EXPORTS.WRITERS.',
 	['admin.error.badHolder'] = 'That is not a player id, me, or a citizen id.',
 	['admin.error.noCharacter'] = '{who} has no character in the world.',
 	['admin.error.unknownCitizen'] = 'No character carries the citizen id {who}.',
@@ -106,8 +96,7 @@ OpxAdmin.Locale.register('en', {
 	['admin.error.notEnough'] = 'The bag of {who} does not hold {count}x {item}.',
 	['admin.error.bagNoRoom'] = 'The bag of {who} has no free slot for {item}.',
 	['admin.error.bagTooHeavy'] = '{item} would make the bag of {who} too heavy.',
-	['admin.error.weaponNoAnswer'] = "Player {id}'s client did not answer. Is open77_weapons " ..
-		'running?',
+	['admin.error.weaponNoAnswer'] = "Player {id}'s client did not answer. Is open77_weapons running?",
 	['admin.error.unknownLocation'] = 'No destination has that name.',
 	['admin.error.badLocationName'] = 'A destination name is 1 to 32 letters, digits, _ or -.',
 	['admin.error.seededLocation'] = 'That destination is in config.lua; remove it there.',
@@ -120,7 +109,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.usage.flag'] = 'usage: <vehicleId|near> <flag> [on|off]',
 	['admin.usage.send'] = 'usage: <playerId|me> <location>',
 
-	-- what a target is told
 	['admin.toast.title'] = 'STAFF',
 	['admin.toast.healed'] = 'A staff member healed you.',
 	['admin.toast.revived'] = 'A staff member revived you.',
@@ -137,20 +125,16 @@ OpxAdmin.Locale.register('en', {
 	['admin.toast.bagCleared'] = 'A staff member emptied your bag.',
 	['admin.toast.sent'] = 'A staff member sent you to {label}.',
 
-	-- listings
 	['admin.state.up'] = 'in world',
 	['admin.state.down'] = 'down',
 	['admin.state.gate'] = 'joining',
 	['admin.state.loading'] = 'loading',
 	['admin.players.header'] = '{count} player(s) connected:',
 	['admin.players.row'] = '  [{id}] {name}  {state}  bucket {bucket}  {distance}',
-	['admin.status.summary'] = '{players} connected, {up} in the world, ' ..
-		'{vehicles} staff vehicle(s), up {minutes} min.',
+	['admin.status.summary'] = '{players} connected, {up} in the world, {vehicles} staff vehicle(s), up {minutes} min.',
 	['admin.audit.header'] = 'The last {count} staff action(s):',
-	['admin.audit.row'] = '  #{seq} {minutes} min ago  {actor}  {event}  {target}  ' ..
-		'{detail}',
-	['admin.audit.rowFailed'] = '  #{seq} {minutes} min ago  {actor}  {event}  {target}  ' ..
-		'REFUSED {detail}',
+	['admin.audit.row'] = '  #{seq} {minutes} min ago  {actor}  {event}  {target}  {detail}',
+	['admin.audit.rowFailed'] = '  #{seq} {minutes} min ago  {actor}  {event}  {target}  REFUSED {detail}',
 	['admin.locations.header'] = '{count} destination(s):',
 	['admin.locations.row'] = '  {name}  {label}  {x} {y} {z}',
 	['admin.locations.runtime'] = '  {name}  {label}  {x} {y} {z}  (until restart)',
@@ -158,14 +142,12 @@ OpxAdmin.Locale.register('en', {
 	['admin.loadout.empty'] = '  none',
 	['admin.loadout.row'] = '  slot {slot}  {label}{rounds}  #{serial}{drawn}',
 	['admin.loadout.drawn'] = '(drawn)',
-	['admin.inventory.header'] = 'Bag of {who} ({citizenId}): {used}/{slots} slots, ' ..
-		'{weight}/{maxWeight} kg',
+	['admin.inventory.header'] = 'Bag of {who} ({citizenId}): {used}/{slots} slots, {weight}/{maxWeight} kg',
 	['admin.inventory.row'] = '  {slot}  {label} x{count}{extra}',
 	['admin.inventory.empty'] = '  empty',
 	['admin.inventory.rounds'] = '{rounds} rounds',
 	['admin.inventory.pair'] = '{label} and {count}x {ammo}',
 
-	-- chat suggestions
 	['admin.help.menu'] = 'Open the staff menu.',
 	['admin.help.toggle'] = 'omit to toggle',
 	['admin.help.noclip'] = 'Toggle noclip for yourself.',
@@ -208,8 +190,7 @@ OpxAdmin.Locale.register('en', {
 	['admin.help.cleanup'] = 'Remove every empty staff vehicle.',
 	['admin.help.repair'] = 'Repair a vehicle.',
 	['admin.help.repairTarget'] = 'a vehicle id, or near; near when omitted',
-	['admin.help.repairScope'] = 'glass, body, lights, tires, visual, mechanical or ' ..
-		'full; full when omitted',
+	['admin.help.repairScope'] = 'glass, body, lights, tires, visual, mechanical or full; full when omitted',
 	['admin.help.flag'] = 'Toggle a flag on a vehicle.',
 	['admin.help.vehicleTarget'] = 'a vehicle id, or near',
 	['admin.help.flagName'] = 'a name from VEHICLES.FLAGS',
@@ -244,7 +225,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.help.readAudit'] = 'Show the latest staff actions.',
 	['admin.help.auditCount'] = '1 to 40; 15 when omitted',
 
-	-- the menu
 	['admin.menu.title'] = 'STAFF',
 	['admin.menu.players'] = 'Players',
 	['admin.menu.self'] = 'Myself',
@@ -348,7 +328,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.confirm.announce'] = 'SEND TO EVERYBODY?',
 	['admin.confirm.save'] = 'WRITE EVERY CHARACTER NOW?',
 
-	-- the forms
 	['admin.form.health'] = 'Health',
 	['admin.form.armor'] = 'Armour',
 	['admin.form.job'] = 'Job',
@@ -383,7 +362,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.field.label'] = 'Label',
 	['admin.field.time'] = 'HH:MM',
 
-	-- the client half
 	['admin.client.menuMissing'] = 'The staff menu needs opx77_menu, which is not running.',
 	['admin.client.menuBusy'] = 'Another menu is open. Close it first.',
 	['admin.client.inputMissing'] = 'That needs opx77_input, which is not running.',
@@ -393,12 +371,10 @@ OpxAdmin.Locale.register('en', {
 	['admin.client.denied'] = 'No access to /{command}.',
 	['admin.client.unknownCommand'] = '/{command} is not a command on this server.',
 
-	-- key names, as the pause menu's keybinds tab lists them
 	['admin.key.menu'] = 'Staff: open or close the menu',
 	['admin.key.speedUp'] = 'Staff: noclip faster',
 	['admin.key.speedDown'] = 'Staff: noclip slower',
 
-	-- the controls in opx77_prompts' strip while a travel mode is on; short, the strip never wraps
 	['admin.prompt.noclip'] = 'NOCLIP',
 	['admin.prompt.move'] = 'Move',
 	['admin.prompt.upDown'] = 'Up / down',

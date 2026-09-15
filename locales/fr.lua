@@ -1,11 +1,13 @@
+--- @author DemiAutomatic
+--- @file locales/fr.lua
+--- @description French player-facing text for the staff resource.
+
 OpxAdmin.Locale.register('fr', {
-	-- ce que répond une commande
 	['admin.text.lines'] = '{lines}',
 	['admin.done.noclipOn'] = 'Noclip activé.',
 	['admin.done.noclipOff'] = 'Noclip désactivé.',
 	['admin.done.speed'] = 'Vitesse du noclip : {speed} m/s.',
-	['admin.done.mapOn'] = 'Voyage par la carte armé : double-cliquez un point ' ..
-		'de la carte.',
+	['admin.done.mapOn'] = 'Voyage par la carte armé : double-cliquez un point de la carte.',
 	['admin.done.mapOff'] = 'Voyage par la carte désarmé.',
 	['admin.done.moved'] = 'Déplacé en {x} {y} {z}.',
 	['admin.done.healed'] = '{name} [{id}] soigné.',
@@ -15,8 +17,7 @@ OpxAdmin.Locale.register('fr', {
 	['admin.done.pos'] = 'Copié dans le presse-papiers (bucket {bucket}) : {row}',
 	['admin.done.goto'] = 'Téléporté auprès de {name} [{id}], bucket {bucket}.',
 	['admin.done.bring'] = "{name} [{id}] amené jusqu'à vous.",
-	['admin.done.observe'] = 'Vous observez {name} [{id}], noclip activé. Cette ' ..
-		'personne vous voit.',
+	['admin.done.observe'] = 'Vous observez {name} [{id}], noclip activé. Cette personne vous voit.',
 	['admin.done.killed'] = '{name} [{id}] tué.',
 	['admin.done.health'] = 'Santé du joueur {id} : {value}/{maximum}.',
 	['admin.done.armor'] = 'Armure du joueur {id} : {value}.',
@@ -25,21 +26,16 @@ OpxAdmin.Locale.register('fr', {
 	['admin.done.bannedForever'] = '{name} [{id}] banni définitivement : {reason}',
 	['admin.done.spawned'] = 'Véhicule {vehicle} ({label}) apparu pour le joueur {id}.',
 	['admin.done.removed'] = 'Véhicule {vehicle} retiré.',
-	['admin.done.removedMany'] = '{removed} véhicule(s) retiré(s), {kept} laissé(s) ' ..
-		'en place.',
+	['admin.done.removedMany'] = '{removed} véhicule(s) retiré(s), {kept} laissé(s) en place.',
 	['admin.done.repaired'] = 'Véhicule {vehicle} réparé ({scope}).',
 	['admin.done.flagOn'] = 'Véhicule {vehicle} : {flag} activé.',
 	['admin.done.flagOff'] = 'Véhicule {vehicle} : {flag} désactivé.',
-	['admin.done.weaponGiven'] = '{label} est dans le sac de {who}, vide : ses munitions ' ..
-		'se donnent à part.',
-	['admin.done.weaponGivenAmmo'] = '{label} est dans le sac de {who}, vide, avec {count}x ' ..
-		'{ammo} à côté.',
-	['admin.done.meleeGiven'] = '{label} est dans le sac de {who} ; elle se sort depuis ' ..
-		"l'inventaire.",
+	['admin.done.weaponGiven'] = '{label} est dans le sac de {who}, vide : ses munitions se donnent à part.',
+	['admin.done.weaponGivenAmmo'] = '{label} est dans le sac de {who}, vide, avec {count}x {ammo} à côté.',
+	['admin.done.meleeGiven'] = "{label} est dans le sac de {who} ; elle se sort depuis l'inventaire.",
 	['admin.done.ammoGiven'] = '{count}x {label} mis dans le sac de {who}.',
 	['admin.done.refilled'] = '{items} mis dans le sac de {who}.',
-	['admin.done.nothingToRefill'] = '{who} ne porte aucune arme de ce genre qui prenne des ' ..
-		'munitions.',
+	['admin.done.nothingToRefill'] = '{who} ne porte aucune arme de ce genre qui prenne des munitions.',
 	['admin.done.weaponsRemoved'] = '{count} arme(s) retirée(s) du sac de {who}.',
 	['admin.done.noWeapons'] = '{who} ne porte aucune arme de ce genre.',
 	['admin.done.holstered'] = 'Le joueur {id} a rengainé.',
@@ -47,8 +43,7 @@ OpxAdmin.Locale.register('fr', {
 	['admin.done.itemRemoved'] = '{count}x {label} retiré(s) du sac de {who}.',
 	['admin.done.bagCleared'] = 'Sac de {who} vidé.',
 	['admin.done.sent'] = '{name} [{id}] envoyé vers {label}.',
-	['admin.done.locAdded'] = 'Destination {name} enregistrée sous « {label} » ' ..
-		"jusqu'au prochain redémarrage.",
+	['admin.done.locAdded'] = "Destination {name} enregistrée sous « {label} » jusqu'au prochain redémarrage.",
 	['admin.done.locRemoved'] = 'Destination {name} supprimée.',
 	['admin.done.announced'] = 'Annonce envoyée à {count} joueur(s).',
 
@@ -56,7 +51,6 @@ OpxAdmin.Locale.register('fr', {
 	['admin.ban.defaultReason'] = "Banni par l'équipe.",
 	['admin.announce.title'] = 'ANNONCE',
 
-	-- refus
 	['admin.error.inGameOnly'] = 'Cette commande se lance en jeu.',
 	['admin.error.tooFast'] = 'Doucement.',
 	['admin.error.failed'] = "Cette action n'a pas abouti.",
@@ -66,47 +60,33 @@ OpxAdmin.Locale.register('fr', {
 	['admin.error.notConnected'] = "Personne n'est connecté avec cet identifiant.",
 	['admin.error.selfTarget'] = "Ce joueur, c'est vous.",
 	['admin.error.notIncarnated'] = "Ce joueur n'est pas encore dans le monde.",
-	['admin.error.gateClosed'] = 'Ce joueur est encore en train de rejoindre ; réessayez ' ..
-		'dans un instant.',
-	['admin.error.gateUnreadable'] = "La porte de disponibilité est illisible : rien n'est " ..
-		'déplacé.',
+	['admin.error.gateClosed'] = 'Ce joueur est encore en train de rejoindre ; réessayez dans un instant.',
+	['admin.error.gateUnreadable'] = "La porte de disponibilité est illisible : rien n'est déplacé.",
 	['admin.error.noPosition'] = "Aucune position lisible pour ce joueur pour l'instant.",
 	['admin.error.killRefused'] = 'Le déplacement a été refusé : {reason}',
-	['admin.error.respawnRefused'] = 'La réapparition a été refusée et le joueur réanimé sur ' ..
-		'place : {reason}',
+	['admin.error.respawnRefused'] = 'La réapparition a été refusée et le joueur réanimé sur place : {reason}',
 	['admin.error.refused'] = 'Refusé : {reason}',
 	['admin.error.badNumber'] = "Ce nombre n'est pas utilisable.",
 	['admin.error.badCoordinates'] = 'Ces coordonnées ne sont pas utilisables.',
 	['admin.error.badSwitch'] = 'Utilisez on ou off, ou rien pour basculer.',
-	['admin.error.badDuration'] = 'Un bannissement dure de 1s à 3650d, écrit 30m, 12h, 7d, ' ..
-		'ou perm.',
+	['admin.error.badDuration'] = 'Un bannissement dure de 1s à 3650d, écrit 30m, 12h, 7d, ou perm.',
 	['admin.error.emptyText'] = "Il n'y a rien à envoyer.",
 	['admin.error.unknownVehicle'] = "Ce véhicule n'est pas dans data/vehicles.lua.",
 	['admin.error.vehicleCap'] = "Le joueur {id} a déjà {cap} véhicules de l'équipe sortis.",
 	['admin.error.noVehicle'] = 'Aucun véhicule de ce numéro, et aucun près de vous.',
 	['admin.error.occupied'] = "Quelqu'un est à bord de ce véhicule.",
-	['admin.error.unsafeRepair'] = "Une réparation {scope} est dangereuse avec quelqu'un à " ..
-		'bord ; utilisez visual.',
-	['admin.error.badScope'] = 'Réparations : glass, body, lights, tires, visual, ' ..
-		'mechanical, full.',
+	['admin.error.unsafeRepair'] = "Une réparation {scope} est dangereuse avec quelqu'un à bord ; utilisez visual.",
+	['admin.error.badScope'] = 'Réparations : glass, body, lights, tires, visual, mechanical, full.',
 	['admin.error.unknownFlag'] = 'Drapeaux : {flags}.',
 	['admin.error.notOurs'] = "Ce véhicule n'a pas été créé par l'outil de l'équipe.",
-	['admin.error.vehiclesUnavailable'] = 'Les véhicules ne sont pas disponibles sur cette ' ..
-		'version du serveur.',
+	['admin.error.vehiclesUnavailable'] = 'Les véhicules ne sont pas disponibles sur cette version du serveur.',
 	['admin.error.unknownWeapon'] = "Ce n'est pas une arme du catalogue d'opx77_inventory.",
-	['admin.error.weaponsUnavailable'] = "Le relais des armes n'est pas disponible sur cette " ..
-		'version du serveur.',
-	['admin.error.unknownAmmo'] = "{item} n'est ni une munition ni une arme du catalogue " ..
-		"d'opx77_inventory.",
-	['admin.error.meleeNoAmmo'] = '{label} est une arme de mêlée : elle ne prend pas de ' ..
-		'munitions.',
-	['admin.error.givePartial'] = '{label} est dans le sac de {who}, mais {count}x {ammo} ' ..
-		"n'a pas pu être ajouté ({reason}) et l'arme n'a pas pu " ..
-		'être reprise : retirez-la.',
-	['admin.error.inventoryUnavailable'] = 'opx77_inventory ne tourne pas ou ne répond pas ; ' ..
-		"rien n'a été changé.",
-	['admin.error.inventoryDenied'] = 'opx77_inventory refuse cette ressource : ajoutez ' ..
-		'opx77_admin à ses EXPORTS.WRITERS.',
+	['admin.error.weaponsUnavailable'] = "Le relais des armes n'est pas disponible sur cette version du serveur.",
+	['admin.error.unknownAmmo'] = "{item} n'est ni une munition ni une arme du catalogue d'opx77_inventory.",
+	['admin.error.meleeNoAmmo'] = '{label} est une arme de mêlée : elle ne prend pas de munitions.',
+	['admin.error.givePartial'] = "{label} est dans le sac de {who}, mais {count}x {ammo} n'a pas pu être ajouté ({reason}) et l'arme n'a pas pu être reprise : retirez-la.",
+	['admin.error.inventoryUnavailable'] = "opx77_inventory ne tourne pas ou ne répond pas ; rien n'a été changé.",
+	['admin.error.inventoryDenied'] = 'opx77_inventory refuse cette ressource : ajoutez opx77_admin à ses EXPORTS.WRITERS.',
 	['admin.error.badHolder'] = "Ce n'est ni un numéro de joueur, ni me, ni un citizen id.",
 	['admin.error.noCharacter'] = "{who} n'a pas de personnage dans le monde.",
 	['admin.error.unknownCitizen'] = 'Aucun personnage ne porte le citizen id {who}.',
@@ -116,11 +96,9 @@ OpxAdmin.Locale.register('fr', {
 	['admin.error.notEnough'] = 'Le sac de {who} ne contient pas {count}x {item}.',
 	['admin.error.bagNoRoom'] = "Le sac de {who} n'a plus d'emplacement libre pour {item}.",
 	['admin.error.bagTooHeavy'] = '{item} rendrait le sac de {who} trop lourd.',
-	['admin.error.weaponNoAnswer'] = "Le client du joueur {id} n'a pas répondu. " ..
-		'open77_weapons tourne-t-il ?',
+	['admin.error.weaponNoAnswer'] = "Le client du joueur {id} n'a pas répondu. open77_weapons tourne-t-il ?",
 	['admin.error.unknownLocation'] = 'Aucune destination ne porte ce nom.',
-	['admin.error.badLocationName'] = 'Un nom de destination compte 1 à 32 lettres, ' ..
-		'chiffres, _ ou -.',
+	['admin.error.badLocationName'] = 'Un nom de destination compte 1 à 32 lettres, chiffres, _ ou -.',
 	['admin.error.seededLocation'] = 'Cette destination est dans config.lua ; retirez-la là-bas.',
 
 	['admin.usage.speed'] = 'utilisation : <0.1..500 m/s>',
@@ -131,7 +109,6 @@ OpxAdmin.Locale.register('fr', {
 	['admin.usage.flag'] = 'utilisation : <vehicleId|near> <flag> [on|off]',
 	['admin.usage.send'] = 'utilisation : <playerId|me> <location>',
 
-	-- ce qu'apprend la personne visée
 	['admin.toast.title'] = 'ÉQUIPE',
 	['admin.toast.healed'] = "Un membre de l'équipe vous a soigné.",
 	['admin.toast.revived'] = "Un membre de l'équipe vous a réanimé.",
@@ -142,29 +119,22 @@ OpxAdmin.Locale.register('fr', {
 	['admin.toast.killed'] = "Un membre de l'équipe vous a tué.",
 	['admin.toast.vehicle'] = "Un membre de l'équipe vous a livré : {label}.",
 	['admin.toast.weapon'] = "Un membre de l'équipe a mis dans votre sac : {label}.",
-	['admin.toast.weaponsTaken'] = "Un membre de l'équipe a retiré {count} arme(s) de " ..
-		'votre sac.',
-	['admin.toast.itemGiven'] = "Un membre de l'équipe a mis {count}x {label} dans votre " ..
-		'sac.',
-	['admin.toast.itemTaken'] = "Un membre de l'équipe a retiré {count}x {label} de " ..
-		'votre sac.',
+	['admin.toast.weaponsTaken'] = "Un membre de l'équipe a retiré {count} arme(s) de votre sac.",
+	['admin.toast.itemGiven'] = "Un membre de l'équipe a mis {count}x {label} dans votre sac.",
+	['admin.toast.itemTaken'] = "Un membre de l'équipe a retiré {count}x {label} de votre sac.",
 	['admin.toast.bagCleared'] = "Un membre de l'équipe a vidé votre sac.",
 	['admin.toast.sent'] = "Un membre de l'équipe vous a envoyé vers {label}.",
 
-	-- listes
 	['admin.state.up'] = 'dans le monde',
 	['admin.state.down'] = 'à terre',
 	['admin.state.gate'] = 'arrive',
 	['admin.state.loading'] = 'chargement',
 	['admin.players.header'] = '{count} joueur(s) connecté(s) :',
 	['admin.players.row'] = '  [{id}] {name}  {state}  bucket {bucket}  {distance}',
-	['admin.status.summary'] = '{players} connecté(s), {up} dans le monde, {vehicles} ' ..
-		"véhicule(s) de l'équipe, en ligne depuis {minutes} min.",
+	['admin.status.summary'] = "{players} connecté(s), {up} dans le monde, {vehicles} véhicule(s) de l'équipe, en ligne depuis {minutes} min.",
 	['admin.audit.header'] = "Les {count} dernière(s) action(s) de l'équipe :",
-	['admin.audit.row'] = '  #{seq} il y a {minutes} min  {actor}  {event}  ' ..
-		'{target}  {detail}',
-	['admin.audit.rowFailed'] = '  #{seq} il y a {minutes} min  {actor}  {event}  ' ..
-		'{target}  REFUSÉ {detail}',
+	['admin.audit.row'] = '  #{seq} il y a {minutes} min  {actor}  {event}  {target}  {detail}',
+	['admin.audit.rowFailed'] = '  #{seq} il y a {minutes} min  {actor}  {event}  {target}  REFUSÉ {detail}',
 	['admin.locations.header'] = '{count} destination(s) :',
 	['admin.locations.row'] = '  {name}  {label}  {x} {y} {z}',
 	['admin.locations.runtime'] = "  {name}  {label}  {x} {y} {z}  (jusqu'au redémarrage)",
@@ -172,14 +142,12 @@ OpxAdmin.Locale.register('fr', {
 	['admin.loadout.empty'] = '  aucune',
 	['admin.loadout.row'] = '  emplacement {slot}  {label}{rounds}  #{serial}{drawn}',
 	['admin.loadout.drawn'] = '(en main)',
-	['admin.inventory.header'] = 'Sac de {who} ({citizenId}) : {used}/{slots} ' ..
-		'emplacements, {weight}/{maxWeight} kg',
+	['admin.inventory.header'] = 'Sac de {who} ({citizenId}) : {used}/{slots} emplacements, {weight}/{maxWeight} kg',
 	['admin.inventory.row'] = '  {slot}  {label} x{count}{extra}',
 	['admin.inventory.empty'] = '  vide',
 	['admin.inventory.rounds'] = '{rounds} munitions',
 	['admin.inventory.pair'] = '{label} et {count}x {ammo}',
 
-	-- suggestions du chat
 	['admin.help.menu'] = "Ouvre le menu de l'équipe.",
 	['admin.help.toggle'] = 'omettre pour basculer',
 	['admin.help.noclip'] = 'Bascule votre noclip.',
@@ -222,8 +190,7 @@ OpxAdmin.Locale.register('fr', {
 	['admin.help.cleanup'] = "Retire tous les véhicules vides de l'équipe.",
 	['admin.help.repair'] = 'Répare un véhicule.',
 	['admin.help.repairTarget'] = 'un numéro de véhicule, ou near ; near si omis',
-	['admin.help.repairScope'] = 'glass, body, lights, tires, visual, mechanical ou ' ..
-		'full ; full si omis',
+	['admin.help.repairScope'] = 'glass, body, lights, tires, visual, mechanical ou full ; full si omis',
 	['admin.help.flag'] = "Bascule un drapeau d'un véhicule.",
 	['admin.help.vehicleTarget'] = 'un numéro de véhicule, ou near',
 	['admin.help.flagName'] = 'un nom de VEHICLES.FLAGS',
@@ -258,7 +225,6 @@ OpxAdmin.Locale.register('fr', {
 	['admin.help.readAudit'] = "Affiche les dernières actions de l'équipe.",
 	['admin.help.auditCount'] = 'de 1 à 40 ; 15 si omis',
 
-	-- le menu
 	['admin.menu.title'] = 'ÉQUIPE',
 	['admin.menu.players'] = 'Joueurs',
 	['admin.menu.self'] = 'Moi',
@@ -362,7 +328,6 @@ OpxAdmin.Locale.register('fr', {
 	['admin.confirm.announce'] = 'ENVOYER À TOUT LE MONDE ?',
 	['admin.confirm.save'] = 'SAUVEGARDER TOUS LES PERSONNAGES ?',
 
-	-- les formulaires
 	['admin.form.health'] = 'Santé',
 	['admin.form.armor'] = 'Armure',
 	['admin.form.job'] = 'Métier',
@@ -397,9 +362,7 @@ OpxAdmin.Locale.register('fr', {
 	['admin.field.label'] = 'Libellé',
 	['admin.field.time'] = 'HH:MM',
 
-	-- la moitié client
-	['admin.client.menuMissing'] = "Le menu de l'équipe a besoin d'opx77_menu, qui ne " ..
-		'tourne pas.',
+	['admin.client.menuMissing'] = "Le menu de l'équipe a besoin d'opx77_menu, qui ne tourne pas.",
 	['admin.client.menuBusy'] = "Un autre menu est ouvert. Fermez-le d'abord.",
 	['admin.client.inputMissing'] = 'Il faut opx77_input, qui ne tourne pas.',
 	['admin.client.formUnavailable'] = "Ce formulaire ne peut pas être construit pour l'instant.",
@@ -408,13 +371,10 @@ OpxAdmin.Locale.register('fr', {
 	['admin.client.denied'] = "Pas d'accès à /{command}.",
 	['admin.client.unknownCommand'] = "/{command} n'est pas une commande de ce serveur.",
 
-	-- noms des touches, tels que les liste l'onglet des raccourcis du menu pause
 	['admin.key.menu'] = 'Équipe : ouvrir ou fermer le menu',
 	['admin.key.speedUp'] = 'Équipe : noclip plus rapide',
 	['admin.key.speedDown'] = 'Équipe : noclip plus lent',
 
-	-- les commandes dans la bande d'opx77_prompts tant qu'un mode de déplacement est actif ;
-	-- courtes, la bande ne passe jamais à la ligne
 	['admin.prompt.noclip'] = 'NOCLIP',
 	['admin.prompt.move'] = 'Se déplacer',
 	['admin.prompt.upDown'] = 'Monter / descendre',

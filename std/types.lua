@@ -99,6 +99,12 @@
 ---@field weapon { class: string, ammo: string|nil }|nil  ammo is the item that loads it
 ---@field ammoMax integer|nil an ammo item: the most rounds one weapon holds, and a full load
 
+--- opx77_inventory's catalogue as server/inventory.lua caches it from GetItems.
+---@class InventoryCatalog
+---@field items InventoryItem[]            sorted by label
+---@field byName table<string, InventoryItem>
+---@field atMs integer                      when it was read, for the cache lifetime
+
 --- A bag as server/inventory.lua reads it, every GetInventory page joined.
 ---@class InventoryBag
 ---@field citizenId string

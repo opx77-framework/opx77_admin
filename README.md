@@ -493,32 +493,39 @@ weapon that takes it.
 | `RATE.ACTION_MS` | `400` | floor between two runs of one mutating command, per operator |
 | `RATE.READ_MS` | `1000` | the same for a reading command |
 | `RATE.REFRESH_MS` | `750` | floor between two menu refresh requests |
-| `AUDIT_ENTRIES` | `200` | how far back `read.audit` can look |
+| `AUDIT_ENTRIES` | `200` | how far back `read.audit` can look, this uptime; at least 10 |
 | `TOAST_MS` | `6000` | how long a target's toast stays up |
-| `PLACEMENT.HEALTH` | `1.0` | fraction of full health after a move |
+| `PLACEMENT.HEALTH` | `1.0` | fraction of full health after a move, 0.01..1.0 |
 | `PLACEMENT.GRACE_MS` | `5000` | respawn protection after a move |
 | `PLACEMENT.BESIDE` | `1.5, 0, 0` | offset from the other player on goto and bring |
-| `PLACEMENT.OBSERVE_HEIGHT` | `2.0` | metres above the target an observer lands |
-| `NOCLIP.SPEED` | `40.0` | m/s the first time noclip goes on |
+| `PLACEMENT.OBSERVE_HEIGHT` | `2.0` | metres above the target an observer lands, noclip on |
+| `NOCLIP.SPEED` | `40.0` | m/s the first time noclip goes on; the native accepts 0.1..500 |
 | `NOCLIP.MIN_SPEED` | `1.0` | the lowest the speed keys go, 0.1..500 |
-| `NOCLIP.MAX_SPEED` | `500.0` | the highest they go |
-| `NOCLIP.STEP` | `0.15` | one press changes the speed by this fraction of itself |
-| `NOCLIP.SEND_AFTER_MS` | `500` | quiet time after the last press before the speed is sent |
+| `NOCLIP.MAX_SPEED` | `500.0` | the highest the speed keys go, `MIN_SPEED`..500 |
+| `NOCLIP.STEP` | `0.15` | one press changes the speed by this fraction of itself, 0.01..1 |
+| `NOCLIP.SEND_AFTER_MS` | `500` | quiet time after the last press before the speed is sent; never below `RATE.ACTION_MS` plus 100, or a second change inside the floor would be refused |
 | `NOCLIP.PROMPTS` | `true` | the travel controls in `opx77_prompts`' strip; `false` for none |
 | `ANNOUNCE.DURATION_MS` | `12000` | announcement toast lifetime |
 | `ANNOUNCE.CHAT` | `true` | also write announcements into the chat box |
-| `ANNOUNCE.MAX_CHARACTERS` | `240` | |
-| `BAN_DURATIONS` | `1h 1d 7d 30d perm` | what the ban form offers |
-| `VEHICLES.SPAWN_OFFSET` | `3, 0, 0.25` | where a vehicle appears, world axes |
+| `ANNOUNCE.MAX_CHARACTERS` | `240` | the longest announcement, in characters |
+| `BAN_DURATIONS` | `1h 1d 7d 30d perm` | what the ban form offers; a typed ban takes any `<n>s|m|h|d` up to `3650d`, or `perm` |
+| `VEHICLES.SPAWN_OFFSET` | `3, 0, 0.25` | where a vehicle appears, on world axes, from whoever it is spawned for |
 | `VEHICLES.PER_OWNER` | `8` | staff vehicles out per player at once |
 | `VEHICLES.NEAR_RADIUS` | `30.0` | how far `near` looks on foot |
-| `VEHICLES.OCCUPIED_REPAIRS` | all but `mechanical`, `full` | repairs allowed with somebody aboard |
-| `VEHICLES.FLAGS` | `locked engineOn lightsOn invulnerable` | what `flag` may toggle |
-| `INVENTORY.RESOURCE` | `"opx77_inventory"` | the inventory whose exports the weapon and inventory commands call |
+| `VEHICLES.OCCUPIED_REPAIRS` | all but `mechanical`, `full` | repairs allowed with somebody aboard; `full` and `mechanical` may respawn the vehicle, so they are left out |
+| `VEHICLES.FLAGS` | `locked engineOn lightsOn invulnerable` | what `flag` may toggle: names of `Open77.vehicles.flags` |
+| `INVENTORY.RESOURCE` | `"opx77_inventory"` | the inventory whose exports the weapon and inventory commands call; change it to match a renamed folder |
 | `INVENTORY.MAX_COUNT` | `10000` | the largest count `inventory.give`, `inventory.remove` and the ammunition gives accept |
 | `LINKS` | see above | other resources' command names, `INVENTORY_OPEN` and `INVENTORY_HOLDERS` included; `false` removes the row |
-| `WEATHER_PRESETS`, `TIMES` | | what the sky screens offer |
-| `LOCATIONS` | eleven destinations | saved destinations, the platform's freeroam landing spots; `/opx77.admin.self.pos` copies a row |
+| `WEATHER_PRESETS` | eight presets | what the weather screen offers: names from `opx77_weather`'s own `WEATHER` table |
+| `TIMES` | seven times | what the time screen offers, `HH:MM` |
+| `LOCATIONS` | eleven destinations | saved destinations. `NAME` is what staff type: letters, digits, `_` and `-`. The shipped rows are the platform's freeroam landing spots captured on build 2.31; replace them with your own, copying a row with `/opx77.admin.self.pos` where you stand |
+
+## Architecture
+
+Why the code is written the way it is — load order, the ACL model, the readiness gate, the
+catalogue parts, the chunked pushes — is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), in
+French. Editor type stubs live in `std/`, classes in `std/types.lua`.
 
 ## Exports and events
 

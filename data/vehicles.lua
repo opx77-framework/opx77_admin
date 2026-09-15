@@ -1,18 +1,9 @@
--- The vehicles staff may spawn. Definitions, not settings, and this list IS the allowlist: a
--- record that is not a row here never reaches Open77.vehicles.create, whatever a client types.
---
--- The platform has no server-side call that enumerates vehicle records, so the rows are copied
--- from the vehicle catalogue open77_admin ships for build 2.31: every drivable `_player` record
--- and every distinct traffic livery. Left out are the records that catalogue marks quest,
--- scripted scene or special, their courier, locked, broken and heat-response copies, the traffic
--- twin of a `_player` record, and every AV: the platform does not certify flight or AV spawns.
---
--- Extend it: add a row with a NAME staff type (letters, digits, _ and -), a LABEL, a CLASS key
--- from CLASSES, and the exact TweakDB RECORD. A record the engine does not know is refused at
--- spawn time with the host's own reason.
+--- @author DemiAutomatic
+--- @file data/vehicles.lua
+--- @description The vehicle allowlist staff may spawn, grouped in classes.
 
 OPX_ADMIN_VEHICLES = {
-	CLASSES = { -- menu order
+	CLASSES = {
 		{ KEY = 'street', LABEL = 'Street' },
 		{ KEY = 'sport', LABEL = 'Sport' },
 		{ KEY = 'hyper', LABEL = 'Hypercars' },

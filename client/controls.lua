@@ -1,10 +1,6 @@
---- The travel modes while they are on: the two keys that change the noclip speed, and the
---- controls drawn in opx77_prompts' strip. Nothing here moves anybody or sets a speed. A key
---- only chooses a number; the number goes to the server as /opx77.admin.self.speed, so the ACL
---- resolves it like a typed one, and the native is only ever set by the server's answer.
----
---- Not the mouse wheel. Open77.input.isDown reads A-Z, 0-9, F1-F12 and a closed list of named
---- keys, RegisterKeyMapping takes the same vocabulary, and no client call reports a wheel.
+--- @author DemiAutomatic
+--- @file client/controls.lua
+--- @description Noclip speed keys and the travel controls in opx77_prompts' strip.
 
 OpxAdmin = OpxAdmin or {}
 
@@ -13,49 +9,101 @@ local Client = OpxAdmin.Client
 local Keys = OpxAdmin.Keys
 local Text = OpxAdmin.Text
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description What client/main.lua reports travel changes and answers to.
 OpxAdmin.Controls = {}
 local Controls = OpxAdmin.Controls
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource that draws the controls strip.
 local PROMPTS = 'opx77_prompts'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The command a chosen noclip speed is sent as.
 local SPEED_COMMAND = 'opx77.admin.self.speed'
 
---- Mapping ids. Stable: a player's rebind is stored under them.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Stable mapping id of the noclip faster key.
 local KEY_FASTER = 'opx77_admin.noclipFaster'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Stable mapping id of the noclip slower key.
 local KEY_SLOWER = 'opx77_admin.noclipSlower'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Stable mapping id of the menu key.
 local KEY_MENU = 'opx77_admin.menu'
 
---- The group ids in the strip, and where noclip sits in it: above anything a gameplay resource
---- puts up, because staff flying about is the one thing that must be read first.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Strip group id of the noclip controls.
 local GROUP_NOCLIP = 'noclip'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Strip group id of the map travel hint.
 local GROUP_MAP = 'maptravel'
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Strip priority of noclip, above gameplay groups.
 local NOCLIP_PRIORITY = 50
 
---- How a held key repeats: the first repeat after a pause, then steady.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds before a held speed key first repeats.
 local REPEAT_DELAY_MS = 350
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between repeats of a held speed key.
 local REPEAT_MS = 110
 
---- How often the native state and the body are looked at while noclip is on, and how many
---- reads of "off", how long after switching on, before the strip believes the native.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two looks at the native and body.
 local TICK_MS = 100
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Consecutive off readings before the strip believes the native.
 local OFF_READS = 3
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds after switching on before an off reading counts.
 local OFF_SETTLE_MS = 1000
 
---- How long after a keyed send its answer is taken as the keys' own, and kept off a toast.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds a keyed send's answer is taken as the keys'.
 local ANSWER_WINDOW_MS = 5000
 
--- ---------------------------------------------------------------------------
--- Settings
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The NOCLIP config table, or an empty one.
 local noclipConfig = type(Config.NOCLIP) == 'table' and Config.NOCLIP or {}
+
+--- @author DemiAutomatic
+--- @type {table}
+--- @description The RATE config table, or an empty one.
 local rate = type(Config.RATE) == 'table' and Config.RATE or {}
 
----@param path string
----@param value any
----@param low number
----@param high number
----@param default number
----@return number
+--- @author DemiAutomatic
+--- @method bounded
+--- @description A configured number inside its range, else the default, logged.
+--- @param path {string}
+--- @param value {any}
+--- @param low {number}
+--- @param high {number}
+--- @param default {number}
+--- @returns {number}
 local function bounded(path, value, low, high, default)
 	if value == nil then return default end
 	local number = Text.Finite(value)
@@ -65,66 +113,135 @@ local function bounded(path, value, low, high, default)
 	return default
 end
 
+--- @author DemiAutomatic
+--- @type {number}
+--- @description The lowest speed the keys choose.
 local MIN_SPEED = bounded('NOCLIP.MIN_SPEED', noclipConfig.MIN_SPEED, 0.1, 500, 1.0)
+
+--- @author DemiAutomatic
+--- @type {number}
+--- @description The highest speed the keys choose.
 local MAX_SPEED = bounded('NOCLIP.MAX_SPEED', noclipConfig.MAX_SPEED, MIN_SPEED, 500, 500.0)
+
+--- @author DemiAutomatic
+--- @type {number}
+--- @description Fraction of the speed one press changes.
 local STEP = bounded('NOCLIP.STEP', noclipConfig.STEP, 0.01, 1, 0.15)
+
+--- @author DemiAutomatic
+--- @type {number}
+--- @description The speed shown before the server applied one.
 local DEFAULT_SPEED = bounded('NOCLIP.SPEED', noclipConfig.SPEED, 0.1, 500, 40.0)
--- the server refuses a second mutating command inside RATE.ACTION_MS; a send never lands in it
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description The server's action floor plus 100 milliseconds.
 local SEND_FLOOR_MS = math.floor(bounded('RATE.ACTION_MS', rate.ACTION_MS, 0, 60000, 400)) + 100
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Quiet milliseconds after the last press before sending.
 local SEND_AFTER_MS = math.max(SEND_FLOOR_MS,
 	math.floor(bounded('NOCLIP.SEND_AFTER_MS', noclipConfig.SEND_AFTER_MS, 0, 10000, 500)))
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the travel controls are drawn in the strip.
 local SHOW_PROMPTS = noclipConfig.PROMPTS ~= false
 
--- ---------------------------------------------------------------------------
--- State
--- ---------------------------------------------------------------------------
-
---- Whether a server command switched noclip on here, and map travel; when noclip went on, and
---- how many ticks in a row the native has said it is off.
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a server command switched noclip on here.
 local noclipOn = false
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a server command armed map travel here.
 local mapOn = false
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description When noclip was last switched, in milliseconds.
 local noclipSinceMs = 0
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Consecutive ticks the native has reported noclip off.
 local offReads = 0
 
---- The speed the server last applied, the one the keys have chosen and not yet had applied,
---- and the one on its way.
+--- @author DemiAutomatic
+--- @type {number|nil}
+--- @description The speed the server last applied.
 local applied = nil
+
+--- @author DemiAutomatic
+--- @type {number|nil}
+--- @description The speed the keys chose and the server has not applied.
 local wanted = nil
+
+--- @author DemiAutomatic
+--- @type {number|nil}
+--- @description The speed on its way to the server.
 local sent = nil
+
+--- @author DemiAutomatic
+--- @type {number}
+--- @description When the last speed was sent, in milliseconds.
 local sentAtMs = -math.huge
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description When a speed key last stepped, in milliseconds.
 local lastStepMs = 0
 
---- +1 or -1 while a speed key is held, and when it next repeats.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Plus or minus one while a speed key is held.
 local held = 0
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description When the held speed key next repeats, in milliseconds.
 local nextRepeatMs = 0
 
---- What is up in the strip: nil, or the signature of what was last put there.
+--- @author DemiAutomatic
+--- @type {string|nil}
+--- @description Signature of the noclip group last put in the strip.
 local shownNoclip = nil
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the map travel group is in the strip.
 local shownMap = false
 
---- Whether a tick thread is running.
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a tick thread is running.
 local ticking = false
 
--- ---------------------------------------------------------------------------
--- Helpers
--- ---------------------------------------------------------------------------
-
----@param speed number
----@return string
+--- @author DemiAutomatic
+--- @method format
+--- @description A speed written the way commands and the strip show it.
+--- @param speed {number}
+--- @returns {string}
 local function format(speed)
 	return ('%g'):format(speed)
 end
 
----@return number
+--- @author DemiAutomatic
+--- @method current
+--- @description The speed to show: chosen, applied, or the default.
+--- @returns {number}
 local function current()
 	return wanted or applied or DEFAULT_SPEED
 end
 
---- One step up or down: a fraction of the speed, so the low end tunes finely and the high end
---- crosses the range in a few seconds of holding. Half a metre a second at the least.
----@param speed number
----@param direction integer
----@return number
+--- @author DemiAutomatic
+--- @method stepped
+--- @description One proportional speed step up or down, rounded and bounded.
+--- @param speed {number}
+--- @param direction {integer}
+--- @returns {number}
 local function stepped(speed, direction)
 	local nextSpeed = direction > 0 and speed * (1 + STEP) or speed / (1 + STEP)
 	if math.abs(nextSpeed - speed) < 0.5 then nextSpeed = speed + 0.5 * direction end
@@ -136,17 +253,21 @@ local function stepped(speed, direction)
 	return math.max(MIN_SPEED, math.min(MAX_SPEED, nextSpeed))
 end
 
----@param name string
----@return function|nil
+--- @author DemiAutomatic
+--- @method travelNative
+--- @description One Open77.travel function, or nil when this build lacks it.
+--- @param name {string}
+--- @returns {function|nil}
 local function travelNative(name)
 	local travel = Open77.travel
 	if type(travel) ~= 'table' or type(travel[name]) ~= 'function' then return nil end
 	return travel[name]
 end
 
---- Whether the native still has noclip on. A client without the read counts as on: the server
---- command is what says so.
----@return boolean
+--- @author DemiAutomatic
+--- @method nativeNoclip
+--- @description Whether the native still reports noclip on, true without the read.
+--- @returns {boolean}
 local function nativeNoclip()
 	local read = travelNative('isNoclip')
 	if read == nil then return true end
@@ -154,7 +275,10 @@ local function nativeNoclip()
 	return not ok or on == true
 end
 
----@return boolean
+--- @author DemiAutomatic
+--- @method alive
+--- @description Whether the character is alive, true when it cannot be read.
+--- @returns {boolean}
 local function alive()
 	local character = Open77.character
 	if type(character) ~= 'table' or type(character.state) ~= 'function' then return true end
@@ -163,7 +287,10 @@ local function alive()
 	return state.alive ~= false
 end
 
----@return boolean
+--- @author DemiAutomatic
+--- @method captured
+--- @description Whether another surface holds the keyboard right now.
+--- @returns {boolean}
 local function captured()
 	local input = Open77.input
 	if type(input) ~= 'table' or type(input.isCaptured) ~= 'function' then return false end
@@ -171,14 +298,15 @@ local function captured()
 	return ok and answer == true
 end
 
--- ---------------------------------------------------------------------------
--- The strip
--- ---------------------------------------------------------------------------
-
---- Whether a missing opx77_prompts has been said: one line, not one per mode switch.
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a missing or refusing strip was logged.
 local promptsReported = false
 
----@return boolean
+--- @author DemiAutomatic
+--- @method promptsUp
+--- @description Whether the strip is wanted and running, logging its absence once.
+--- @returns {boolean}
 local function promptsUp()
 	if not SHOW_PROMPTS then return false end
 	if Client.Running(PROMPTS) then return true end
@@ -189,7 +317,10 @@ local function promptsUp()
 	return false
 end
 
----@return table
+--- @author DemiAutomatic
+--- @method noclipSpec
+--- @description The noclip group rows for the registered keys and speed.
+--- @returns {table}
 local function noclipSpec()
 	local rows = {
 		{ keys = 'W A S D', label = locale('admin.prompt.move') },
@@ -210,20 +341,23 @@ local function noclipSpec()
 	return { title = locale('admin.prompt.noclip'), priority = NOCLIP_PRIORITY, rows = rows }
 end
 
----@return table
+--- @author DemiAutomatic
+--- @method mapSpec
+--- @description The map travel group telling a double-click travels.
+--- @returns {table}
 local function mapSpec()
 	return { title = locale('admin.prompt.map'), priority = NOCLIP_PRIORITY - 1, rows = {
 		{ keys = locale('admin.prompt.doubleClick'), label = locale('admin.prompt.mapTravel') },
 	} }
 end
 
---- Bring the strip in line with the modes: up, down, or the speed read-out changed. The calls
---- run in a thread of their own, because an export call is awaited.
+--- @author DemiAutomatic
+--- @method sync
+--- @description Brings the strip groups in line with the modes and speed.
 local function sync()
 	local body = alive()
 	local wantNoclip = noclipOn and body
 	local wantMap = mapOn and body
-	-- which rows exist hangs on which keys are registered; the keys' names are opx77_prompts'
 	local signature = wantNoclip and table.concat({ format(current()),
 		tostring(Keys.Effective(KEY_FASTER) ~= nil), tostring(Keys.Effective(KEY_SLOWER) ~= nil),
 		tostring(Keys.Effective(KEY_MENU) ~= nil) }, '|') or nil
@@ -232,13 +366,9 @@ local function sync()
 		shownNoclip, shownMap = nil, false
 		return
 	end
-	-- marked before the call lands, so the next tick does not send the same group again; a
-	-- refusal is logged once and not retried every tick
 	local noclipChanged, mapChanged = signature ~= shownNoclip, wantMap ~= shownMap
 	shownNoclip, shownMap = signature, wantMap
 	local spec = signature and noclipSpec() or nil
-	-- Every change is sent, in order: each thread dispatches its call before the next one runs,
-	-- so a hide queued behind a show is never skipped.
 	CreateThread(function()
 		if noclipChanged then
 			local _, failure
@@ -262,11 +392,10 @@ local function sync()
 	end)
 end
 
--- ---------------------------------------------------------------------------
--- Speed
--- ---------------------------------------------------------------------------
-
----@param direction integer
+--- @author DemiAutomatic
+--- @method step
+--- @description Chooses the next speed in one direction and redraws.
+--- @param direction {integer}
 local function step(direction)
 	local nextSpeed = stepped(current(), direction)
 	lastStepMs = Client.NowMs()
@@ -275,7 +404,10 @@ local function step(direction)
 	sync()
 end
 
---- Send the chosen speed once the keys have been quiet for SEND_AFTER_MS.
+--- @author DemiAutomatic
+--- @method flush
+--- @description Sends the chosen speed once the keys have been quiet.
+--- @param atMs {integer}
 local function flush(atMs)
 	if wanted == nil or held ~= 0 or atMs - lastStepMs < SEND_AFTER_MS then return end
 	if applied ~= nil and math.abs(wanted - applied) < 0.001 then
@@ -283,7 +415,7 @@ local function flush(atMs)
 		return
 	end
 	if sent ~= nil and math.abs(wanted - sent) < 0.001 and atMs - sentAtMs < ANSWER_WINDOW_MS then
-		return -- on its way already
+		return
 	end
 	if Client.Execute({ SPEED_COMMAND, format(wanted) }) then
 		sent, sentAtMs = wanted, atMs
@@ -293,11 +425,12 @@ local function flush(atMs)
 	end
 end
 
+--- @author DemiAutomatic
+--- @method tick
+--- @description Follows the native, repeats a held key, sends and redraws.
 local function tick()
 	local atMs = Client.NowMs()
 	if noclipOn and not nativeNoclip() then
-		-- Switched off under us, by another resource, a death or the native itself. Several reads
-		-- and a settle time first: the native may not report a switch the same frame it took it.
 		offReads = offReads + 1
 		if offReads >= OFF_READS and atMs - noclipSinceMs >= OFF_SETTLE_MS then
 			noclipOn, held, wanted = false, 0, nil
@@ -314,6 +447,9 @@ local function tick()
 	sync()
 end
 
+--- @author DemiAutomatic
+--- @method startTicking
+--- @description Starts the tick thread unless one already runs.
 local function startTicking()
 	if ticking then return end
 	ticking = true
@@ -328,7 +464,10 @@ local function startTicking()
 	end)
 end
 
----@param direction integer
+--- @author DemiAutomatic
+--- @method pressed
+--- @description A speed key went down while noclip is on.
+--- @param direction {integer}
 local function pressed(direction)
 	if not noclipOn then return end
 	held = direction
@@ -337,17 +476,18 @@ local function pressed(direction)
 	startTicking()
 end
 
----@param direction integer
+--- @author DemiAutomatic
+--- @method released
+--- @description A speed key went up.
+--- @param direction {integer}
 local function released(direction)
 	if held == direction then held = 0 end
 end
 
--- ---------------------------------------------------------------------------
--- What client/main.lua reports
--- ---------------------------------------------------------------------------
-
---- Noclip was switched on or off by a server command, and the native took it.
----@param on boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Controls.Noclip
+--- @description Noclip was switched by a server command and the native took it.
+--- @param on {boolean}
 function OpxAdmin.Controls.Noclip(on)
 	noclipOn = on == true
 	noclipSinceMs, offReads = Client.NowMs(), 0
@@ -356,29 +496,32 @@ function OpxAdmin.Controls.Noclip(on)
 	if noclipOn then startTicking() end
 end
 
---- Map travel was armed or disarmed.
----@param on boolean
+--- @author DemiAutomatic
+--- @method OpxAdmin.Controls.MapPick
+--- @description Map travel was armed or disarmed by a server command.
+--- @param on {boolean}
 function OpxAdmin.Controls.MapPick(on)
 	mapOn = on == true
 	sync()
 	if mapOn then startTicking() end
 end
 
---- The server applied a speed.
----@param speed number
+--- @author DemiAutomatic
+--- @method OpxAdmin.Controls.Speed
+--- @description The server applied a noclip speed.
+--- @param speed {number}
 function OpxAdmin.Controls.Speed(speed)
 	applied = speed
-	-- `sent` stays: the command's answer is sent after this push, and is matched against it
 	if wanted ~= nil and math.abs(wanted - speed) < 0.001 then wanted = nil end
 	sync()
 end
 
---- A command answer. True when it answers a speed the keys sent and was accepted: the strip
---- already shows that number, so it is kept off a toast. A refusal puts the read-out back to
---- the speed the server has, and is toasted as usual.
----@param raw string
----@param accepted boolean
----@return boolean quiet
+--- @author DemiAutomatic
+--- @method OpxAdmin.Controls.Answered
+--- @description Whether an accepted answer to a keyed speed stays off toasts.
+--- @param raw {string}
+--- @param accepted {boolean}
+--- @returns {boolean}
 function OpxAdmin.Controls.Answered(raw, accepted)
 	local name = (raw:match('^/?(%S+)') or ''):lower()
 	if name ~= SPEED_COMMAND or sent == nil then return false end
@@ -389,13 +532,12 @@ function OpxAdmin.Controls.Answered(raw, accepted)
 	return false
 end
 
--- ---------------------------------------------------------------------------
--- Lifecycle
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @event onClientResourceStart
+--- @description Restores groups for a restarted strip, or registers the speed keys.
+--- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
 	if name == PROMPTS then
-		-- a restarted strip lost every group: put ours back
 		shownNoclip, shownMap = nil, false
 		promptsReported = false
 		return sync()
@@ -410,13 +552,14 @@ AddEventHandler('onClientResourceStart', function(name)
 		function() pressed(-1) end, function() released(-1) end)
 end)
 
+--- @author DemiAutomatic
+--- @event onClientResourceStop
+--- @description Forgets what a stopped strip was showing.
+--- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
 	if name == PROMPTS then
 		shownNoclip, shownMap = nil, false
 	end
-	-- this resource's own stop: opx77_prompts drops a stopped owner's groups by itself
 end)
 
--- a rebind changes the keys the strip names; opx77_prompts follows it, but a speed key switched
--- on or off is a different set of rows
 Keys.OnChanged(sync)

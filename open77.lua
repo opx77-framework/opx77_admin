@@ -1,91 +1,57 @@
+--- @author DemiAutomatic
+--- @file open77.lua
+--- @description Resource manifest declaring scripts, permissions and reload policy.
+
 resource "opx77_admin"
 version "0.1.0"
 open77_version ">=0.0.1"
 auto_start true
 
-reload_policy "local" -- no CEF surface of its own: opx77_menu and opx77_input draw everything,
-                      -- and both drop this resource's menu and form when its generation changes
+reload_policy "local"
 
--- No dependencies declared. A declared dependency is hard, and a staff tool that refuses to
--- start because opx77_menu is missing is no tool at the moment somebody has to be kicked: every
--- command still runs from the chat box and the console without the menu.
-
--- Load order is manifest order. The catalogue comes before every file that renders a string,
--- the two data files before the index built over them, server/main.lua before every file that
--- registers through it, and server/menu.lua after all of them: the access map it sends lists
--- what they registered.
 shared_script "config.lua"
 shared_script "shared/text.lua"
-shared_script "shared/locale.lua" -- after config.lua: LOCALE is read at load
-shared_script "locales/en.lua" -- registered right after the catalogue, so no file
-shared_script "locales/fr.lua" -- below calls locale() against an empty one
+shared_script "shared/locale.lua"
+shared_script "locales/en.lua"
+shared_script "locales/fr.lua"
 shared_script "data/vehicles.lua"
 shared_script "data/weapons.lua"
-shared_script "shared/catalog.lua" -- after both data files: it indexes them
--- The vehicle rows, indexed in parts in this order: the host rolls a resource set back when one
--- script's load runs long, so no file may carry them all. See shared/catalog.lua.
+shared_script "shared/catalog.lua"
 shared_script "shared/catalog-1.lua"
 shared_script "shared/catalog-2.lua"
 shared_script "shared/catalog-3.lua"
-shared_script "shared/catalog-4.lua" -- last: whatever rows are left
+shared_script "shared/catalog-4.lua"
 
 server_script "server/main.lua"
 server_script "server/players.lua"
 server_script "server/vehicles.lua"
-server_script "server/inventory.lua" -- before weapons.lua and menu.lua, which call through it
+server_script "server/inventory.lua"
 server_script "server/weapons.lua"
 server_script "server/world.lua"
 server_script "server/menu.lua"
 
 client_script "client/main.lua"
-client_script "client/keys.lua" -- before menu.lua, which registers the menu key through it
-client_script "client/controls.lua" -- after keys.lua: the noclip speed keys and the prompts
+client_script "client/keys.lua"
+client_script "client/controls.lua"
 client_script "client/forms.lua"
-client_script "client/menu.lua" -- after forms.lua: a row can open a form
-client_script "client/exports.lua" -- last: publishing the surface claims it exists
+client_script "client/menu.lua"
+client_script "client/exports.lua"
 
 permissions {
-  -- Both halves: the snapshot and travel pushes out, the refresh request in, and the menu's
-  -- command lines sent through open77:command:execute. It is also the only grant the holster
-  -- needs: Open77.weapons on the server is a relay over net events. Every other weapon command,
-  -- ammunition included, and every inventory command calls opx77_inventory's server exports,
-  -- which need no permission here; that resource lists this one in its EXPORTS.WRITERS.
   "network.events",
-
-  -- Server: Open77.acl.isAllowed. Re-checks the refresh event and the travel modes against
-  -- the same command.<name> grants the host resolves, and filters chat suggestions. Read-only;
-  -- this resource never writes a role or a permission.
   "acl.read",
-
-  "players.life.read", -- the life state and the readiness gate, before anything is done to anybody
-  "players.life.kill", -- /kill, and the first half of every placement
-  "players.life.respawn", -- placement is kill -> respawn, never a transform write
-  "players.life.revive", -- /revive, and the recovery when a placement's respawn is refused
-
-  -- getHealth / setHealth / setArmor / setGodMode. Which of these two families gates which
-  -- binding is not documented; the platform's own admin package declares both, so this does.
+  "players.life.read",
+  "players.life.kill",
+  "players.life.respawn",
+  "players.life.revive",
   "players.damage.read",
   "players.damage.apply",
   "players.stats.read",
   "players.stats.apply",
-
-  "players.disconnect", -- Open77.players.kick
-  "players.access", -- Open77.access.ban: the server-local ban list, never the ACL
-
-  "world.vehicles", -- spawn, repair, flag and remove the vehicles this resource creates
-
-  -- Client: Open77.travel.setNoclip / setNoclipSpeed / setMapPick, applied only when an
-  -- ACL-gated server command says so.
+  "players.disconnect",
+  "players.access",
+  "world.vehicles",
   "player.travel",
-
-  "clipboard.write", -- client: /opx77.admin.self.pos copies a LOCATIONS row to paste into config
-
-  -- Client: RegisterKeyMapping for the menu key and the two noclip speed keys,
-  -- Open77.input.keyFor for the key the close row names, and isCaptured, so a key typed into
-  -- chat or a form does nothing. Every key sends the same command line as the chat box; none
-  -- authorises anything.
+  "clipboard.write",
   "input.actions",
-
-  -- Deliberately not requested: database.access (nothing here persists to the database),
-  -- world.props, world.effects, vehicles.performance, local.events.
 }

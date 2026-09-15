@@ -1,29 +1,45 @@
---- The index over data/vehicles.lua and data/weapons.lua. Both halves read it: the server to
---- refuse a vehicle that is not a row, both to group weapons, the client to draw the lists. A
---- malformed row is dropped and named in `problems`, which the server logs at boot, rather than
---- raising at load.
+--- @author DemiAutomatic
+--- @file shared/catalog.lua
+--- @description The index over the vehicle and weapon class data files.
 
 OpxAdmin = OpxAdmin or {}
 
 local Text = OpxAdmin.Text
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Vehicle and weapon class index, with the boot problems found.
 OpxAdmin.Catalog = {
 	problems = {},
 }
 local Catalog = OpxAdmin.Catalog
 
----@param line string
+--- @author DemiAutomatic
+--- @method problem
+--- @description Records one malformed data row for the boot log.
+--- @param line {string}
 local function problem(line)
 	Catalog.problems[#Catalog.problems + 1] = line
 end
 
---- The vehicle classes, in menu order, with a lookup by key.
----@type table[]
+--- @author DemiAutomatic
+--- @type {CatalogClass[]}
+--- @description The vehicle classes, in menu order.
 local vehicleClasses = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, CatalogClass>}
+--- @description The vehicle classes by key.
 local vehicleClassIndex = {}
----@type table<string, CatalogEntry>
+
+--- @author DemiAutomatic
+--- @type {table<string, CatalogEntry>, table<string, CatalogEntry>}
+--- @description Indexed vehicle rows by name and by lower-cased record.
 local vehiclesByName, vehiclesByRecord = {}, {}
 
+--- @author DemiAutomatic
+--- @type {table[]}
+--- @description The raw vehicle rows the catalogue parts index.
 local vehicleRows = {}
 do
 	local source = OPX_ADMIN_VEHICLES
@@ -48,17 +64,20 @@ do
 	end
 end
 
---- Rows one catalogue file indexes. The host checks a script's load time every 10 000 VM
---- instructions and rolls the whole resource set back when a check lands past its deadline,
---- so no file here may reach one: a row costs about 110 instructions, and each
---- shared/catalog-<n>.lua part indexes this many of them. This file indexes none.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Vehicle rows each catalogue part indexes at load.
 local PART = 68
 
---- The next row of data/vehicles.lua to index.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description The next vehicle row to index.
 local nextRow = 1
 
---- Index the next `count` rows into their classes and the lookups by name and by record.
----@param count integer
+--- @author DemiAutomatic
+--- @method OpxAdmin.Catalog.IndexVehicles
+--- @description Indexes the next rows into their classes and both lookups.
+--- @param count {integer}
 function OpxAdmin.Catalog.IndexVehicles(count)
 	local last = math.min(#vehicleRows, nextRow + count - 1)
 	for position = nextRow, last do
@@ -91,7 +110,9 @@ function OpxAdmin.Catalog.IndexVehicles(count)
 	nextRow = last + 1
 end
 
---- The last part: whatever is left, so a missing part costs load time, never a vehicle.
+--- @author DemiAutomatic
+--- @method OpxAdmin.Catalog.FinishVehicles
+--- @description Indexes every row left, naming an overloaded last part.
 function OpxAdmin.Catalog.FinishVehicles()
 	local left = #vehicleRows - nextRow + 1
 	if left > PART then
@@ -103,10 +124,14 @@ end
 
 Catalog.PART = PART
 
---- The weapon classes: an order and a label. The weapons are opx77_inventory's items and are
---- read from it, so no row here names a record.
----@type WeaponClass[]
+--- @author DemiAutomatic
+--- @type {WeaponClass[]}
+--- @description The weapon classes, in menu order.
 local weaponClasses = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, WeaponClass>}
+--- @description The weapon classes by key.
 local weaponClassIndex = {}
 do
 	local source = type(OPX_ADMIN_WEAPONS) == 'table' and OPX_ADMIN_WEAPONS or nil
@@ -129,9 +154,11 @@ end
 Catalog.vehicleClasses = vehicleClasses
 Catalog.weaponClasses = weaponClasses
 
---- A vehicle row by the name staff type or by its exact record, without case.
----@param token any
----@return CatalogEntry|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Catalog.Vehicle
+--- @description Finds a vehicle row by name or exact record, without case.
+--- @param token {any}
+--- @returns {CatalogEntry|nil}
 function OpxAdmin.Catalog.Vehicle(token)
 	if type(token) ~= 'string' then return nil end
 	local lowered = token:lower()

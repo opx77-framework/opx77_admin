@@ -1,28 +1,32 @@
---- The spine of the server half: answers, the audit, the readiness gate, placement, and the one
---- registry every staff command goes through.
----
---- Every command is registered restricted, so the host resolves `command.<name>` against the
---- caller's ACL before a handler runs. No handler in this resource checks a permission, and
---- none may: the host has already decided, and a second check would only drift from it.
+--- @author DemiAutomatic
+--- @file server/main.lua
+--- @description Answers, audit, readiness gate, placement and the command registry.
 
 OpxAdmin = OpxAdmin or {}
 
 local Config = OPX_ADMIN_CONFIG
 local Text = OpxAdmin.Text
 
+--- @author DemiAutomatic
+--- @type {table}
+--- @description Server-half helpers every staff command file reads.
 OpxAdmin.Server = {}
 local Server = OpxAdmin.Server
 
+--- @author DemiAutomatic
+--- @type {string}
+--- @description This resource's name, which placement kills are attributed to.
 local RESOURCE = GetCurrentResourceName()
 
--- ---------------------------------------------------------------------------
--- Clock and configuration
--- ---------------------------------------------------------------------------
-
---- Host-monotonic milliseconds; `monotonic` answers SECONDS. A failed or non-finite reading
---- holds the last one: a NaN would expire nothing, an infinity everything.
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Last good monotonic reading in milliseconds, held on failure.
 local lastMs = 0
----@return integer
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.NowMs
+--- @description Host-monotonic milliseconds, holding the last good reading.
+--- @returns {integer}
 function OpxAdmin.Server.NowMs()
 	local read, seconds = pcall(Open77.time.monotonic)
 	if read and type(seconds) == 'number' and seconds == seconds and
@@ -33,28 +37,30 @@ function OpxAdmin.Server.NowMs()
 end
 local nowMs = Server.NowMs
 
---- A configured number, or the fallback for anything arithmetic would raise on.
----@param value any
----@param fallback number
----@return number
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Setting
+--- @description A configured number, or the fallback when it is unusable.
+--- @param value {any}
+--- @param fallback {number}
+--- @returns {number}
 function OpxAdmin.Server.Setting(value, fallback)
 	return Text.Finite(value) or fallback
 end
 
---- How many arguments were typed. `n` is authoritative: `#args` reads a hole as the end.
----@param args table
----@return integer
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Count
+--- @description How many arguments were typed, read from args.n first.
+--- @param args {table}
+--- @returns {integer}
 function OpxAdmin.Server.Count(args)
 	local given = Text.Integer(args.n)
 	if given == nil or given < 0 then return #args end
 	return given
 end
 
--- ---------------------------------------------------------------------------
--- Answers
--- ---------------------------------------------------------------------------
-
---- Refusal code -> catalogue key. Codes stay codes in the audit and the log.
+--- @author DemiAutomatic
+--- @type {table<string, string>}
+--- @description Catalogue key a player reads for each refusal code.
 local ERRORS = {
 	in_game_only = 'admin.error.inGameOnly',
 	too_fast = 'admin.error.tooFast',
@@ -107,8 +113,9 @@ local ERRORS = {
 	seeded_location = 'admin.error.seededLocation',
 }
 
---- Refusals about what was typed, answered as a warning rather than an error: a second try
---- with the right word succeeds, where an error needs something in the world to change.
+--- @author DemiAutomatic
+--- @type {table<string, boolean>}
+--- @description Refusal codes about typed input, answered as warnings.
 local TYPED = {
 	too_fast = true, no_target = true, bad_target = true, self_target = true, bad_number = true,
 	bad_coordinates = true, bad_switch = true, bad_duration = true, empty_text = true,
@@ -118,22 +125,21 @@ local TYPED = {
 	melee_no_ammo = true,
 }
 
---- The catalogue key a report is answered with. Everything else a command answers is an
---- action's outcome.
+--- @author DemiAutomatic
+--- @type {string}
+--- @description Catalogue key a report is answered with, drawn as chat.
 local REPORT = 'admin.text.lines'
 
---- One answer back to whoever ran the command. A player reads the configured catalogue, sent
---- to this resource's client half: a report as a chat line, an action's outcome as a toast (a
---- chat line there when it cannot be raised). Not on `open77:command:result`, whose accepted
---- answers opx77_chat does not print. The console reads English, because that answer lands
---- in a log an operator greps.
----@param source integer
----@param raw string
----@param ok boolean
----@param key string
----@param params? table
----@param kind? "info"|"success"|"warning"|"error"  inferred from `ok` and `key` when omitted
----@return boolean ok
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Answer
+--- @description Answers a player through the client half, the console in English.
+--- @param source {integer}
+--- @param raw {string}
+--- @param ok {boolean}
+--- @param key {string}
+--- @param params {table|nil}
+--- @param kind {string|nil} info, success, warning or error; inferred when nil.
+--- @returns {boolean}
 function OpxAdmin.Server.Answer(source, raw, ok, key, params, kind)
 	local player = tonumber(source) or 0
 	if player > 0 then
@@ -155,12 +161,14 @@ function OpxAdmin.Server.Answer(source, raw, ok, key, params, kind)
 	return ok == true
 end
 
---- Answer a refusal by its code. `detail` is the host's own reason, when it gave one.
----@param source integer
----@param raw string
----@param code string
----@param params? table
----@return boolean false
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Refuse
+--- @description Answers a refusal by its code, with the host's reason when given.
+--- @param source {integer}
+--- @param raw {string}
+--- @param code {string}
+--- @param params {table|nil}
+--- @returns {boolean}
 function OpxAdmin.Server.Refuse(source, raw, code, params)
 	params = params or {}
 	params.code = code
@@ -170,13 +178,13 @@ function OpxAdmin.Server.Refuse(source, raw, code, params)
 	return false
 end
 
---- A toast on the target's screen, drawn by opx77_notify through the platform's own
---- notification events. Best-effort: nobody is moved in silence, but a missing surface must
---- not fail the action that already happened.
----@param playerId integer
----@param key string
----@param params? table
----@param kind? string  info | success | warning | error
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Tell
+--- @description Raises a best-effort toast on the target player's screen.
+--- @param playerId {integer}
+--- @param key {string}
+--- @param params {table|nil}
+--- @param kind {string|nil} info, success, warning or error.
 function OpxAdmin.Server.Tell(playerId, key, params, kind)
 	local notifications = Open77.notifications
 	if type(notifications) ~= 'table' or type(notifications.send) ~= 'function' then return end
@@ -188,22 +196,22 @@ function OpxAdmin.Server.Tell(playerId, key, params, kind)
 	})
 end
 
--- ---------------------------------------------------------------------------
--- Identity
--- ---------------------------------------------------------------------------
-
---- The Master-verified display name, cleaned for a log line or a menu row.
----@param playerId integer
----@return string|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.NameOf
+--- @description The verified display name, cleaned for a log line or row.
+--- @param playerId {integer}
+--- @returns {string|nil}
 function OpxAdmin.Server.NameOf(playerId)
 	local read, name = pcall(Open77.players.name, playerId)
 	if not read then return nil end
 	return Text.Clean(name, 32)
 end
 
---- The durable account id. `playerId` is recycled; this is what an audit line is worth keeping.
----@param playerId integer
----@return string|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.UserOf
+--- @description The durable account id of a connected player.
+--- @param playerId {integer}
+--- @returns {string|nil}
 function OpxAdmin.Server.UserOf(playerId)
 	if (tonumber(playerId) or 0) <= 0 then return nil end
 	local read, identifier = pcall(Open77.players.identifier, playerId)
@@ -211,10 +219,12 @@ function OpxAdmin.Server.UserOf(playerId)
 	return Text.Clean(identifier, 64)
 end
 
---- Resolve what was typed for a target: a connected player id, or `me`.
----@param source integer
----@param token any
----@return integer|nil playerId, string|nil code
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Target
+--- @description Resolves a typed target to a connected player id, or me.
+--- @param source {integer}
+--- @param token {any}
+--- @returns {integer|nil, string|nil}
 function OpxAdmin.Server.Target(source, token)
 	if token == nil then return nil, 'no_target' end
 	local word = tostring(token):lower()
@@ -228,9 +238,11 @@ function OpxAdmin.Server.Target(source, token)
 	return playerId, nil
 end
 
---- The replicated position, or nil before the world is up.
----@param playerId integer
----@return { x: number, y: number, z: number, bucket: integer }|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.PositionOf
+--- @description The replicated position and bucket, or nil before the world.
+--- @param playerId {integer}
+--- @returns {table|nil}
 function OpxAdmin.Server.PositionOf(playerId)
 	local read, position = pcall(Open77.players.position, playerId)
 	if not read or type(position) ~= 'table' then return nil end
@@ -239,24 +251,22 @@ function OpxAdmin.Server.PositionOf(playerId)
 	return { x = x, y = y, z = z, bucket = Text.Integer(position.bucket) or 0 }
 end
 
--- ---------------------------------------------------------------------------
--- The readiness gate
--- ---------------------------------------------------------------------------
-
----@param playerId integer
----@return table|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.LifeOf
+--- @description The host's life state for a player, or nil without one.
+--- @param playerId {integer}
+--- @returns {table|nil}
 function OpxAdmin.Server.LifeOf(playerId)
 	local read, life = pcall(Open77.players.getLifeState, playerId)
 	if not read or type(life) ~= 'table' then return nil end
 	return life
 end
 
---- May anything be done TO this player's body? Acting server-side on a client that is not
---- incarnated crashes that client, so both halves are required: a life state, which the
---- continue screen has none of, and an open readiness gate. Fails closed when the gate cannot
---- be read. Kick and ban do not come through here; they touch the session, not the body.
----@param playerId integer
----@return boolean admitted, table|string lifeOrCode
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Admit
+--- @description Whether a player's body may be acted on, failing closed.
+--- @param playerId {integer}
+--- @returns {boolean, table|string}
 function OpxAdmin.Server.Admit(playerId)
 	local life = Server.LifeOf(playerId)
 	if life == nil then return false, 'not_incarnated' end
@@ -264,21 +274,21 @@ function OpxAdmin.Server.Admit(playerId)
 	if type(ready) ~= 'table' or type(ready.isReady) ~= 'function' then
 		return false, 'gate_unreadable'
 	end
-	-- pcall: isReady raises for an id the host does not know rather than answering false
 	local read, open = pcall(ready.isReady, playerId)
 	if not read then return false, 'gate_unreadable' end
 	if open ~= true then return false, 'gate_closed' end
 	return true, life
 end
 
---- Move a player through kill -> respawn, never a transform write: only the respawn carries
---- the fade, the streaming preload and the grace window.
----@param playerId integer
----@param point { x: number, y: number, z: number }
----@param heading number|nil
----@param bucket integer|nil  nil keeps the one they are in
----@param why string          what the kill is attributed to
----@return boolean ok, string|nil code, string|nil reason
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Place
+--- @description Moves a player through kill then respawn, reviving on refusal.
+--- @param playerId {integer}
+--- @param point {table}
+--- @param heading {number|nil}
+--- @param bucket {integer|nil} Nil keeps the bucket they are in.
+--- @param why {string} What the kill is attributed to.
+--- @returns {boolean, string|nil, string|nil}
 function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
 	local admitted, code = Server.Admit(playerId)
 	if not admitted then return false, code end
@@ -310,7 +320,6 @@ function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
 		graceMs = graceMs,
 	})
 	if not respawned then
-		-- the body is down and was not stood back up: revive where it fell rather than leave it
 		if killed then
 			pcall(Open77.players.revive, playerId, { health = health, graceMs = graceMs })
 		end
@@ -319,22 +328,29 @@ function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
 	return true
 end
 
--- ---------------------------------------------------------------------------
--- The audit
--- ---------------------------------------------------------------------------
-
+--- @author DemiAutomatic
+--- @type {AuditEntry[]}
+--- @description The in-memory audit ring, oldest entry first.
 local ledger = {}
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Sequence number of the last recorded audit entry.
 local sequence = 0
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description How many audit entries the ring keeps, at least ten.
 local AUDIT_ENTRIES = math.max(10, math.floor(Server.Setting(Config.AUDIT_ENTRIES, 200)))
 
---- Record one staff action. Two sinks: a line in the platform log, in the same
---- `[audit] event=... severity=...` shape opx77_core writes so one grep finds both, and a ring
---- for /opx77.admin.read.audit. The log line is the record; the ring dies with the process.
----@param source integer
----@param event string       stable and greppable: "admin.player.kill"
----@param ok boolean
----@param target integer|nil the player acted on, if any
----@param detail string|nil  English, for the log
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Audit
+--- @description Records one staff action in the platform log and the ring.
+--- @param source {integer}
+--- @param event {string} Stable and greppable, like admin.player.kill.
+--- @param ok {boolean}
+--- @param target {integer|nil}
+--- @param detail {string|nil} English, for the log.
 function OpxAdmin.Server.Audit(source, event, ok, target, detail)
 	local actor = tonumber(source) or 0
 	sequence = sequence + 1
@@ -365,33 +381,40 @@ function OpxAdmin.Server.Audit(source, event, ok, target, detail)
 			encoded and dataText or '{}'))
 end
 
---- The most recent entries, newest last.
----@param count integer
----@return AuditEntry[]
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Recent
+--- @description The most recent audit entries, newest last.
+--- @param count {integer}
+--- @returns {AuditEntry[]}
 function OpxAdmin.Server.Recent(count)
 	local out = {}
 	for index = math.max(1, #ledger - count + 1), #ledger do out[#out + 1] = ledger[index] end
 	return out
 end
 
--- ---------------------------------------------------------------------------
--- The registry
--- ---------------------------------------------------------------------------
-
---- In registration order, for the chat suggestions, the access map and the boot line.
----@type AdminCommand[]
+--- @author DemiAutomatic
+--- @type {AdminCommand[]}
+--- @description Registered commands, in registration order.
 local commands = {}
+
+--- @author DemiAutomatic
+--- @type {table<string, AdminCommand>}
+--- @description Registered commands by name, to drop a duplicate.
 local byName = {}
 
---- Last run per operator per command.
+--- @author DemiAutomatic
+--- @type {table<string, integer>}
+--- @description Last run per operator and command, in milliseconds.
 local lastRun = {}
 
----@param player integer
----@param name string
----@param intervalMs number
----@return boolean  true when this run should be dropped
+--- @author DemiAutomatic
+--- @method cooled
+--- @description Whether a run falls inside the operator's floor, recording it otherwise.
+--- @param player {integer}
+--- @param name {string}
+--- @param intervalMs {number}
+--- @returns {boolean}
 local function cooled(player, name, intervalMs)
-	-- the console is never cooled
 	if player <= 0 then return false end
 	local slot = player .. ':' .. name
 	local atMs = nowMs()
@@ -401,10 +424,11 @@ local function cooled(player, name, intervalMs)
 	return false
 end
 
---- Register one staff command. There is no argument for an unrestricted one: every command
---- in this resource acts on the world or on somebody, and `true` below is not negotiable.
----@param name string
----@param spec AdminCommandSpec
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Command
+--- @description Registers one restricted staff command with its floor and guard.
+--- @param name {string}
+--- @param spec {AdminCommandSpec}
 function OpxAdmin.Server.Command(name, spec)
 	if byName[name] ~= nil then
 		Open77.log.error(('command %s is registered twice; the second is dropped'):format(name))
@@ -420,7 +444,6 @@ function OpxAdmin.Server.Command(name, spec)
 		args = type(args) == 'table' and args or { n = 0 }
 		if spec.inGame and player <= 0 then return Server.Refuse(player, raw, 'in_game_only') end
 		if cooled(player, name, interval) then return Server.Refuse(player, raw, 'too_fast') end
-		-- a raise inside a command handler is otherwise swallowed with no answer at all
 		local ran, failure = pcall(spec.handler, player, args, raw)
 		if not ran then
 			Open77.log.error(('%s raised: %s'):format(name, tostring(failure)))
@@ -433,17 +456,20 @@ function OpxAdmin.Server.Command(name, spec)
 	byName[name] = entry
 end
 
----@return AdminCommand[]
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Commands
+--- @description Every registered command, in registration order.
+--- @returns {AdminCommand[]}
 function OpxAdmin.Server.Commands()
 	return commands
 end
 
---- Whether the host's ACL grants this player `command.<name>`. Only for the places that are
---- not a command: the menu's refresh event, the travel revocation sweep, the suggestions.
---- Nil when this host has no ACL reader, which callers treat as "cannot say".
----@param playerId integer
----@param name string
----@return boolean|nil
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Permitted
+--- @description Whether the host ACL grants a command, nil when it cannot say.
+--- @param playerId {integer}
+--- @param name {string}
+--- @returns {boolean|nil}
 function OpxAdmin.Server.Permitted(playerId, name)
 	if playerId <= 0 then return true end
 	local acl = Open77.acl
@@ -453,8 +479,9 @@ function OpxAdmin.Server.Permitted(playerId, name)
 	return allowed == true
 end
 
---- Suggestions go only to a player the ACL would let run the command, so the staff command
---- list is not handed to everybody who opens the chat box.
+--- @author DemiAutomatic
+--- @event chat:ready
+--- @description Sends chat suggestions for the commands the ACL grants.
 RegisterNetEvent('chat:ready', function()
 	local player = tonumber(source) or 0
 	if player <= 0 or cooled(player, 'chat:ready', 2000) then return end
@@ -479,7 +506,10 @@ RegisterNetEvent('chat:ready', function()
 	if #suggestions > 0 then TriggerClientEvent('chat:addSuggestions', player, suggestions) end
 end)
 
---- The only departure event this platform raises. Files below add their own handlers.
+--- @author DemiAutomatic
+--- @event onPlayerDisconnected
+--- @description Forgets a departing player's command floors.
+--- @param playerId {integer|string}
 AddEventHandler('onPlayerDisconnected', function(playerId)
 	local prefix = tostring(tonumber(playerId) or 0) .. ':'
 	for slot in pairs(lastRun) do
@@ -487,14 +517,9 @@ AddEventHandler('onPlayerDisconnected', function(playerId)
 	end
 end)
 
--- ---------------------------------------------------------------------------
--- Boot checks
--- ---------------------------------------------------------------------------
-
 for _, line in ipairs(OpxAdmin.Catalog.problems) do Open77.log.warn(line) end
 
 do
-	-- a key in one catalogue and missing from the other is a defect, not a fallback
 	local english, french = OpxAdmin.Locale.Keys('en'), OpxAdmin.Locale.Keys('fr')
 	for key in pairs(english) do
 		if not french[key] then Open77.log.warn('locales/fr.lua is missing ' .. key) end
@@ -505,6 +530,5 @@ do
 end
 
 if type(Open77.acl) ~= 'table' or type(Open77.acl.isAllowed) ~= 'function' then
-	Open77.log.warn('Open77.acl is unavailable: the menu cannot grey out what the ACL refuses, ' ..
-		'and the travel modes are not revoked with a grant. Every command is still gated by the host.')
+	Open77.log.warn('Open77.acl is unavailable: the menu cannot grey out what the ACL refuses, and the travel modes are not revoked with a grant. Every command is still gated by the host.')
 end
