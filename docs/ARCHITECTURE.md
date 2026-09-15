@@ -523,7 +523,9 @@ client au-delà de 10 000 instructions (`paged`). Ne pas retirer cette paginatio
   la sauvegarde de tous les personnages passent par un écran de confirmation où Annuler est la
   première ligne ; pas de Retour sous lui, ce serait une deuxième façon de dire non.
 - La ligne sous la liste est limitée à 120 caractères par `opx77_menu` et un listing fait plusieurs
-  lignes : `OpxAdmin.Menu.Status` garde la première, coupée à 116 ; le chat a tout. Sans menu
+  lignes : `OpxAdmin.Menu.Status` garde la première, coupée à 116 octets par `OpxAdmin.Text.Bytes`, qui ne
+  coupe jamais un caractère UTF-8 en deux (un accent coupé est un octet invalide dans la page) ; le
+  chat a tout. Sans menu
   ouvert, elle est gardée pour le prochain écran.
 - Fermeture (`opx77_admin:row`, action `close`) : une fermeture `reopened`, ou d'un handle qui n'est
   plus le nôtre, vient d'un écran remplacé et peut arriver avant le nouveau handle : ignorée.

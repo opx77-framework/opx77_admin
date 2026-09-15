@@ -9,6 +9,7 @@ local Client = OpxAdmin.Client
 local Catalog = OpxAdmin.Catalog
 local Forms = OpxAdmin.Forms
 local Keys = OpxAdmin.Keys
+local Text = OpxAdmin.Text
 
 --- @author DemiAutomatic
 --- @type {table}
@@ -949,7 +950,7 @@ end
 function OpxAdmin.Menu.Status(text, ok)
 	if type(text) ~= 'string' then return end
 	local line = text:match('^[^\n]*') or text
-	if #line > 116 then line = line:sub(1, 113) .. '...' end
+	if #line > 116 then line = Text.Bytes(line, 113) .. '...' end
 	if handle == nil then
 		queuedStatus = { text = line, ok = ok }
 		return

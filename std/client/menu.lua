@@ -3,8 +3,8 @@
 --- The staff menu: a stack of screens, each its own opx77_menu `open`.
 OpxAdmin.Menu = {}
 
---- Writes the line under the list (its first line, cut to 116 bytes), or keeps it for the next
---- screen when none is up.
+--- Writes the line under the list (its first line, cut to 116 bytes without splitting a
+--- character), or keeps it for the next screen when none is up.
 ---@param text string
 ---@param ok boolean
 function OpxAdmin.Menu.Status(text, ok) end
