@@ -235,12 +235,13 @@ Server.Command('opx77.admin.vehicle.remove', {
 			local removed, kept = 0, 0
 			for vehicleId, entry in pairs(spawned) do
 				if entry.owner == source then
-					if removeOne(vehicleId) then removed = removed + 1 else kept = kept + 1 end
+					local ok, code = removeOne(vehicleId)
+					if ok then removed = removed + 1 elseif code ~= 'no_vehicle' then kept = kept + 1 end
 				end
 			end
 			audit(source, 'admin.vehicle.remove', true, nil, ('mine: %d removed, %d kept'):format(
 				removed, kept))
-			return answer(source, raw, removed > 0, 'admin.done.removedMany',
+			return answer(source, raw, removed > 0 or kept == 0, 'admin.done.removedMany',
 				{ removed = removed, kept = kept })
 		end
 
@@ -262,7 +263,8 @@ Server.Command('opx77.admin.vehicle.cleanup', {
 		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
 		local removed, kept = 0, 0
 		for vehicleId in pairs(spawned) do
-			if removeOne(vehicleId) then removed = removed + 1 else kept = kept + 1 end
+			local ok, code = removeOne(vehicleId)
+			if ok then removed = removed + 1 elseif code ~= 'no_vehicle' then kept = kept + 1 end
 		end
 		audit(source, 'admin.vehicle.cleanup', true, nil, ('%d removed, %d kept'):format(removed, kept))
 		answer(source, raw, true, 'admin.done.removedMany', { removed = removed, kept = kept })

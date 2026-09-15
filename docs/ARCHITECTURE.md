@@ -418,7 +418,10 @@ L'hôte limite chaque mutation de véhicule à la resource qui l'a créé : `ser
 peut toucher que ce qu'il a fait apparaître, et le dit (`not_ours`) plutôt que de répondre
 « 0 retiré ». `spawned` retient ce que la resource a fait apparaître et pour qui ; `prune` oublie
 les lignes dont l'hôte ne connaît plus le véhicule, quel que soit celui qui l'a retiré, avant de
-compter le plafond `VEHICLES.PER_OWNER`. L'instantané serveur porte `x`, `y`, `z` et `bucket` au
+compter le plafond `VEHICLES.PER_OWNER`. `remove mine` et `cleanup` comptent de la même façon : un
+véhicule que l'hôte ne connaît déjà plus (`no_vehicle`) est oublié sans être compté « laissé en
+place », et `remove mine` ne répond une erreur que si un véhicule est resté (occupé, ou refusé par
+l'hôte) sans qu'aucun ne soit retiré ; n'avoir rien à retirer est un succès. L'instantané serveur porte `x`, `y`, `z` et `bucket` au
 premier niveau, et les ids d'occupants peuvent arriver en chaînes.
 
 `near` désigne le véhicule où l'opérateur est assis, sinon le plus proche dans son bucket à moins
@@ -605,7 +608,5 @@ nommées littéralement ailleurs dans le code.
 
 ## Limites connues
 
-- `opx77.admin.vehicle.remove mine` répond `ok = removed > 0` : n'avoir rien à retirer est répondu
-  comme une erreur, là où `cleanup` répond un succès.
 - `OpxAdmin.Catalog.problems` n'est journalisé que par le serveur ; les données étant les mêmes,
   sa ligne couvre le client.
