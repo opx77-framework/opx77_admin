@@ -11,15 +11,15 @@
 -- uses and this file does not name is listed last, under its key.
 
 OPX_ADMIN_WEAPONS = {
-  CLASSES = { -- menu order; KEY matches CLASS in opx77_inventory's data/weapons.lua
-    { KEY = "handgun", LABEL = "Handguns" },
-    { KEY = "revolver", LABEL = "Revolvers" },
-    { KEY = "smg", LABEL = "SMGs" },
-    { KEY = "rifle", LABEL = "Assault rifles" },
-    { KEY = "precision", LABEL = "Precision rifles" },
-    { KEY = "sniper", LABEL = "Sniper rifles" },
-    { KEY = "shotgun", LABEL = "Shotguns" },
-    { KEY = "lmg", LABEL = "Light machine guns" },
-    { KEY = "melee", LABEL = "Melee" },
-  },
+	CLASSES = { -- menu order; KEY matches CLASS in opx77_inventory's data/weapons.lua
+		{ KEY = 'handgun', LABEL = 'Handguns' },
+		{ KEY = 'revolver', LABEL = 'Revolvers' },
+		{ KEY = 'smg', LABEL = 'SMGs' },
+		{ KEY = 'rifle', LABEL = 'Assault rifles' },
+		{ KEY = 'precision', LABEL = 'Precision rifles' },
+		{ KEY = 'sniper', LABEL = 'Sniper rifles' },
+		{ KEY = 'shotgun', LABEL = 'Shotguns' },
+		{ KEY = 'lmg', LABEL = 'Light machine guns' },
+		{ KEY = 'melee', LABEL = 'Melee' },
+	},
 }
