@@ -104,7 +104,6 @@ local function chatLine(kind, message)
 		type = accepted and 'info' or 'error',
 		author = locale('admin.toast.title'),
 		text = message,
-		color = accepted and { 120, 220, 232 } or { 255, 76, 92 },
 	})
 end
 

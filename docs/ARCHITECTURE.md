@@ -179,7 +179,10 @@ Côté client, `OpxAdmin.Client.Notice` lève les toasts de la resource via `opx
 seul emplacement remplacé (`id = 'opx77_admin'`, `replace = true`) : un membre du staff qui clique
 à travers un écran voit la dernière réponse, pas une pile. Sans toast (resource arrêtée ou refus),
 la réponse redevient une ligne de chat et le journal le dit une fois. La réponse propre de la
-resource va aussi sous la liste quand le menu l'a envoyée.
+resource va aussi sous la liste quand le menu l'a envoyée. Une ligne de chat (réponse, rapport,
+annonce) ne porte qu'un `type` (`info`, `error`, `system`) et aucune `color` : les jetons
+`.line.info`, `.line.error` et `.line.system` d'`opx77_chat` la dessinent, et aucune couleur ne
+dérive ici de la palette.
 
 ## Identité et cibles
 

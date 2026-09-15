@@ -220,7 +220,6 @@ Server.Command('opx77.admin.world.announce', {
 				type = 'system',
 				author = locale('admin.announce.title'),
 				text = text,
-				color = { 245, 196, 80 },
 			})
 		end
 		audit(source, 'admin.world.announce', true, nil, text)
