@@ -63,9 +63,9 @@ local session
 local roster, rosterById, incoming = {}, {}, {}
 
 --- @author DemiAutomatic
---- @type {table[]}
---- @description The destination rows the server last sent.
-local locations = {}
+--- @type {table[], table[]}
+--- @description The destination rows the server last sent, and chunks still arriving.
+local locations, locationsIncoming = {}, {}
 
 --- @author DemiAutomatic
 --- @type {table}
@@ -729,6 +729,7 @@ end
 SCREENS.saved = function()
 	local items = {}
 	for _, entry in ipairs(locations) do
+		if #items >= MAX_LISTED then break end
 		if entry.runtime then
 			items[#items + 1] = command('forget_' .. entry.name,
 				{ text = locale('admin.menu.forget', { label = entry.label }) },
@@ -1179,19 +1180,20 @@ end)
 
 --- @author DemiAutomatic
 --- @event opx77_admin:locations
---- @description Takes the destination list and redraws the screens that show it.
+--- @description Collects destination chunks and redraws the screens that show them.
 --- @param payload {table}
 RegisterNetEvent('opx77_admin:locations', function(payload)
 	if type(payload) ~= 'table' or type(payload.rows) ~= 'table' then return end
-	local rows = {}
+	if payload.offset == 0 then locationsIncoming = {} end
 	for _, entry in ipairs(payload.rows) do
 		if type(entry) == 'table' and type(entry.name) == 'string' and entry.name:match('^[%w_%-]+$')
 		then
-			rows[#rows + 1] = { name = entry.name, label = tostring(entry.label or entry.name),
-				runtime = entry.runtime == true }
+			locationsIncoming[#locationsIncoming + 1] = { name = entry.name,
+				label = tostring(entry.label or entry.name), runtime = entry.runtime == true }
 		end
 	end
-	locations = rows
+	if payload.done ~= true then return end
+	locations, locationsIncoming = locationsIncoming, {}
 	local screen = Menu.Screen()
 	if screen == 'locations' or screen == 'saved' then draw(true) end
 end)

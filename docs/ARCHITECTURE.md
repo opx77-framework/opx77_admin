@@ -498,8 +498,10 @@ de chat à chaque ouverture.
 - **La carte d'accès** (`accessOf`) : un indice de dessin et rien de plus. Seuls les grants
   voyagent : un `false` coûterait deux nœuds de valeur et ne dit rien de plus qu'un `nil`.
 - **Envois par morceaux** (`pushChunks`, `ROSTER_CHUNK` = 20 lignes) : l'hôte abandonne sans un
-  mot un événement de plus de 1 024 nœuds de valeur, et une ligne en compte une douzaine. Le client
-  recolle les morceaux (`collect`). Ne pas les supprimer.
+  mot un événement de plus de 1 024 nœuds de valeur, et une ligne en compte une douzaine. Roster,
+  destinations (dont le nombre ajouté en jeu n'a pas de plafond), catalogue et sac passent tous
+  par là. Le client recolle les morceaux (`collect` ; roster et destinations par leur propre
+  tampon) et n'adopte la liste qu'au dernier morceau (`done`). Ne pas les supprimer.
 
 ## Le menu, côté client
 

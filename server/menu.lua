@@ -13,7 +13,7 @@ local OPENER = 'opx77.admin'
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Rows per roster, catalogue or bag event.
+--- @description Rows per roster, destination, catalogue or bag event.
 local ROSTER_CHUNK = 20
 
 --- @author DemiAutomatic
@@ -82,14 +82,14 @@ end
 
 --- @author DemiAutomatic
 --- @method pushLocations
---- @description Sends the destination list to the operator.
+--- @description Sends the destination list to the operator, in chunks.
 --- @param playerId {integer}
 local function pushLocations(playerId)
 	local rows = {}
 	for _, row in ipairs(Server.Locations()) do
 		rows[#rows + 1] = { name = row.name, label = row.label, runtime = row.runtime }
 	end
-	TriggerClientEvent('opx77_admin:locations', playerId, { rows = rows })
+	pushChunks(playerId, 'opx77_admin:locations', rows)
 end
 
 --- @author DemiAutomatic

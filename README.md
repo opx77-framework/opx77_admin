@@ -547,7 +547,7 @@ Net events, all private to this resource — nothing outside it should raise or 
 |---|---|---|
 | `opx77_admin:open` | server → client | the access map, after the opener command, and whether `opx77_inventory` runs |
 | `opx77_admin:roster` | server → client | roster rows, twenty per event |
-| `opx77_admin:locations` | server → client | the destination list |
+| `opx77_admin:locations` | server → client | the destination list, twenty per event |
 | `opx77_admin:items` | server → client | `opx77_inventory`'s catalogue, twenty rows per event, an ammo item with its full load |
 | `opx77_admin:bag` | server → client | one bag's stacks for the removal picker, twenty per event |
 | `opx77_admin:access` | server → client | a fresh access map |
