@@ -15,35 +15,6 @@ local count = Server.Count
 local RESOURCE = GetCurrentResourceName()
 
 --- @author DemiAutomatic
---- @method targetOf
---- @description Resolves the typed target, or answers why not.
---- @param source {integer}
---- @param raw {string}
---- @param token {any}
---- @returns {integer|nil}
-local function targetOf(source, raw, token)
-	local playerId, code = Server.Target(source, token)
-	if playerId == nil then refuse(source, raw, code) end
-	return playerId
-end
-
---- @author DemiAutomatic
---- @method admitted
---- @description Checks the readiness gate, answering and auditing a closed one.
---- @param source {integer}
---- @param raw {string}
---- @param playerId {integer}
---- @param event {string}
---- @returns {boolean}
-local function admitted(source, raw, playerId, event)
-	local ok, code = Server.Admit(playerId)
-	if ok then return true end
-	refuse(source, raw, code, { id = playerId })
-	audit(source, event, false, playerId, code)
-	return false
-end
-
---- @author DemiAutomatic
 --- @method nativeRefused
 --- @description Answers a refused native mutator and keeps its reason in the audit.
 --- @param source {integer}
@@ -237,7 +208,7 @@ end)
 --- @param playerId {integer}
 --- @param event {string}
 local function heal(source, raw, playerId, event)
-	if not admitted(source, raw, playerId, event) then return end
+	if not Server.Admitted(source, raw, playerId, event) then return end
 	local maximum = healthOf(playerId)
 	local ok, reason = Open77.players.setHealth(playerId, maximum)
 	if not ok then return nativeRefused(source, raw, event, playerId, reason) end
@@ -255,7 +226,7 @@ end
 --- @param playerId {integer}
 --- @param event {string}
 local function revive(source, raw, playerId, event)
-	if not admitted(source, raw, playerId, event) then return end
+	if not Server.Admitted(source, raw, playerId, event) then return end
 	local placement = Config.PLACEMENT or {}
 	local ok, reason = Open77.players.revive(playerId, {
 		health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0))),
@@ -279,7 +250,7 @@ end
 local function god(source, raw, playerId, word, event)
 	local wanted, invalid = Text.Switch(word)
 	if invalid then return refuse(source, raw, 'bad_switch') end
-	if not admitted(source, raw, playerId, event) then return end
+	if not Server.Admitted(source, raw, playerId, event) then return end
 	if wanted == nil then
 		local _, health = healthOf(playerId)
 		wanted = not (health ~= nil and health.godMode == true)
@@ -358,10 +329,10 @@ Server.Command('opx77.admin.player.goto', {
 	help = 'admin.help.goto', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		if playerId == source then return refuse(source, raw, 'self_target') end
-		if not admitted(source, raw, playerId, 'admin.player.goto') then return end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.goto') then return end
 		local point, bucket = beside(playerId)
 		if point == nil then return refuse(source, raw, 'no_position') end
 		local placed, code, reason = Server.Place(source, point, 0.0, bucket, 'goto')
@@ -379,7 +350,7 @@ Server.Command('opx77.admin.player.bring', {
 	help = 'admin.help.bring', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		if playerId == source then return refuse(source, raw, 'self_target') end
 		local point, bucket = beside(source)
@@ -406,7 +377,7 @@ Server.Command('opx77.admin.player.tp', {
 	handler = function(source, args, raw)
 		local given = count(args)
 		if given < 4 or given > 5 then return answer(source, raw, false, 'admin.usage.tp') end
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		local point = pointOf(args[2], args[3], args[4])
 		local heading = given == 5 and Text.Finite(args[5]) or 0.0
@@ -429,10 +400,10 @@ Server.Command('opx77.admin.player.observe', {
 	help = 'admin.help.observe', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		if playerId == source then return refuse(source, raw, 'self_target') end
-		if not admitted(source, raw, playerId, 'admin.player.observe') then return end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.observe') then return end
 		local position = Server.PositionOf(playerId)
 		if position == nil then return refuse(source, raw, 'no_position') end
 		local height = Server.Setting((Config.PLACEMENT or {}).OBSERVE_HEIGHT, 2.0)
@@ -453,7 +424,7 @@ Server.Command('opx77.admin.player.observe', {
 Server.Command('opx77.admin.player.heal', {
 	help = 'admin.help.heal', params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId then heal(source, raw, playerId, 'admin.player.heal') end
 	end,
 })
@@ -465,7 +436,7 @@ Server.Command('opx77.admin.player.revive', {
 	help = 'admin.help.revive',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId then revive(source, raw, playerId, 'admin.player.revive') end
 	end,
 })
@@ -478,7 +449,7 @@ Server.Command('opx77.admin.player.god', {
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'on|off', help = 'admin.help.toggle', optional = true } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId then god(source, raw, playerId, args[2], 'admin.player.god') end
 	end,
 })
@@ -489,9 +460,9 @@ Server.Command('opx77.admin.player.god', {
 Server.Command('opx77.admin.player.kill', {
 	help = 'admin.help.kill', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
-		if not admitted(source, raw, playerId, 'admin.player.kill') then return end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.kill') then return end
 		local ok, reason = Open77.players.kill(playerId, {
 			killer = source > 0 and source or nil,
 			cause = 'script',
@@ -517,9 +488,9 @@ Server.Command('opx77.admin.player.health', {
 		if count(args) ~= 2 or value == nil or value < 0 then
 			return answer(source, raw, false, 'admin.usage.health')
 		end
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
-		if not admitted(source, raw, playerId, 'admin.player.health') then return end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.health') then return end
 		local maximum = healthOf(playerId)
 		value = math.min(value, maximum)
 		local ok, reason = Open77.players.setHealth(playerId, value)
@@ -542,9 +513,9 @@ Server.Command('opx77.admin.player.armor', {
 		if count(args) ~= 2 or value == nil or value < 0 or value > 10000 then
 			return answer(source, raw, false, 'admin.usage.armor')
 		end
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
-		if not admitted(source, raw, playerId, 'admin.player.armor') then return end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.armor') then return end
 		local ok, reason = Open77.players.setArmor(playerId, value)
 		if not ok then return nativeRefused(source, raw, 'admin.player.armor', playerId, reason) end
 		audit(source, 'admin.player.armor', true, playerId, ('%.0f'):format(value))
@@ -592,7 +563,7 @@ Server.Command('opx77.admin.moderate.kick', {
 	params = { { name = 'playerId', help = 'admin.help.playerId' },
 		{ name = 'reason', help = 'admin.help.reason', optional = true } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 		local reason = Text.Clean(Text.Rest(args, 2), 200) or locale('admin.kick.defaultReason')
 		reason = Text.Bytes(reason, KICK_REASON_BYTES)
@@ -613,7 +584,7 @@ Server.Command('opx77.admin.moderate.ban', {
 		{ name = 'duration', help = 'admin.help.banDuration', optional = true },
 		{ name = 'reason', help = 'admin.help.reason', optional = true } },
 	handler = function(source, args, raw)
-		local playerId = targetOf(source, raw, args[1])
+		local playerId = Server.Target(source, raw, args[1])
 		if playerId == nil then return end
 
 		local seconds, reasonFrom = nil, 2

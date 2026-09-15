@@ -219,12 +219,12 @@ function OpxAdmin.Server.UserOf(playerId)
 end
 
 --- @author DemiAutomatic
---- @method OpxAdmin.Server.Target
+--- @method targetOf
 --- @description Resolves a typed target to a connected player id, or me.
 --- @param source {integer}
 --- @param token {any}
 --- @returns {integer|nil, string|nil}
-function OpxAdmin.Server.Target(source, token)
+local function targetOf(source, token)
 	if token == nil then return nil, 'no_target' end
 	local word = tostring(token):lower()
 	if word == 'me' or word == 'self' then
@@ -235,6 +235,19 @@ function OpxAdmin.Server.Target(source, token)
 	if playerId == nil or playerId <= 0 then return nil, 'bad_target' end
 	if Server.NameOf(playerId) == nil then return nil, 'not_connected' end
 	return playerId, nil
+end
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Target
+--- @description Resolves a typed target to a connected player, or answers why not.
+--- @param source {integer}
+--- @param raw {string}
+--- @param token {any}
+--- @returns {integer|nil}
+function OpxAdmin.Server.Target(source, raw, token)
+	local playerId, code = targetOf(source, token)
+	if playerId == nil then Server.Refuse(source, raw, code) end
+	return playerId
 end
 
 --- @author DemiAutomatic
@@ -277,6 +290,22 @@ function OpxAdmin.Server.Admit(playerId)
 	if not read then return false, 'gate_unreadable' end
 	if open ~= true then return false, 'gate_closed' end
 	return true, life
+end
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.Admitted
+--- @description Checks the readiness gate, answering and auditing a closed one.
+--- @param source {integer}
+--- @param raw {string}
+--- @param playerId {integer}
+--- @param event {string}
+--- @returns {boolean}
+function OpxAdmin.Server.Admitted(source, raw, playerId, event)
+	local admitted, code = Server.Admit(playerId)
+	if admitted then return true end
+	Server.Refuse(source, raw, code, { id = playerId })
+	Server.Audit(source, event, false, playerId, code)
+	return false
 end
 
 --- @author DemiAutomatic

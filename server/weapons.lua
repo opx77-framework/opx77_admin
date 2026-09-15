@@ -459,12 +459,9 @@ Server.Command('opx77.admin.weapon.holster', {
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
 		if not available() then return refuse(source, raw, 'weapons_unavailable') end
-		local playerId, code = Server.Target(source, args[1])
-		if playerId == nil then return refuse(source, raw, code) end
-		local admitted, gateCode = Server.Admit(playerId)
-		if not admitted then
-			audit(source, 'admin.weapon.holster', false, playerId, gateCode)
-			return refuse(source, raw, gateCode, { id = playerId })
+		local playerId = Server.Target(source, raw, args[1])
+		if playerId == nil or not Server.Admitted(source, raw, playerId, 'admin.weapon.holster') then
+			return
 		end
 		local requestId, reason = Open77.weapons.holster(playerId)
 		if requestId == nil then

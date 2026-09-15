@@ -108,8 +108,8 @@ Server.Command('opx77.admin.player.send', {
 		{ name = 'location', help = 'admin.help.locationName' } },
 	handler = function(source, args, raw)
 		if count(args) ~= 2 then return answer(source, raw, false, 'admin.usage.send') end
-		local playerId, code = Server.Target(source, args[1])
-		if playerId == nil then return refuse(source, raw, code) end
+		local playerId = Server.Target(source, raw, args[1])
+		if playerId == nil then return end
 		local location = locations[tostring(args[2]):lower()]
 		if location == nil then return refuse(source, raw, 'unknown_location') end
 		local placed, placeCode, reason = Server.Place(playerId,

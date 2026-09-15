@@ -141,11 +141,7 @@ end
 --- @param entry {CatalogEntry}
 --- @param event {string}
 local function spawnFor(source, raw, owner, entry, event)
-	local admitted, code = Server.Admit(owner)
-	if not admitted then
-		audit(source, event, false, owner, code)
-		return refuse(source, raw, code, { id = owner })
-	end
+	if not Server.Admitted(source, raw, owner, event) then return end
 	prune()
 	local cap = math.max(1, math.floor(Server.Setting(Settings.PER_OWNER, 8)))
 	if ownedBy(owner) >= cap then
@@ -199,8 +195,8 @@ Server.Command('opx77.admin.vehicle.give', {
 		{ name = 'vehicle', help = 'admin.help.vehicleName' } },
 	handler = function(source, args, raw)
 		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
-		local playerId, code = Server.Target(source, args[1])
-		if playerId == nil then return refuse(source, raw, code) end
+		local playerId = Server.Target(source, raw, args[1])
+		if playerId == nil then return end
 		local entry = Catalog.Vehicle(args[2])
 		if entry == nil then return refuse(source, raw, 'unknown_vehicle') end
 		spawnFor(source, raw, playerId, entry, 'admin.vehicle.give')

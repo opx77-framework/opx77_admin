@@ -58,12 +58,13 @@ function OpxAdmin.Server.NameOf(playerId) end
 ---@return string|nil
 function OpxAdmin.Server.UserOf(playerId) end
 
---- Resolves a typed target: a connected player id, or `me` / `self`.
+--- Resolves a typed target, a connected player id or `me` / `self`, and answers the refusal
+--- (`no_target`, `bad_target`, `not_connected`, `console_has_no_player`) when there is none.
 ---@param source integer
+---@param raw string
 ---@param token any
 ---@return integer|nil playerId
----@return AdminError|nil code
-function OpxAdmin.Server.Target(source, token) end
+function OpxAdmin.Server.Target(source, raw, token) end
 
 --- The replicated position and routing bucket, or nil before the world is up.
 ---@param playerId integer
@@ -81,6 +82,14 @@ function OpxAdmin.Server.LifeOf(playerId) end
 ---@return boolean admitted
 ---@return table|AdminError lifeOrCode
 function OpxAdmin.Server.Admit(playerId) end
+
+--- `OpxAdmin.Server.Admit`, with a closed gate answered to the operator and audited under `event`.
+---@param source integer
+---@param raw string
+---@param playerId integer
+---@param event string
+---@return boolean admitted
+function OpxAdmin.Server.Admitted(source, raw, playerId, event) end
 
 --- Moves a player through kill then respawn, never a transform write. A refused respawn after
 --- a kill revives the player where they fell.
