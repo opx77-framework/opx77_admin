@@ -25,22 +25,37 @@ local locations = {}
 local runtime = {}
 
 --- @author DemiAutomatic
+--- @method locationOf
+--- @description Builds one destination from typed or stored values, nil when unusable.
+--- @param name {any}
+--- @param label {any}
+--- @param x {any}
+--- @param y {any}
+--- @param z {any}
+--- @param heading {any}
+--- @param isRuntime {boolean}
+--- @returns {AdminLocation|nil}
+local function locationOf(name, label, x, y, z, heading, isRuntime)
+	name = Text.Slug(name)
+	x, y, z = Text.Finite(x), Text.Finite(y), Text.Finite(z)
+	if name == nil or x == nil or y == nil or z == nil then return nil end
+	return { name = name, label = Text.Clean(label, 48) or name, x = x, y = y, z = z,
+		heading = Text.Finite(heading) or 0.0, runtime = isRuntime }
+end
+
+--- @author DemiAutomatic
 --- @method seed
 --- @description Rebuilds the destination list from config, then the in-game additions.
 local function seed()
 	locations = {}
 	for position, row in ipairs(type(Config.LOCATIONS) == 'table' and Config.LOCATIONS or {}) do
-		local name = type(row) == 'table' and Text.Slug(row.NAME) or nil
-		local valid = type(row) == 'table'
-		local x = valid and Text.Finite(row.X) or nil
-		local y = valid and Text.Finite(row.Y) or nil
-		local z = valid and Text.Finite(row.Z) or nil
-		if name == nil or x == nil or y == nil or z == nil then
+		local location = type(row) == 'table'
+			and locationOf(row.NAME, row.LABEL, row.X, row.Y, row.Z, row.HEADING, false) or nil
+		if location == nil then
 			Open77.log.warn(('LOCATIONS #%d ignored: NAME must be a slug and X, Y, Z numbers')
 				:format(position))
 		else
-			locations[name] = { name = name, label = Text.Clean(row.LABEL, 48) or name, x = x, y = y,
-				z = z, heading = Text.Finite(row.HEADING) or 0.0, runtime = false }
+			locations[location.name] = location
 		end
 	end
 	for name, row in pairs(runtime) do locations[name] = row end
@@ -73,15 +88,9 @@ local function restore()
 	local read, carried = pcall(Open77.state.load)
 	if not read or type(carried) ~= 'table' or carried.protocol ~= STATE_PROTOCOL then return end
 	for _, row in ipairs(type(carried.locations) == 'table' and carried.locations or {}) do
-		local name = type(row) == 'table' and Text.Slug(row.name) or nil
-		local valid = type(row) == 'table'
-		local x = valid and Text.Finite(row.x) or nil
-		local y = valid and Text.Finite(row.y) or nil
-		local z = valid and Text.Finite(row.z) or nil
-		if name and x and y and z then
-			runtime[name] = { name = name, label = Text.Clean(row.label, 48) or name, x = x, y = y, z = z,
-				heading = Text.Finite(row.heading) or 0.0, runtime = true }
-		end
+		local location = type(row) == 'table'
+			and locationOf(row.name, row.label, row.x, row.y, row.z, row.heading, true) or nil
+		if location then runtime[location.name] = location end
 	end
 end
 
@@ -170,8 +179,9 @@ Server.Command('opx77.admin.world.loc.remove', {
 Server.Command('opx77.admin.read.locations', {
 	help = 'admin.help.readLocations', read = true,
 	handler = function(source, _, raw)
-		local lines = { locale('admin.locations.header', { count = #Server.Locations() }) }
-		for _, row in ipairs(Server.Locations()) do
+		local list = Server.Locations()
+		local lines = { locale('admin.locations.header', { count = #list }) }
+		for _, row in ipairs(list) do
 			lines[#lines + 1] = locale(row.runtime and 'admin.locations.runtime' or 'admin.locations.row',
 				{ name = row.name, label = row.label, x = ('%.1f'):format(row.x),
 					y = ('%.1f'):format(row.y), z = ('%.1f'):format(row.z) })
