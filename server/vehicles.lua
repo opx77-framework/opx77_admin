@@ -298,6 +298,38 @@ Server.Command('opx77.admin.vehicle.repair', {
 })
 
 --- @author DemiAutomatic
+--- @type {string[]}
+--- @description Seats an operator is put in, first free one wins.
+local SEATS = { 'driver', 'frontPassenger', 'rearLeft', 'rearRight' }
+
+--- @author DemiAutomatic
+--- @command /opx77.admin.vehicle.enter
+--- @description Seats the operator in a vehicle, driver first, past its lock.
+Server.Command('opx77.admin.vehicle.enter', {
+	help = 'admin.help.enter',
+	params = { { name = 'vehicleId|near', help = 'admin.help.vehicleTarget' } },
+	inGame = true,
+	handler = function(source, args, raw)
+		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
+		local vehicleId = vehicleOf(source, raw, args[1] or 'near')
+		if vehicleId == nil then return end
+		if not Server.Admitted(source, raw, source, 'admin.vehicle.enter') then return end
+		local seated, reason
+		for _, seat in ipairs(SEATS) do
+			local read, ok, failure = pcall(Open77.vehicles.warpPlayerIntoVehicle, source, vehicleId, seat,
+				{ moveBucket = true })
+			seated = read and ok == true
+			if seated then break end
+			if read then reason = failure else reason = ok end
+		end
+		audit(source, 'admin.vehicle.enter', seated, nil,
+			('%d %s'):format(vehicleId, seated and '' or tostring(reason)))
+		if not seated then return refuse(source, raw, 'refused', { reason = tostring(reason) }) end
+		answer(source, raw, true, 'admin.done.entered', { vehicle = vehicleId })
+	end,
+})
+
+--- @author DemiAutomatic
 --- @method maskOf
 --- @description A configured flag's host mask and exact name, or nil.
 --- @param name {any}

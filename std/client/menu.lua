@@ -19,6 +19,14 @@ function OpxAdmin.Menu.Run(tokens, refresh) end
 ---@param key string catalogue key of the question
 function OpxAdmin.Menu.Confirm(tokens, key) end
 
+--- Opens the menu on one screen over the root, sending the opener first when it is closed, with
+--- a form over the screen when given. A landing the opener does not answer within 5 s is dropped.
+---@param screen string
+---@param arg any
+---@param formKind string|nil
+---@return boolean
+function OpxAdmin.Menu.OpenAt(screen, arg, formKind) end
+
 --- Takes the menu down for a form, keeping the stack.
 function OpxAdmin.Menu.Suspend() end
 

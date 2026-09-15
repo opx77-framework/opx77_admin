@@ -115,6 +115,16 @@ local queuedStatus
 local drawn = 0
 
 --- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds a screen asked for before the opener answered is still wanted.
+local LANDING_MS = 5000
+
+--- @author DemiAutomatic
+--- @type {table|nil}
+--- @description The screen, argument and form to land on once the opener answers.
+local landing
+
+--- @author DemiAutomatic
 --- @type {boolean}
 --- @description Whether opx77_medic last said the player is down.
 local playerDown = false
@@ -390,15 +400,19 @@ end
 
 --- @author DemiAutomatic
 --- @method switch
---- @description A command row showing ON or OFF, for a state the command toggles.
+--- @description A checkbox row whose flip runs the command with on or off; a plain command row
+--- that toggles when the state cannot be read.
 --- @param id {string}
 --- @param labelKey {string}
 --- @param tokens {table}
---- @param on {boolean}
+--- @param on {boolean|nil}
 --- @returns {table}
 local function switch(id, labelKey, tokens, on)
 	local item = command(id, labelKey, tokens)
-	if not item.disabled then item.value = locale(on and 'admin.menu.on' or 'admin.menu.off') end
+	if not item.disabled and type(on) == 'boolean' then
+		item.toggle = on
+		item.data = { switch = tokens }
+	end
 	return item
 end
 
@@ -416,6 +430,16 @@ end
 --- @returns {table}
 local function tagsRow()
 	return switch('tags', 'admin.menu.tags', { 'opx77.admin.self.tags' }, Tags.IsShown())
+end
+
+--- @author DemiAutomatic
+--- @method godRow
+--- @description The god mode switch, read from the player's replicated health snapshot.
+--- @param tokens {table} The command and its target, without the on or off word.
+--- @param playerId {integer|nil} Nil for the operator.
+--- @returns {table}
+local function godRow(tokens, playerId)
+	return switch('god', 'admin.menu.god', tokens, Client.GodMode(playerId))
 end
 
 --- @author DemiAutomatic
@@ -540,7 +564,7 @@ SCREENS.playerHealth = function(id)
 	return playerTitle(id, 'admin.menu.healthActions'), {
 		command('heal', 'admin.menu.heal', { 'opx77.admin.player.heal', target }, 'roster'),
 		command('revive', 'admin.menu.revive', { 'opx77.admin.player.revive', target }, 'roster'),
-		command('god', 'admin.menu.god', { 'opx77.admin.player.god', target }),
+		godRow({ 'opx77.admin.player.god', target }, id),
 		form('health', 'admin.menu.health', 'health', id, 'opx77.admin.player.health'),
 		form('armor', 'admin.menu.armor', 'armor', id, 'opx77.admin.player.armor'),
 		section(),
@@ -613,7 +637,7 @@ SCREENS.self = function()
 		section('admin.menu.section.health'),
 		command('heal', 'admin.menu.heal', { 'opx77.admin.self.heal' }),
 		command('revive', 'admin.menu.revive', { 'opx77.admin.self.revive' }),
-		command('god', 'admin.menu.god', { 'opx77.admin.self.god' }),
+		godRow({ 'opx77.admin.self.god' }),
 
 		section('admin.menu.section.weapons'),
 	}, weaponRows('me', 'admin.menu.giveMe'))
@@ -1102,6 +1126,44 @@ local function pop()
 end
 
 --- @author DemiAutomatic
+--- @method land
+--- @description Pushes a screen over the root, or puts its form up with the screen kept under it.
+--- @param wanted {table} screen, arg and form.
+local function land(wanted)
+	if wanted.form then
+		-- The form's cancel brings the screen back and its confirm pushes onto it.
+		suspended = true
+		push(wanted.screen, wanted.arg)
+		Forms.Open(wanted.form, wanted.arg)
+		return
+	end
+	if wanted.screen == 'root' then return draw() end
+	push(wanted.screen, wanted.arg)
+end
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.OpenAt
+--- @description Opens the menu on one screen over the root, with a form over it when given.
+--- @param screen {string}
+--- @param arg {any}
+--- @param formKind {string|nil}
+--- @returns {boolean}
+function OpxAdmin.Menu.OpenAt(screen, arg, formKind)
+	if SCREENS[screen] == nil then return false end
+	local wanted = { screen = screen, arg = arg, form = formKind }
+	if session ~= nil and #stack > 0 then
+		Forms.Close()
+		stack = { { screen = 'root' } }
+		suspended = false
+		land(wanted)
+		return true
+	end
+	wanted.atMs = Client.NowMs()
+	landing = wanted
+	return Client.Execute({ OPENER })
+end
+
+--- @author DemiAutomatic
 --- @method OpxAdmin.Menu.Status
 --- @description Writes the line under the list, or keeps it for later.
 --- @param text {string}
@@ -1223,7 +1285,11 @@ end
 --- @param payload {AdminSession}
 RegisterNetEvent('opx77_admin:open', function(payload)
 	if type(payload) ~= 'table' then return end
-	if #stack > 0 and not suspended then return Menu.Close() end
+	OpxAdmin.Target.Access(payload)
+	local wanted = landing
+	landing = nil
+	if wanted and Client.NowMs() - wanted.atMs > LANDING_MS then wanted = nil end
+	if #stack > 0 and not suspended and wanted == nil then return Menu.Close() end
 	if not Client.Need(MENU) then
 		Client.Toast('admin.client.menuMissing', nil, 'error')
 		return
@@ -1235,8 +1301,10 @@ RegisterNetEvent('opx77_admin:open', function(payload)
 		inventory = payload.inventory == true,
 	}
 	catalog.rows, catalog.incoming, catalog.loaded, catalog.error = {}, {}, false, nil
+	Forms.Close()
 	stack = { { screen = 'root' } }
 	suspended = false
+	if wanted then return land(wanted) end
 	draw()
 end)
 
@@ -1245,7 +1313,9 @@ end)
 --- @description Takes a fresh access map and redraws in place.
 --- @param payload {table}
 RegisterNetEvent('opx77_admin:access', function(payload)
-	if session == nil or type(payload) ~= 'table' or type(payload.access) ~= 'table' then return end
+	if type(payload) ~= 'table' or type(payload.access) ~= 'table' then return end
+	OpxAdmin.Target.Access(payload)
+	if session == nil then return end
 	session.access, session.aclKnown = payload.access, payload.aclKnown == true
 	local inventory = payload.inventory == true
 	if inventory and not session.inventory then TriggerServerEvent('opx77_admin:refresh', 'items') end
@@ -1358,7 +1428,7 @@ end)
 
 --- @author DemiAutomatic
 --- @event opx77_admin:row
---- @description Handles a row selection or a menu close from opx77_menu.
+--- @description Handles a row selection, a checkbox flip or a menu close from opx77_menu.
 --- @param payload {table}
 AddEventHandler(EVENT, function(payload)
 	if type(payload) ~= 'table' or payload.owner ~= Client.RESOURCE then return end
@@ -1375,10 +1445,22 @@ AddEventHandler(EVENT, function(payload)
 		return
 	end
 
-	if payload.action ~= 'select' or type(payload.data) ~= 'table' then return end
+	if type(payload.data) ~= 'table' then return end
 	local data = payload.data
 	local current = top()
 	if current == nil then return end
+
+	-- A checkbox row flips itself and reports the new state; the command gets it spelled out.
+	if payload.action == 'change' then
+		if type(data.switch) ~= 'table' or type(payload.value) ~= 'boolean' then return end
+		current.cursor = payload.itemId
+		local tokens = {}
+		for index, token in ipairs(data.switch) do tokens[index] = token end
+		tokens[#tokens + 1] = payload.value and 'on' or 'off'
+		return Menu.Run(tokens)
+	end
+
+	if payload.action ~= 'select' then return end
 	current.cursor = payload.itemId
 
 	if data.back then return pop() end

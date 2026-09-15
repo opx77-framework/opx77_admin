@@ -21,6 +21,12 @@ function OpxAdmin.Client.Running(resource) end
 ---@return function|nil
 function OpxAdmin.Client.TravelNative(name) end
 
+--- Whether a player's replicated health snapshot (`Open77.players.getHealthState`, which needs
+--- `players.life.read`) has god mode on. Nil when the snapshot or its field cannot be read.
+---@param playerId integer|nil nil for this player
+---@return boolean|nil
+function OpxAdmin.Client.GodMode(playerId) end
+
 --- One call to another resource's client export. Coroutine only. The third return says whether
 --- the target answered at all: a refusal (any answer whose `ok` is not true) is authoritative, a
 --- call that never landed says nothing.

@@ -148,3 +148,10 @@ function OpxAdmin.Server.Commands() end
 ---@param name string
 ---@return boolean|nil
 function OpxAdmin.Server.Permitted(playerId, name) end
+
+--- Sends one staff client `opx77_admin:bodies`: whether its own body is hidden, and the ids of the
+--- players held still (the host readers first, this resource's own marks when they cannot say),
+--- for the checkboxes on the eye. `departed` is a player leaving right now, left off the list.
+---@param playerId integer
+---@param departed integer|nil
+function OpxAdmin.Server.PushBodies(playerId, departed) end

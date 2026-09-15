@@ -294,6 +294,133 @@ Server.Command('opx77.admin.self.god', {
 })
 
 --- @author DemiAutomatic
+--- @type {table<integer, boolean>, table<integer, boolean>}
+--- @description Players this resource hid or froze, so a stop gives the body back.
+local hidden, frozen = {}, {}
+
+--- @author DemiAutomatic
+--- @method readFlag
+--- @description One of the host's player readers, nil when it cannot say.
+--- @param reader {string} isVisible or isFrozen.
+--- @param playerId {integer}
+--- @returns {boolean|nil}
+local function readFlag(reader, playerId)
+	local read, value = pcall(Open77.players[reader], playerId)
+	if not read or type(value) ~= 'boolean' then return nil end
+	return value
+end
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Server.PushBodies
+--- @description Tells one staff client whether its own body is hidden and which players are held still, for
+--- the checkboxes on the eye.
+--- @param playerId {integer}
+--- @param departed {integer|nil} A player leaving right now, left off the list.
+function OpxAdmin.Server.PushBodies(playerId, departed)
+	if playerId <= 0 then return end
+	local visible = readFlag('isVisible', playerId)
+	local held = {}
+	for _, id in ipairs(Server.PlayerIds()) do
+		if id ~= departed then
+			local still = readFlag('isFrozen', id)
+			if still == nil then still = frozen[id] == true end
+			if still then held[#held + 1] = id end
+		end
+	end
+	local invisible
+	if visible == nil then invisible = hidden[playerId] == true else invisible = not visible end
+	TriggerClientEvent('opx77_admin:bodies', playerId, { invisible = invisible, frozen = held })
+end
+
+--- @author DemiAutomatic
+--- @method pushBodiesToStaff
+--- @description Sends the body states to every client the ACL grants the freeze command.
+--- @param departed {integer|nil} A player leaving right now, sent nothing and left off the list.
+local function pushBodiesToStaff(departed)
+	for _, id in ipairs(Server.PlayerIds()) do
+		if id ~= departed and Server.Permitted(id, 'opx77.admin.player.freeze') == true then
+			Server.PushBodies(id, departed)
+		end
+	end
+end
+
+--- @author DemiAutomatic
+--- @command /opx77.admin.self.invisible
+--- @description Hides the operator's body from every other client, toggling when no word is typed.
+Server.Command('opx77.admin.self.invisible', {
+	help = 'admin.help.invisible',
+	params = { { name = 'on|off', help = 'admin.help.toggle', optional = true } },
+	inGame = true,
+	handler = function(source, args, raw)
+		local wanted, invalid = Text.Switch(args[1])
+		if invalid then return refuse(source, raw, 'bad_switch') end
+		if wanted == nil then
+			local visible = readFlag('isVisible', source)
+			if visible == nil then visible = hidden[source] == nil end
+			wanted = visible
+		end
+		local ok, reason = Open77.players.setVisible(source, not wanted)
+		if not ok then return nativeRefused(source, raw, 'admin.self.invisible', source, reason) end
+		hidden[source] = wanted or nil
+		Server.PushBodies(source)
+		audit(source, 'admin.self.invisible', true, nil, wanted and 'on' or 'off')
+		answer(source, raw, true, wanted and 'admin.done.invisibleOn' or 'admin.done.invisibleOff')
+	end,
+})
+
+--- @author DemiAutomatic
+--- @command /opx77.admin.player.freeze
+--- @description Holds a player's body still, toggling when no word is typed.
+Server.Command('opx77.admin.player.freeze', {
+	help = 'admin.help.freeze',
+	params = { { name = 'playerId', help = 'admin.help.playerId' },
+		{ name = 'on|off', help = 'admin.help.toggle', optional = true } },
+	handler = function(source, args, raw)
+		local playerId = Server.Target(source, raw, args[1])
+		if playerId == nil then return end
+		local wanted, invalid = Text.Switch(args[2])
+		if invalid then return refuse(source, raw, 'bad_switch') end
+		if not Server.Admitted(source, raw, playerId, 'admin.player.freeze') then return end
+		if wanted == nil then
+			local held = readFlag('isFrozen', playerId)
+			if held == nil then held = frozen[playerId] == true end
+			wanted = not held
+		end
+		local ok, reason = Open77.players.setFrozen(playerId, wanted)
+		if not ok then return nativeRefused(source, raw, 'admin.player.freeze', playerId, reason) end
+		frozen[playerId] = wanted or nil
+		pushBodiesToStaff()
+		audit(source, 'admin.player.freeze', true, playerId, wanted and 'on' or 'off')
+		if playerId ~= source then
+			tell(playerId, wanted and 'admin.toast.frozen' or 'admin.toast.unfrozen', nil, 'warning')
+		end
+		answer(source, raw, true, wanted and 'admin.done.frozen' or 'admin.done.unfrozen',
+			{ id = playerId, name = Server.NameOf(playerId) or '?' })
+	end,
+})
+
+--- @author DemiAutomatic
+--- @event onPlayerDisconnected
+--- @description Forgets a departing player's hidden and frozen marks, taking a frozen one off staff checkboxes.
+--- @param playerId {integer|string}
+AddEventHandler('onPlayerDisconnected', function(playerId)
+	local player = tonumber(playerId) or 0
+	local wasFrozen = frozen[player] ~= nil
+	hidden[player], frozen[player] = nil, nil
+	if wasFrozen then pushBodiesToStaff(player) end
+end)
+
+--- @author DemiAutomatic
+--- @event onResourceStop
+--- @description Shows and releases every body this resource hid or froze.
+--- @param name {string}
+AddEventHandler('onResourceStop', function(name)
+	if name ~= RESOURCE then return end
+	for playerId in pairs(hidden) do pcall(Open77.players.setVisible, playerId, true) end
+	for playerId in pairs(frozen) do pcall(Open77.players.setFrozen, playerId, false) end
+end)
+
+--- @author DemiAutomatic
 --- @command /opx77.admin.self.pos
 --- @description Copies where the operator stands as a LOCATIONS config row.
 Server.Command('opx77.admin.self.pos', {

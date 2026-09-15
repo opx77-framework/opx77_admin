@@ -44,6 +44,8 @@
 --- @field TAGS.COLORS.ACCENT {string} Id square of a player's tag.
 --- @field TAGS.COLORS.STAFF {string} Id square and badge of a staff member's tag.
 --- @field TAGS.COLORS.BACKGROUND {string} The id's ink on its square, and the native card's fill.
+--- @field TARGET {table} Staff rows on opx77_target's eye.
+--- @field TARGET.DISTANCE {number} Metres player, vehicle and door rows reach, 1..12.
 --- @field COMBAT {table} Combat rules this resource applies on the host.
 --- @field COMBAT.PVP {boolean} Damage between players when the server starts; staff switch it with world.pvp.
 --- @field ANNOUNCE {table} How an announcement reaches every player.
@@ -119,6 +121,10 @@ OPX_ADMIN_CONFIG = {
 		STEP = 0.15,
 		SEND_AFTER_MS = 500,
 		PROMPTS = true,
+	},
+
+	TARGET = {
+		DISTANCE = 10.0,
 	},
 
 	COMBAT = {

@@ -137,6 +137,7 @@ Server.Command(OPENER, {
 			weapons = Server.WeaponsAvailable(),
 			inventory = Inventory.Running(),
 		})
+		Server.PushBodies(source)
 		pushRoster(source)
 		pushLocations(source)
 		if Inventory.Running() then CreateThread(function() pushItems(source) end) end
@@ -161,7 +162,13 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 		return
 	end
 
-	if Server.Permitted(player, OPENER) ~= true then return end
+	if Server.Permitted(player, OPENER) ~= true then
+		-- An empty map, so a client that drew staff rows takes them down.
+		if topic == 'access' then
+			TriggerClientEvent('opx77_admin:access', player, { access = {}, aclKnown = true, inventory = false })
+		end
+		return
+	end
 
 	if topic == 'roster' then
 		pushRoster(player)
@@ -179,7 +186,19 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 		local access, known = accessOf(player)
 		TriggerClientEvent('opx77_admin:access', player, { access = access, aclKnown = known,
 			inventory = Inventory.Running() })
+		Server.PushBodies(player)
 	end
+end)
+
+--- @author DemiAutomatic
+--- @event opx77_admin:targetReport
+--- @description Writes how a staff client's rows on opx77_target registered into the server log.
+--- @param text {string}
+RegisterNetEvent('opx77_admin:targetReport', function(text)
+	local player = tonumber(source) or 0
+	if player <= 0 or type(text) ~= 'string' or Server.Cooled(player, 'target:report', 1000) then return end
+	if Server.Permitted(player, OPENER) ~= true then return end
+	Open77.log.info(('target rows, player %d: %s'):format(player, OpxAdmin.Text.Clean(text, 160) or '?'))
 end)
 
 Open77.log.info(('ready -- %d restricted commands; grant command.%s to open the menu')

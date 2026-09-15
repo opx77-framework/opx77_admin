@@ -30,6 +30,7 @@ server_script "server/weapons.lua"
 server_script "server/world.lua"
 server_script "server/tags.lua"
 server_script "server/combat.lua"
+server_script "server/doors.lua"
 server_script "server/menu.lua"
 
 client_script "client/main.lua"
@@ -38,7 +39,9 @@ client_script "client/controls.lua"
 client_script "client/forms.lua"
 client_script "client/tags.lua"
 client_script "client/combat.lua"
+client_script "client/doors.lua"
 client_script "client/menu.lua"
+client_script "client/target.lua"
 client_script "client/exports.lua"
 
 web_ui_page "web/index.html"
@@ -52,6 +55,8 @@ permissions {
   "players.life.kill",
   "players.life.respawn",
   "players.life.revive",
+  "players.life.visibility",
+  "players.life.freeze",
   "players.damage.read",
   "players.damage.apply",
   "players.stats.read",
@@ -59,9 +64,11 @@ permissions {
   "players.disconnect",
   "players.access",
   "world.vehicles",
+  "vehicles.read",
   "player.travel",
   "clipboard.write",
   "input.actions",
   "world.transform",
+  "world.doors",
   "combat.config",
 }

@@ -124,6 +124,9 @@ local ERRORS = {
 	unknown_location = 'admin.error.unknownLocation',
 	bad_location_name = 'admin.error.badLocationName',
 	seeded_location = 'admin.error.seededLocation',
+	bad_door = 'admin.error.badDoor',
+	door_limit = 'admin.error.doorLimit',
+	doors_networked = 'admin.error.doorsNetworked',
 }
 
 --- @author DemiAutomatic
@@ -135,7 +138,7 @@ local TYPED = {
 	unknown_vehicle = true, bad_scope = true, unknown_flag = true, unknown_weapon = true,
 	unknown_location = true, bad_location_name = true, bad_holder = true, unknown_citizen = true,
 	unknown_item = true, bad_count = true, not_enough = true, unknown_ammo = true,
-	melee_no_ammo = true,
+	melee_no_ammo = true, bad_door = true,
 }
 
 --- @author DemiAutomatic

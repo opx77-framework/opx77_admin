@@ -178,6 +178,8 @@ local function underList(raw, accepted, message)
 	local sentAt = awaiting[name]
 	if sentAt == nil or Client.NowMs() - sentAt > 15000 then return false end
 	OpxAdmin.Menu.Status(message, accepted == true)
+	-- A refused switch flipped its box already; the redraw puts back the state that holds.
+	if accepted ~= true then OpxAdmin.Menu.Refresh() end
 	return true
 end
 
@@ -254,6 +256,24 @@ function OpxAdmin.Client.IsNoclip()
 end
 
 --- @author DemiAutomatic
+--- @method OpxAdmin.Client.GodMode
+--- @description Whether a player's replicated health snapshot has god mode on, nil when unreadable.
+--- @param playerId {integer|nil} Nil for this player.
+--- @returns {boolean|nil}
+function OpxAdmin.Client.GodMode(playerId)
+	local players = Open77.players
+	if type(players) ~= 'table' or type(players.getHealthState) ~= 'function' then return nil end
+	local read, health
+	if playerId == nil then
+		read, health = pcall(players.getHealthState)
+	else
+		read, health = pcall(players.getHealthState, playerId)
+	end
+	if not read or type(health) ~= 'table' or type(health.godMode) ~= 'boolean' then return nil end
+	return health.godMode
+end
+
+--- @author DemiAutomatic
 --- @method applyTravel
 --- @description Applies one travel native, logging a missing or refused one.
 --- @param name {string}
@@ -278,10 +298,8 @@ end
 --- @param value {any}
 RegisterNetEvent('opx77_admin:travel', function(action, value)
 	if action == 'noclip' then
-		if applyTravel('setNoclip', value == true) then
-			noclipOn = value == true
-			OpxAdmin.Menu.Refresh()
-		end
+		if applyTravel('setNoclip', value == true) then noclipOn = value == true end
+		OpxAdmin.Menu.Refresh()
 		OpxAdmin.Controls.Noclip(noclipOn)
 	elseif action == 'speed' then
 		local speed = Text.Finite(value)
