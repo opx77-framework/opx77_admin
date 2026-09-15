@@ -138,8 +138,12 @@ répondue `failed`. Une commande `inGame` est refusée à la console. Le même p
 
 `OpxAdmin.Server.Count` lit `args.n`, qui fait foi : `#args` s'arrête au premier trou.
 `OpxAdmin.Server.NowMs` (et `OpxAdmin.Client.NowMs`) convertit `Open77.time.monotonic`, qui répond
-en secondes ; une lecture échouée ou non finie garde la précédente, car un NaN n'expirerait rien et
-un infini tout. `OpxAdmin.Server.Setting` rend le nombre configuré ou le repli pour tout ce sur
+en secondes ; une lecture non finie n'est jamais prise, car un NaN n'expirerait rien et un infini
+tout. Côté serveur, une lecture échouée passe à `GetGameTimer` (monotone sur le processus, serveur
+seulement ; journalisé une fois), comme `opx77_chat`, `opx77_status` et `opx77_weather` : une
+horloge figée gèlerait `OpxAdmin.Server.Cooled` (une commande ne repasserait plus pour le même
+opérateur), le cache du catalogue et le balayage des armes en attente. Si les deux échouent, la dernière lecture est gardée. Le client n'a pas de
+repli : `GetGameTimer` n'existe pas côté client. `OpxAdmin.Server.Setting` rend le nombre configuré ou le repli pour tout ce sur
 quoi l'arithmétique lèverait.
 
 `onPlayerDisconnected` est le seul événement de départ que lève la plateforme ; chaque fichier qui

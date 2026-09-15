@@ -20,18 +20,32 @@ local RESOURCE = GetCurrentResourceName()
 
 --- @author DemiAutomatic
 --- @type {integer}
---- @description Last good monotonic reading in milliseconds, held on failure.
+--- @description Last good clock reading in milliseconds, held when both clocks fail.
 local lastMs = 0
 
 --- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the GetGameTimer fallback has already been logged.
+local clockWarned = false
+
+--- @author DemiAutomatic
 --- @method OpxAdmin.Server.NowMs
---- @description Host-monotonic milliseconds, holding the last good reading.
+--- @description Host-monotonic milliseconds, falling back to GetGameTimer, then the last reading.
 --- @returns {integer}
 function OpxAdmin.Server.NowMs()
 	local read, seconds = pcall(Open77.time.monotonic)
 	if read and type(seconds) == 'number' and seconds == seconds and
 		seconds >= 0 and seconds < math.huge then
 		lastMs = math.floor(seconds * 1000)
+		return lastMs
+	end
+	local ticked, ms = pcall(GetGameTimer)
+	if ticked and type(ms) == 'number' and ms == ms and ms >= 0 and ms < math.huge then
+		if not clockWarned then
+			clockWarned = true
+			Open77.log.warn('Open77.time.monotonic unreadable; falling back to GetGameTimer')
+		end
+		lastMs = math.floor(ms)
 	end
 	return lastMs
 end

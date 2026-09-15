@@ -28,6 +28,7 @@
     "GetResourceState",
     "GetInvokingResource",
     "GetInvokingResourceGeneration",
+    "GetGameTimer",
     "source",
     "exports",
     "print"

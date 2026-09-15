@@ -4,8 +4,9 @@
 --- registry every staff command file registers through.
 OpxAdmin.Server = {}
 
---- Host-monotonic milliseconds. `Open77.time.monotonic` answers seconds; a failed or non-finite
---- reading holds the last good one.
+--- Host-monotonic milliseconds. `Open77.time.monotonic` answers seconds; a failed reading falls
+--- back to `GetGameTimer` (server-only, logged once), and when both fail the last good reading
+--- is held.
 ---@return integer
 function OpxAdmin.Server.NowMs() end
 
