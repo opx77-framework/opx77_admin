@@ -1,0 +1,91 @@
+/* Staff name tags: a cut id square on the left, the name centred on it to the right. Tokens
+   come from open77-ui.css; the colours Lua sends override the three --tag-* roles. */
+
+:root {
+  --tag-accent: #fcee0a;
+  --tag-staff:  #22d8e2;
+  --tag-ink:    #0a1220;
+  --tag-text:   var(--op77-text);
+
+  --tag-size: 28px;
+  --tag-cut: 6px;
+}
+
+* { box-sizing: border-box; }
+
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tags {
+  position: fixed;
+  inset: 0;
+}
+
+/* Anchored at its bottom centre, just above the head. */
+.tag {
+  --role: var(--tag-accent);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--op77-space-2);
+  white-space: nowrap;
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.tag.staff { --role: var(--tag-staff); }
+
+.tag-id {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  min-width: var(--tag-size);
+  height: var(--tag-size);
+  padding: 0 var(--op77-space-1);
+  font: 700 13px / 1 var(--op77-font-mono);
+  letter-spacing: 0.02em;
+  color: var(--tag-ink);
+  background: var(--role);
+  clip-path: polygon(0 0, calc(100% - var(--tag-cut)) 0, 100% var(--tag-cut), 100% 100%, 0 100%);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+}
+
+.tag-copy {
+  display: flex;
+  align-items: center;
+  gap: var(--op77-space-2);
+  min-width: 0;
+}
+
+.tag-name {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 700 17px / 1 var(--op77-font-display);
+  letter-spacing: 0.04em;
+  color: var(--tag-text);
+  text-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.9),
+    0 0 6px rgba(0, 0, 0, 0.75);
+}
+
+.tag-badge {
+  padding: 3px 5px 2px;
+  font: 700 var(--op77-fs-micro) / 1 var(--op77-font-mono);
+  letter-spacing: var(--op77-track-label);
+  text-transform: uppercase;
+  color: var(--role);
+  background: rgba(10, 18, 32, 0.78);
+  border: 1px solid var(--role);
+}

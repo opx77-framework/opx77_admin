@@ -1,6 +1,6 @@
 --- @author DemiAutomatic
 --- @file open77.lua
---- @description Resource manifest declaring scripts, permissions and reload policy.
+--- @description Resource manifest declaring scripts, the name tag page, permissions and reload policy.
 
 resource "opx77_admin"
 version "0.3.0"
@@ -40,6 +40,10 @@ client_script "client/tags.lua"
 client_script "client/combat.lua"
 client_script "client/menu.lua"
 client_script "client/exports.lua"
+
+web_ui_page "web/index.html"
+web_ui_auto_create false
+web_files { "web/**" }
 
 permissions {
   "network.events",

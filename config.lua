@@ -37,13 +37,13 @@
 --- @field TAGS.MAX {integer} Most tags drawn at once, nearest first, 1..32.
 --- @field TAGS.OWN {boolean} Also tag yourself, in third person only.
 --- @field TAGS.HIDE_IN_FIRST_PERSON {boolean} Hide every tag while the view is first person.
---- @field TAGS.TECHNICAL {boolean} Show the player id in the tag's key box.
+--- @field TAGS.TECHNICAL {boolean} Show the player id in the square beside the name.
 --- @field TAGS.BADGE {boolean} Mark staff who may open the menu with a badge.
 --- @field TAGS.COLORS {table} Tag colours, #RRGGBB; the fade adds the alpha.
 --- @field TAGS.COLORS.TEXT {string} The name.
---- @field TAGS.COLORS.ACCENT {string} Border and id box of a player's tag.
---- @field TAGS.COLORS.STAFF {string} Border and id box of a staff member's tag.
---- @field TAGS.COLORS.BACKGROUND {string} The tag's fill.
+--- @field TAGS.COLORS.ACCENT {string} Id square of a player's tag.
+--- @field TAGS.COLORS.STAFF {string} Id square and badge of a staff member's tag.
+--- @field TAGS.COLORS.BACKGROUND {string} The id's ink on its square, and the native card's fill.
 --- @field COMBAT {table} Combat rules this resource applies on the host.
 --- @field COMBAT.PVP {boolean} Damage between players when the server starts; staff switch it with world.pvp.
 --- @field ANNOUNCE {table} How an announcement reaches every player.

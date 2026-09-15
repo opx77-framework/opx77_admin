@@ -1,6 +1,7 @@
 --- @author DemiAutomatic
 --- @file client/tags.lua
---- @description Staff name tags drawn natively above nearby players' heads.
+--- @description Staff name tags above nearby players' heads: an id square and the name on a page
+--- following native anchors, or the native card when the page cannot be made.
 
 OpxAdmin = OpxAdmin or {}
 
@@ -128,6 +129,26 @@ local running = false
 local down = false
 
 --- @author DemiAutomatic
+--- @type {table|nil}
+--- @description The page the tags are drawn on, made the first time tags are turned on.
+local page
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the page has raised tags:ready.
+local pageReady = false
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether the page could not be made, so the native card draws the tags.
+local pageFailed = false
+
+--- @author DemiAutomatic
+--- @type {string|nil}
+--- @description The last row list sent to the page, so an unchanged one is not sent again.
+local rowsSent
+
+--- @author DemiAutomatic
 --- @type {table<string, boolean>}
 --- @description Problems already logged, one line each.
 local reported = {}
@@ -149,6 +170,85 @@ end
 --- @returns {boolean}
 function OpxAdmin.Tags.IsShown()
 	return shown
+end
+
+--- @author DemiAutomatic
+--- @method send
+--- @description Writes one message to the page once it is ready.
+--- @param name {string}
+--- @param payload {table}
+local function send(name, payload)
+	if page == nil or not pageReady then return end
+	local ok, reason = pcall(page.send, page, name, payload)
+	if not ok then warnOnce('send', ('the name tag page refused %s: %s'):format(name, tostring(reason))) end
+end
+
+--- @author DemiAutomatic
+--- @method pushRows
+--- @description Sends the page what each anchor it follows says, when that changed.
+--- @param rows {table[]}
+local function pushRows(rows)
+	if page == nil or not pageReady then return end
+	local parts = {}
+	for index, row in ipairs(rows) do
+		parts[index] = table.concat({ row.anchor, tostring(row.id or ''), row.name, row.staff and '1' or '0' }, '\t')
+	end
+	local signature = table.concat(parts, '\n')
+	if signature == rowsSent then return end
+	rowsSent = signature
+	send('tags:rows', { rows = rows })
+end
+
+--- @author DemiAutomatic
+--- @method ensurePage
+--- @description Makes the tag page once and shows it, or settles on the native card.
+local function ensurePage()
+	if pageFailed then return end
+	if page ~= nil then
+		pcall(page.show, page)
+		return
+	end
+	if type(WebUI) ~= 'table' or type(WebUI.create) ~= 'function' then
+		pageFailed = true
+		return warnOnce('webui', 'WebUI is not on this client: name tags use the native card')
+	end
+	local called, surface, reason = pcall(WebUI.create, {
+		entry = 'web/index.html',
+		layer = 'hud',
+		width = 1920,
+		height = 1080,
+		fps = 60,
+		zIndex = 630,
+		transparent = true,
+		visible = true,
+	})
+	if not called or surface == nil then
+		pageFailed = true
+		return warnOnce('page', ('the name tag page failed (%s): name tags use the native card')
+			:format(tostring(called and reason or surface)))
+	end
+	page = surface
+	page:on('tags:ready', function()
+		pageReady, rowsSent = true, nil
+		send('tags:config', {
+			distance = tuning.distance,
+			fadeStart = tuning.fadeStart,
+			technical = tuning.technical,
+			staffLabel = locale('admin.tags.staff'),
+			colors = { text = tuning.text, accent = tuning.accent, staff = tuning.staff,
+				background = tuning.background },
+		})
+	end)
+end
+
+--- @author DemiAutomatic
+--- @method hidePage
+--- @description Empties and hides the tag page while tags are off.
+local function hidePage()
+	if page == nil then return end
+	send('tags:rows', { rows = {} })
+	rowsSent = nil
+	pcall(page.hide, page)
 end
 
 --- @author DemiAutomatic
@@ -264,20 +364,30 @@ local function place(id, entry, row, distance)
 		current = nil
 	end
 
+	if current ~= nil and current.paged ~= (page ~= nil) then
+		drop(id)
+		current = nil
+	end
+
 	if current == nil then
-		local called, handle, reason = pcall(api.create, {
+		local options = {
 			entity = entry.entity,
 			offset = { x = 0.0, y = 0.0, z = offset },
 			tag = 'player.' .. id,
 			maxDistance = tuning.distance,
-			render = 'card',
-			presentation = look,
-		})
+		}
+		if page ~= nil then
+			options.page = page
+		else
+			options.render = 'card'
+			options.presentation = look
+		end
+		local called, handle, reason = pcall(api.create, options)
 		if not called or not handle then
 			warnOnce('create', ('a name tag was refused: %s'):format(tostring(called and reason or handle)))
 			return
 		end
-		anchors[id] = { handle = handle, entity = entry.entity, offset = offset, key = key }
+		anchors[id] = { handle = handle, entity = entry.entity, offset = offset, key = key, paged = page ~= nil }
 		return
 	end
 
@@ -286,7 +396,7 @@ local function place(id, entry, row, distance)
 		patch = { offset = { x = 0.0, y = 0.0, z = offset } }
 		current.offset = offset
 	end
-	if current.key ~= key then
+	if not current.paged and current.key ~= key then
 		patch = patch or {}
 		patch.presentation = look
 		current.key = key
@@ -326,6 +436,17 @@ local function tick()
 	for id in pairs(anchors) do
 		if not wanted[id] then drop(id) end
 	end
+
+	if page == nil then return end
+	local rows = {}
+	for id, anchor in pairs(anchors) do
+		if anchor.paged and known[id] then
+			rows[#rows + 1] = { anchor = tostring(anchor.handle), id = tuning.technical and id or nil,
+				name = known[id].name, staff = known[id].staff == true }
+		end
+	end
+	table.sort(rows, function(left, right) return left.anchor < right.anchor end)
+	pushRows(rows)
 end
 
 --- @author DemiAutomatic
@@ -334,6 +455,7 @@ end
 local function run()
 	if running then return end
 	running = true
+	ensurePage()
 	CreateThread(function()
 		while shown do
 			local ticked, failure = pcall(tick)
@@ -342,7 +464,8 @@ local function run()
 		end
 		dropAll()
 		running = false
-		if shown then run() end
+		if shown then return run() end
+		hidePage()
 	end)
 end
 
@@ -433,10 +556,11 @@ end)
 
 --- @author DemiAutomatic
 --- @event onClientResourceStop
---- @description Removes every tag when this resource stops.
+--- @description Removes every tag and forgets the page when this resource stops.
 --- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
 	if name ~= Client.RESOURCE then return end
 	shown = false
 	dropAll()
+	page, pageReady, rowsSent = nil, false, nil
 end)
