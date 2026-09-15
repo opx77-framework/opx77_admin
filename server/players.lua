@@ -67,6 +67,12 @@ local noclip, mapPick = {}, {}
 local speedChosen = {}
 
 --- @author DemiAutomatic
+--- @type {number}
+--- @description NOCLIP.SPEED within the native's 0.1..500, else the 40 m/s default.
+local DEFAULT_SPEED = Server.Setting((Config.NOCLIP or {}).SPEED, 40.0)
+if DEFAULT_SPEED < 0.1 or DEFAULT_SPEED > 500 then DEFAULT_SPEED = 40.0 end
+
+--- @author DemiAutomatic
 --- @method travel
 --- @description Sends one travel instruction to a player's client half.
 --- @param playerId {integer}
@@ -87,7 +93,7 @@ local function setNoclip(playerId, on, grant)
 	noclip[playerId] = on and grant or nil
 	travel(playerId, 'noclip', on == true)
 	if on and speedChosen[playerId] == nil then
-		travel(playerId, 'speed', Server.Setting((Config.NOCLIP or {}).SPEED, 40.0))
+		travel(playerId, 'speed', DEFAULT_SPEED)
 	end
 end
 
