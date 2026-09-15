@@ -429,6 +429,7 @@ Server.Command('opx77.admin.weapon.holster', {
 		end
 		local requestId, reason = Open77.weapons.holster(playerId)
 		if requestId == nil then
+			audit(source, 'admin.weapon.holster', false, playerId, tostring(reason))
 			return refuse(source, raw, 'refused', { reason = tostring(reason) })
 		end
 		pending[tostring(requestId)] = { source = source, raw = raw, playerId = playerId,
