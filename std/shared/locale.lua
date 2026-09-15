@@ -15,15 +15,6 @@ function OpxAdmin.Locale.register(code, strings) end
 ---@return boolean applied
 function OpxAdmin.Locale.Set(code) end
 
---- The selected language code.
----@return string
-function OpxAdmin.Locale.Current() end
-
---- Whether the active catalogue or the `en` fallback carries `key`.
----@param key string
----@return boolean
-function OpxAdmin.Locale.Exists(key) end
-
 --- Renders `key` with `{name}` placeholders filled. Never nil: falls back to `en`, then to the key.
 ---@param key string
 ---@param params table<string, string|number>|nil

@@ -230,11 +230,6 @@ AddEventHandler('onResourceStop', function(name)
 end)
 
 --- @author DemiAutomatic
---- @type {fun(playerId: integer, on: boolean, grant: string|nil)}
---- @description Switches a player's noclip, published for other server files.
-Server.Noclip = setNoclip
-
---- @author DemiAutomatic
 --- @method heal
 --- @description Heals a player to their maximum health, audited and answered.
 --- @param source {integer}

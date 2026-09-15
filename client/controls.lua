@@ -13,7 +13,6 @@ local Text = OpxAdmin.Text
 --- @type {table}
 --- @description What client/main.lua reports travel changes and answers to.
 OpxAdmin.Controls = {}
-local Controls = OpxAdmin.Controls
 
 --- @author DemiAutomatic
 --- @type {string}

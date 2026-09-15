@@ -12,7 +12,6 @@ local Text = OpxAdmin.Text
 --- @type {table}
 --- @description The form helpers the menu calls.
 OpxAdmin.Forms = {}
-local Forms = OpxAdmin.Forms
 
 --- @author DemiAutomatic
 --- @type {string}

@@ -65,24 +65,6 @@ function OpxAdmin.Locale.Set(code)
 end
 
 --- @author DemiAutomatic
---- @method OpxAdmin.Locale.Current
---- @description Answers the selected language code.
---- @returns {string}
-function OpxAdmin.Locale.Current()
-	return active
-end
-
---- @author DemiAutomatic
---- @method OpxAdmin.Locale.Exists
---- @description Whether the active or fallback catalogue carries a key.
---- @param key {string}
---- @returns {boolean}
-function OpxAdmin.Locale.Exists(key)
-	return (catalogs[active] and catalogs[active][key] ~= nil)
-		or (catalogs[FALLBACK] and catalogs[FALLBACK][key] ~= nil)
-end
-
---- @author DemiAutomatic
 --- @method OpxAdmin.Locale.Get
 --- @description Renders a key, falling back to English, then the key.
 --- @param key {string}

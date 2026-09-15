@@ -14,7 +14,7 @@ local Settings = Config.VEHICLES or {}
 
 --- @author DemiAutomatic
 --- @type {table<integer, table>}
---- @description Vehicles this resource spawned, by id, with owner and record.
+--- @description Vehicles this resource spawned, by id, with their owner.
 local spawned = {}
 
 --- @author DemiAutomatic
@@ -169,8 +169,7 @@ local function spawnFor(source, raw, owner, entry, event)
 		audit(source, event, false, owner, ('%s refused: %s'):format(entry.record, tostring(reason)))
 		return refuse(source, raw, 'refused', { reason = tostring(reason) })
 	end
-	spawned[vehicleId] = { owner = owner, record = entry.record, label = entry.label,
-		atMs = Server.NowMs() }
+	spawned[vehicleId] = { owner = owner }
 	audit(source, event, true, owner, ('%d %s'):format(vehicleId, entry.record))
 	if owner ~= source then tell(owner, 'admin.toast.vehicle', { label = entry.label }) end
 	answer(source, raw, true, 'admin.done.spawned',
