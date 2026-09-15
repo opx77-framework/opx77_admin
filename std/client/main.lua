@@ -22,7 +22,8 @@ function OpxAdmin.Client.Running(resource) end
 function OpxAdmin.Client.TravelNative(name) end
 
 --- One call to another resource's client export. Coroutine only. The third return says whether
---- the target answered at all: a refusal is authoritative, a call that never landed says nothing.
+--- the target answered at all: a refusal (any answer whose `ok` is not true) is authoritative, a
+--- call that never landed says nothing.
 ---@param resource string
 ---@param name string
 ---@param ... any

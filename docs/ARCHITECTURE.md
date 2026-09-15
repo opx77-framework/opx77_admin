@@ -347,8 +347,9 @@ commande s'exécute sous le `pcall` de `OpxAdmin.Server.Command`.
   Les refus qui ne demandent aucun appel (cible invalide, inventaire arrêté) sont répondus avant
   de lancer le thread (`OpxAdmin.Inventory.Resolve`), et un nombre tapé passe par
   `OpxAdmin.Inventory.Count`.
-- Client : le troisième retour dit si la cible a répondu ; un refus fait autorité, un appel qui
-  n'a jamais abouti ne dit rien. Les dépendances souples manquantes (`opx77_menu`, `opx77_input`)
+- Client : le troisième retour dit si la cible a répondu ; un refus (toute réponse `ok ~= true`,
+  forme sans `ok` comprise) fait autorité, un appel qui n'a jamais abouti ne dit rien.
+  `Open77.exports` est toujours une table : seul l'envoi est gardé. Les dépendances souples manquantes (`opx77_menu`, `opx77_input`)
   sont signalées une fois par resource (`OpxAdmin.Client.Need`), pas une fois par clic.
 
 L'avertissement « `opx77_inventory` is not running » est émis cinq secondes après le chargement,
