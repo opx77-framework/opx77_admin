@@ -77,7 +77,6 @@ local ERRORS = {
 	kill_refused = 'admin.error.killRefused',
 	respawn_refused = 'admin.error.respawnRefused',
 	refused = 'admin.error.refused',
-	bad_number = 'admin.error.badNumber',
 	bad_coordinates = 'admin.error.badCoordinates',
 	bad_switch = 'admin.error.badSwitch',
 	bad_duration = 'admin.error.badDuration',
@@ -117,7 +116,7 @@ local ERRORS = {
 --- @type {table<string, boolean>}
 --- @description Refusal codes about typed input, answered as warnings.
 local TYPED = {
-	too_fast = true, no_target = true, bad_target = true, self_target = true, bad_number = true,
+	too_fast = true, no_target = true, bad_target = true, self_target = true,
 	bad_coordinates = true, bad_switch = true, bad_duration = true, empty_text = true,
 	unknown_vehicle = true, bad_scope = true, unknown_flag = true, unknown_weapon = true,
 	unknown_location = true, bad_location_name = true, bad_holder = true, unknown_citizen = true,

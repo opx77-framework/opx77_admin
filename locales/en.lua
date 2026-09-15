@@ -66,7 +66,6 @@ OpxAdmin.Locale.register('en', {
 	['admin.error.killRefused'] = 'The move was refused: {reason}',
 	['admin.error.respawnRefused'] = 'The respawn was refused and the player was revived in place: {reason}',
 	['admin.error.refused'] = 'Refused: {reason}',
-	['admin.error.badNumber'] = 'That is not a usable number.',
 	['admin.error.badCoordinates'] = 'Those are not usable coordinates.',
 	['admin.error.badSwitch'] = 'Use on or off, or nothing to toggle.',
 	['admin.error.badDuration'] = 'A ban lasts 1s to 3650d, written 30m, 12h, 7d, or perm.',

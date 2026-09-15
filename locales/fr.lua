@@ -66,7 +66,6 @@ OpxAdmin.Locale.register('fr', {
 	['admin.error.killRefused'] = 'Le déplacement a été refusé : {reason}',
 	['admin.error.respawnRefused'] = 'La réapparition a été refusée et le joueur réanimé sur place : {reason}',
 	['admin.error.refused'] = 'Refusé : {reason}',
-	['admin.error.badNumber'] = "Ce nombre n'est pas utilisable.",
 	['admin.error.badCoordinates'] = 'Ces coordonnées ne sont pas utilisables.',
 	['admin.error.badSwitch'] = 'Utilisez on ou off, ou rien pour basculer.',
 	['admin.error.badDuration'] = 'Un bannissement dure de 1s à 3650d, écrit 30m, 12h, 7d, ou perm.',
