@@ -309,6 +309,18 @@ function OpxAdmin.Server.Admitted(source, raw, playerId, event)
 end
 
 --- @author DemiAutomatic
+--- @method OpxAdmin.Server.Recovery
+--- @description Health fraction and grace window a moved or revived player gets.
+--- @returns {table}
+function OpxAdmin.Server.Recovery()
+	local placement = Config.PLACEMENT or {}
+	return {
+		health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0))),
+		graceMs = math.max(0, math.floor(Server.Setting(placement.GRACE_MS, 5000))),
+	}
+end
+
+--- @author DemiAutomatic
 --- @method OpxAdmin.Server.Place
 --- @description Moves a player through kill then respawn, reviving on refusal.
 --- @param playerId {integer}
@@ -321,9 +333,7 @@ function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
 	local admitted, code = Server.Admit(playerId)
 	if not admitted then return false, code end
 
-	local placement = Config.PLACEMENT or {}
-	local health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0)))
-	local graceMs = math.max(0, math.floor(Server.Setting(placement.GRACE_MS, 5000)))
+	local recovery = Server.Recovery()
 	if bucket == nil then
 		local position = Server.PositionOf(playerId)
 		bucket = position and position.bucket or 0
@@ -344,12 +354,12 @@ function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
 		position = { x = point.x, y = point.y, z = point.z },
 		heading = heading or 0.0,
 		bucket = bucket,
-		health = health,
-		graceMs = graceMs,
+		health = recovery.health,
+		graceMs = recovery.graceMs,
 	})
 	if not respawned then
 		if killed then
-			pcall(Open77.players.revive, playerId, { health = health, graceMs = graceMs })
+			pcall(Open77.players.revive, playerId, recovery)
 		end
 		return false, 'respawn_refused', tostring(reason)
 	end

@@ -83,6 +83,11 @@ function OpxAdmin.Server.LifeOf(playerId) end
 ---@return table|AdminError lifeOrCode
 function OpxAdmin.Server.Admit(playerId) end
 
+--- What a moved or revived player gets back: `PLACEMENT.HEALTH` as a fraction clamped to
+--- 0.01..1, and `PLACEMENT.GRACE_MS` of respawn protection.
+---@return { health: number, graceMs: integer }
+function OpxAdmin.Server.Recovery() end
+
 --- `OpxAdmin.Server.Admit`, with a closed gate answered to the operator and audited under `event`.
 ---@param source integer
 ---@param raw string

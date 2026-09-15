@@ -227,11 +227,7 @@ end
 --- @param event {string}
 local function revive(source, raw, playerId, event)
 	if not Server.Admitted(source, raw, playerId, event) then return end
-	local placement = Config.PLACEMENT or {}
-	local ok, reason = Open77.players.revive(playerId, {
-		health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0))),
-		graceMs = math.max(0, math.floor(Server.Setting(placement.GRACE_MS, 5000))),
-	})
+	local ok, reason = Open77.players.revive(playerId, Server.Recovery())
 	if not ok then return nativeRefused(source, raw, event, playerId, reason) end
 	audit(source, event, true, playerId)
 	if playerId ~= source then tell(playerId, 'admin.toast.revived', nil, 'success') end
