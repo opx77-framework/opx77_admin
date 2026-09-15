@@ -10,6 +10,7 @@ local Catalog = OpxAdmin.Catalog
 local Forms = OpxAdmin.Forms
 local Keys = OpxAdmin.Keys
 local Text = OpxAdmin.Text
+local Tags = OpxAdmin.Tags
 
 --- @author DemiAutomatic
 --- @type {table}
@@ -41,6 +42,16 @@ local KEY_MENU = 'opx77_admin.menu'
 --- @type {string}
 --- @description The command the menu key and open export send.
 local OPENER = 'opx77.admin'
+
+--- @author DemiAutomatic
+--- @type {string}
+--- @description The resource whose down screen the menu sets aside.
+local MEDIC = 'opx77_medic'
+
+--- @author DemiAutomatic
+--- @type {integer}
+--- @description Milliseconds between two looks at whether the down screen should be aside.
+local SUSPEND_POLL_MS = 200
 
 --- @author DemiAutomatic
 --- @type {integer}
@@ -101,6 +112,21 @@ local queuedStatus
 --- @type {integer}
 --- @description Bumped by every draw, so a stale open claims nothing.
 local drawn = 0
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether opx77_medic last said the player is down.
+local playerDown = false
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether this resource has opx77_medic's down screen set aside.
+local suspending = false
+
+--- @author DemiAutomatic
+--- @type {boolean}
+--- @description Whether a refused suspend was logged.
+local suspendReported = false
 
 --- @author DemiAutomatic
 --- @method permitted
@@ -328,6 +354,70 @@ local function weaponRows(target, giveKey)
 end
 
 --- @author DemiAutomatic
+--- @method bagRows
+--- @description The bag rows for a target, the open row only for another player.
+--- @param target {string}
+--- @returns {table[]}
+local function bagRows(target)
+	local items = {
+		command('invView', 'admin.menu.invView', { 'opx77.admin.inventory.view', target }),
+	}
+	if target ~= 'me' and LINKS.INVENTORY_OPEN then
+		items[#items + 1] = command('invOpen', 'admin.menu.invOpen', { LINKS.INVENTORY_OPEN, target })
+		items[#items].data.closeAfter = true
+	end
+	items[#items + 1] = goFor('invGive', 'admin.menu.invGive', 'itemCategories',
+		{ t = target, m = 'give' }, 'opx77.admin.inventory.give')
+	items[#items + 1] = goFor('invRemove', 'admin.menu.invRemove', 'bag', target,
+		'opx77.admin.inventory.remove')
+	items[#items + 1] = guarded('invClear', 'admin.menu.invClear',
+		{ 'opx77.admin.inventory.clear', target }, 'admin.confirm.invClear')
+	for _, item in ipairs(items) do offline(item) end
+	return items
+end
+
+--- @author DemiAutomatic
+--- @method append
+--- @description Adds every row of a list to the end of another.
+--- @param items {table[]}
+--- @param more {table[]}
+--- @returns {table[]}
+local function append(items, more)
+	for _, item in ipairs(more) do items[#items + 1] = item end
+	return items
+end
+
+--- @author DemiAutomatic
+--- @method switch
+--- @description A command row showing ON or OFF, for a state the command toggles.
+--- @param id {string}
+--- @param labelKey {string}
+--- @param tokens {table}
+--- @param on {boolean}
+--- @returns {table}
+local function switch(id, labelKey, tokens, on)
+	local item = command(id, labelKey, tokens)
+	if not item.disabled then item.value = locale(on and 'admin.menu.on' or 'admin.menu.off') end
+	return item
+end
+
+--- @author DemiAutomatic
+--- @method noclipRow
+--- @description The noclip switch, read from what this client applied.
+--- @returns {table}
+local function noclipRow()
+	return switch('noclip', 'admin.menu.noclip', { 'opx77.admin.self.noclip' }, Client.IsNoclip())
+end
+
+--- @author DemiAutomatic
+--- @method tagsRow
+--- @description The name tags switch, read from what the server last said.
+--- @returns {table}
+local function tagsRow()
+	return switch('tags', 'admin.menu.tags', { 'opx77.admin.self.tags' }, Tags.IsShown())
+end
+
+--- @author DemiAutomatic
 --- @method nameOf
 --- @description A roster player's name and id, for a title.
 --- @param id {integer}
@@ -338,20 +428,32 @@ local function nameOf(id)
 end
 
 --- @author DemiAutomatic
+--- @method playerTitle
+--- @description A player sub-screen title: Name [id] - Family.
+--- @param id {integer}
+--- @param key {string}
+--- @returns {string}
+local function playerTitle(id, key)
+	return ('%s - %s'):format(nameOf(id), locale(key))
+end
+
+--- @author DemiAutomatic
 --- @type {table<string, function>}
 --- @description Every screen by name, each answering a title and rows.
 local SCREENS = {}
 
 --- @author DemiAutomatic
 --- @method SCREENS.root
---- @description The root screen listing the six sections.
+--- @description The noclip switch, then the five areas.
 --- @returns {string, table[]}
 SCREENS.root = function()
 	return locale('admin.menu.title'), {
+		section('admin.menu.section.quick'),
+		noclipRow(),
+		section('admin.menu.section.manage'),
 		go('players', 'admin.menu.players', 'players', nil, { value = tostring(#roster) }),
 		go('self', 'admin.menu.self', 'self'),
 		go('vehicles', 'admin.menu.vehicles', 'vehicles'),
-		go('weapons', 'admin.menu.weapons', 'weapons'),
 		go('world', 'admin.menu.world', 'world'),
 		go('server', 'admin.menu.server', 'server'),
 	}
@@ -379,62 +481,30 @@ end
 
 --- @author DemiAutomatic
 --- @method SCREENS.player
---- @description Every action on one player, by section.
+--- @description One player: the report rows, a row per family, then moderation.
 --- @param id {integer}
 --- @returns {string, table[]}
 SCREENS.player = function(id)
 	local target = tostring(id)
+	local entry = rosterById[id]
 	local items = {
-		section('admin.menu.section.movement'),
+		section('admin.menu.section.quick'),
 		command('goto', 'admin.menu.goto', { 'opx77.admin.player.goto', target }),
 		command('bring', 'admin.menu.bring', { 'opx77.admin.player.bring', target }, 'roster'),
-		go('send', 'admin.menu.send', 'locations', id),
-		form('coords', 'admin.menu.coords', 'coords', id, 'opx77.admin.player.tp'),
-		command('observe', 'admin.menu.observe', { 'opx77.admin.player.observe', target }),
-
-		section('admin.menu.section.health'),
 		command('heal', 'admin.menu.heal', { 'opx77.admin.player.heal', target }, 'roster'),
-		command('revive', 'admin.menu.revive', { 'opx77.admin.player.revive', target }, 'roster'),
-		command('god', 'admin.menu.god', { 'opx77.admin.player.god', target }),
-		form('health', 'admin.menu.health', 'health', id, 'opx77.admin.player.health'),
-		form('armor', 'admin.menu.armor', 'armor', id, 'opx77.admin.player.armor'),
-		guarded('kill', 'admin.menu.kill', { 'opx77.admin.player.kill', target }, 'admin.confirm.kill'),
+		command('revive', 'admin.menu.revive', { 'opx77.admin.player.revive', target }, 'roster',
+			entry and entry.state == 'down' and { value = locale('admin.state.down') } or nil),
+
+		section('admin.menu.section.actions'),
+		go('move', 'admin.menu.movement', 'playerMove', id),
+		go('health', 'admin.menu.healthActions', 'playerHealth', id),
 	}
-
-	if Client.Running('opx77_core') then
-		items[#items + 1] = section('admin.menu.section.character')
-		if LINKS.WHERE then
-			items[#items + 1] = command('record', 'admin.menu.record', { LINKS.WHERE, target })
-		end
-		if LINKS.JOB then
-			items[#items + 1] = form('job', 'admin.menu.job', 'job', id, LINKS.JOB)
-		end
-		if LINKS.GANG then
-			items[#items + 1] = form('gang', 'admin.menu.gang', 'gang', id, LINKS.GANG)
-		end
-		if LINKS.MONEY then
-			items[#items + 1] = form('money', 'admin.menu.money', 'money', id, LINKS.MONEY)
-		end
+	if Client.Running('opx77_core') and (LINKS.WHERE or LINKS.JOB or LINKS.GANG or LINKS.MONEY) then
+		items[#items + 1] = go('character', 'admin.menu.character', 'playerCharacter', id)
 	end
-
-	items[#items + 1] = section('admin.menu.section.items')
-	items[#items + 1] = go('giveVehicle', 'admin.menu.giveVehicle', 'vehicleClasses', id)
-	for _, item in ipairs(weaponRows(target, 'admin.menu.giveWeapon')) do items[#items + 1] = item end
-
+	items[#items + 1] = go('items', 'admin.menu.items', 'playerItems', id)
 	if inventoryUp() then
-		items[#items + 1] = section('admin.menu.section.inventory')
-		items[#items + 1] = command('invView', 'admin.menu.invView',
-			{ 'opx77.admin.inventory.view', target })
-		if LINKS.INVENTORY_OPEN then
-			items[#items + 1] = command('invOpen', 'admin.menu.invOpen', { LINKS.INVENTORY_OPEN, target })
-			items[#items].data.closeAfter = true
-		end
-		items[#items + 1] = goFor('invGive', 'admin.menu.invGive', 'itemCategories',
-			{ t = target, m = 'give' }, 'opx77.admin.inventory.give')
-		items[#items + 1] = goFor('invRemove', 'admin.menu.invRemove', 'bag', target,
-			'opx77.admin.inventory.remove')
-		items[#items + 1] = guarded('invClear', 'admin.menu.invClear',
-			{ 'opx77.admin.inventory.clear', target }, 'admin.confirm.invClear')
+		items[#items + 1] = go('inventory', 'admin.menu.inventory', 'playerInventory', id)
 	end
 
 	items[#items + 1] = section('admin.menu.section.moderation')
@@ -444,21 +514,113 @@ SCREENS.player = function(id)
 end
 
 --- @author DemiAutomatic
+--- @method SCREENS.playerMove
+--- @description Reaching, sending and watching one player.
+--- @param id {integer}
+--- @returns {string, table[]}
+SCREENS.playerMove = function(id)
+	local target = tostring(id)
+	return playerTitle(id, 'admin.menu.movement'), {
+		command('goto', 'admin.menu.goto', { 'opx77.admin.player.goto', target }),
+		command('bring', 'admin.menu.bring', { 'opx77.admin.player.bring', target }, 'roster'),
+		go('send', 'admin.menu.send', 'locations', id),
+		form('coords', 'admin.menu.coords', 'coords', id, 'opx77.admin.player.tp'),
+		command('observe', 'admin.menu.observe', { 'opx77.admin.player.observe', target }),
+	}
+end
+
+--- @author DemiAutomatic
+--- @method SCREENS.playerHealth
+--- @description One player's health, armour and god mode, and the kill.
+--- @param id {integer}
+--- @returns {string, table[]}
+SCREENS.playerHealth = function(id)
+	local target = tostring(id)
+	return playerTitle(id, 'admin.menu.healthActions'), {
+		command('heal', 'admin.menu.heal', { 'opx77.admin.player.heal', target }, 'roster'),
+		command('revive', 'admin.menu.revive', { 'opx77.admin.player.revive', target }, 'roster'),
+		command('god', 'admin.menu.god', { 'opx77.admin.player.god', target }),
+		form('health', 'admin.menu.health', 'health', id, 'opx77.admin.player.health'),
+		form('armor', 'admin.menu.armor', 'armor', id, 'opx77.admin.player.armor'),
+		section(),
+		guarded('kill', 'admin.menu.kill', { 'opx77.admin.player.kill', target }, 'admin.confirm.kill'),
+	}
+end
+
+--- @author DemiAutomatic
+--- @method SCREENS.playerCharacter
+--- @description The opx77_core commands on one player's character.
+--- @param id {integer}
+--- @returns {string, table[]}
+SCREENS.playerCharacter = function(id)
+	local target = tostring(id)
+	local items = {}
+	if LINKS.WHERE then
+		items[#items + 1] = command('record', 'admin.menu.record', { LINKS.WHERE, target })
+	end
+	if LINKS.JOB then
+		items[#items + 1] = form('job', 'admin.menu.job', 'job', id, LINKS.JOB)
+	end
+	if LINKS.GANG then
+		items[#items + 1] = form('gang', 'admin.menu.gang', 'gang', id, LINKS.GANG)
+	end
+	if LINKS.MONEY then
+		items[#items + 1] = form('money', 'admin.menu.money', 'money', id, LINKS.MONEY)
+	end
+	if #items == 0 then items[1] = empty('admin.menu.catalogEmpty') end
+	return playerTitle(id, 'admin.menu.character'), items
+end
+
+--- @author DemiAutomatic
+--- @method SCREENS.playerItems
+--- @description Delivering a vehicle, and one player's weapon rows.
+--- @param id {integer}
+--- @returns {string, table[]}
+SCREENS.playerItems = function(id)
+	local target = tostring(id)
+	return playerTitle(id, 'admin.menu.items'), append({
+		go('giveVehicle', 'admin.menu.giveVehicle', 'vehicleClasses', id),
+		section('admin.menu.section.weapons'),
+	}, weaponRows(target, 'admin.menu.giveWeapon'))
+end
+
+--- @author DemiAutomatic
+--- @method SCREENS.playerInventory
+--- @description One player's bag rows, greyed while opx77_inventory is down.
+--- @param id {integer}
+--- @returns {string, table[]}
+SCREENS.playerInventory = function(id)
+	return playerTitle(id, 'admin.menu.inventory'), bagRows(tostring(id))
+end
+
+--- @author DemiAutomatic
 --- @method SCREENS.self
---- @description The operator's own travel, health and position rows.
+--- @description The operator's own travel, tags, health, weapon and bag rows.
 --- @returns {string, table[]}
 SCREENS.self = function()
-	return locale('admin.menu.self'), {
-		command('noclip', 'admin.menu.noclip', { 'opx77.admin.self.noclip' }),
+	local items = append({
+		section('admin.menu.section.movement'),
+		noclipRow(),
 		command('maptravel', 'admin.menu.maptravel', { 'opx77.admin.self.maptravel' }),
-		command('god', 'admin.menu.god', { 'opx77.admin.self.god' }),
-		command('heal', 'admin.menu.heal', { 'opx77.admin.self.heal' }),
-		command('revive', 'admin.menu.revive', { 'opx77.admin.self.revive' }),
-		section(),
 		go('teleport', 'admin.menu.teleport', 'locations', 'me'),
 		form('coords', 'admin.menu.coords', 'coords', 'me', 'opx77.admin.player.tp'),
 		command('pos', 'admin.menu.pos', { 'opx77.admin.self.pos' }),
-	}
+
+		section('admin.menu.section.view'),
+		tagsRow(),
+
+		section('admin.menu.section.health'),
+		command('heal', 'admin.menu.heal', { 'opx77.admin.self.heal' }),
+		command('revive', 'admin.menu.revive', { 'opx77.admin.self.revive' }),
+		command('god', 'admin.menu.god', { 'opx77.admin.self.god' }),
+
+		section('admin.menu.section.weapons'),
+	}, weaponRows('me', 'admin.menu.giveMe'))
+	if inventoryUp() then
+		items[#items + 1] = section('admin.menu.section.inventory')
+		append(items, bagRows('me'))
+	end
+	return locale('admin.menu.self'), items
 end
 
 --- @author DemiAutomatic
@@ -483,7 +645,7 @@ SCREENS.vehicles = function()
 	end
 	items[#items + 1] = command('remove', 'admin.menu.remove',
 		{ 'opx77.admin.vehicle.remove', 'near' })
-	items[#items + 1] = section()
+	items[#items + 1] = section('admin.menu.section.cleanup')
 	items[#items + 1] = command('removeMine', 'admin.menu.removeMine',
 		{ 'opx77.admin.vehicle.remove', 'mine' })
 	items[#items + 1] = guarded('cleanup', 'admin.menu.cleanup', { 'opx77.admin.vehicle.cleanup' },
@@ -620,14 +782,6 @@ SCREENS.ammoList = function(target)
 end
 
 --- @author DemiAutomatic
---- @method SCREENS.weapons
---- @description The operator's own weapon rows.
---- @returns {string, table[]}
-SCREENS.weapons = function()
-	return locale('admin.menu.weapons'), weaponRows('me', 'admin.menu.giveMe')
-end
-
---- @author DemiAutomatic
 --- @method SCREENS.itemCategories
 --- @description The catalogue's categories, for a give or the holders list.
 --- @param arg {table}
@@ -742,21 +896,21 @@ end
 
 --- @author DemiAutomatic
 --- @method SCREENS.world
---- @description Announcements, destinations, and the sky screens.
+--- @description Announcements, the sky screens, and the saved destinations.
 --- @returns {string, table[]}
 SCREENS.world = function()
 	local items = {
 		form('announce', 'admin.menu.announce', 'announce', nil, 'opx77.admin.world.announce'),
-		section('admin.menu.section.locations'),
-		go('teleport', 'admin.menu.teleport', 'locations', 'me'),
-		form('save', 'admin.menu.saveHere', 'location', nil, 'opx77.admin.world.loc.add'),
-		go('saved', 'admin.menu.saved', 'saved'),
 	}
 	if Client.Running('opx77_weather') then
 		items[#items + 1] = section('admin.menu.section.sky')
 		items[#items + 1] = go('weather', 'admin.menu.weather', 'weather')
 		items[#items + 1] = go('time', 'admin.menu.time', 'time')
 	end
+	items[#items + 1] = section('admin.menu.section.locations')
+	items[#items + 1] = form('save', 'admin.menu.saveHere', 'location', nil,
+		'opx77.admin.world.loc.add')
+	items[#items + 1] = go('saved', 'admin.menu.saved', 'saved')
 	return locale('admin.menu.world'), items
 end
 
@@ -812,13 +966,14 @@ end
 
 --- @author DemiAutomatic
 --- @method SCREENS.server
---- @description Server reports, character commands, and the holders picker.
+--- @description Server reports, lists for the chat box, characters, and the holders picker.
 --- @returns {string, table[]}
 SCREENS.server = function()
 	local items = {
 		command('status', 'admin.menu.status', { 'opx77.admin.read.status' }),
-		command('list', 'admin.menu.playerList', { 'opx77.admin.read.players' }),
 		command('audit', 'admin.menu.audit', { 'opx77.admin.read.audit' }),
+		section('admin.menu.section.chat'),
+		command('list', 'admin.menu.playerList', { 'opx77.admin.read.players' }),
 		command('locations', 'admin.menu.locationList', { 'opx77.admin.read.locations' }),
 	}
 	if Client.Running('opx77_core') then
@@ -920,7 +1075,7 @@ end
 local function push(screen, arg)
 	stack[#stack + 1] = { screen = screen, arg = arg }
 	if #stack == 2 then TriggerServerEvent('opx77_admin:refresh', 'access') end
-	if screen == 'players' or screen == 'player' then
+	if screen:match('^player') then
 		TriggerServerEvent('opx77_admin:refresh', 'roster')
 	elseif screen == 'locations' or screen == 'saved' then
 		TriggerServerEvent('opx77_admin:refresh', 'locations')
@@ -1175,7 +1330,7 @@ RegisterNetEvent('opx77_admin:roster', function(payload)
 	incoming = {}
 	for _, entry in ipairs(roster) do rosterById[entry.id] = entry end
 	local screen = Menu.Screen()
-	if screen == 'players' or screen == 'player' or screen == 'root' then draw(true) end
+	if screen == 'root' or (screen and screen:match('^player')) then draw(true) end
 end)
 
 --- @author DemiAutomatic
@@ -1251,10 +1406,65 @@ local function pressed()
 end
 
 --- @author DemiAutomatic
+--- @event opx77:medic:stateChanged
+--- @description Follows whether the player is down; the menu stays up either way.
+--- @param payload {table} down and waiting.
+AddEventHandler('opx77:medic:stateChanged', function(payload)
+	if type(payload) ~= 'table' then return end
+	playerDown = payload.down == true
+end)
+
+--- @author DemiAutomatic
+--- @event opx77:medic:key
+--- @description A key medic's down screen reported; the menu key does what it does.
+--- @param key {string}
+AddEventHandler('opx77:medic:key', function(key)
+	if not playerDown or type(key) ~= 'string' then return end
+	local mine = Keys.Effective(KEY_MENU)
+	if mine == nil or key:upper() ~= mine:upper() then return end
+	pressed()
+end)
+
+--- @author DemiAutomatic
+--- @method syncSuspend
+--- @description Sets medic's down screen aside while a downed player has the menu or a form up.
+local function syncSuspend()
+	if not Client.Running(MEDIC) then
+		suspending = false
+		return
+	end
+	local wanted = playerDown and (#stack > 0 or Forms.IsOpen())
+	if wanted == suspending then return end
+	local result, reason = Client.Call(MEDIC, 'suspend', wanted)
+	if result then
+		suspending = wanted
+	elseif not suspendReported then
+		suspendReported = true
+		Open77.log.warn(('%s refused to set its screen aside: %s'):format(MEDIC, tostring(reason)))
+	end
+end
+
+--- @author DemiAutomatic
+--- @method watchSuspend
+--- @description Polls syncSuspend, since a screen closes down several paths.
+local function watchSuspend()
+	while true do
+		syncSuspend()
+		Wait(SUSPEND_POLL_MS)
+	end
+end
+
+CreateThread(watchSuspend)
+
+--- @author DemiAutomatic
 --- @event onClientResourceStart
---- @description Registers the menu key when this resource starts.
+--- @description Registers the menu key and asks medic once whether the player is down.
 --- @param name {string}
 AddEventHandler('onClientResourceStart', function(name)
+	if name == MEDIC then
+		suspending = false
+		return
+	end
 	if name ~= Client.RESOURCE then return end
 	local keys = Config.KEYS
 	if keys ~= nil and type(keys) ~= 'table' then
@@ -1263,6 +1473,10 @@ AddEventHandler('onClientResourceStart', function(name)
 	end
 	keys = keys or {}
 	Keys.Register(KEY_MENU, 'admin.key.menu', Keys.Setting('KEYS.MENU', keys.MENU, 'F9'), pressed)
+	CreateThread(function()
+		local result = Client.Call(MEDIC, 'isDown')
+		if result and result.down == true then playerDown = true end
+	end)
 end)
 
 Keys.OnChanged(Menu.Refresh)

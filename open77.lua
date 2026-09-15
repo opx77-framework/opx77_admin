@@ -3,7 +3,7 @@
 --- @description Resource manifest declaring scripts, permissions and reload policy.
 
 resource "opx77_admin"
-version "0.2.0"
+version "0.3.0"
 open77_version ">=0.0.1"
 auto_start true
 
@@ -28,12 +28,14 @@ server_script "server/vehicles.lua"
 server_script "server/inventory.lua"
 server_script "server/weapons.lua"
 server_script "server/world.lua"
+server_script "server/tags.lua"
 server_script "server/menu.lua"
 
 client_script "client/main.lua"
 client_script "client/keys.lua"
 client_script "client/controls.lua"
 client_script "client/forms.lua"
+client_script "client/tags.lua"
 client_script "client/menu.lua"
 client_script "client/exports.lua"
 
@@ -54,4 +56,5 @@ permissions {
   "player.travel",
   "clipboard.write",
   "input.actions",
+  "world.transform",
 }

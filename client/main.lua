@@ -246,6 +246,14 @@ local mapArmed = false
 local noclipOn = false
 
 --- @author DemiAutomatic
+--- @method OpxAdmin.Client.IsNoclip
+--- @description Whether this resource has noclip on, as the menu's switch row reads it.
+--- @returns {boolean}
+function OpxAdmin.Client.IsNoclip()
+	return noclipOn
+end
+
+--- @author DemiAutomatic
 --- @method applyTravel
 --- @description Applies one travel native, logging a missing or refused one.
 --- @param name {string}
@@ -270,7 +278,10 @@ end
 --- @param value {any}
 RegisterNetEvent('opx77_admin:travel', function(action, value)
 	if action == 'noclip' then
-		if applyTravel('setNoclip', value == true) then noclipOn = value == true end
+		if applyTravel('setNoclip', value == true) then
+			noclipOn = value == true
+			OpxAdmin.Menu.Refresh()
+		end
 		OpxAdmin.Controls.Noclip(noclipOn)
 	elseif action == 'speed' then
 		local speed = Text.Finite(value)

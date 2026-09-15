@@ -382,6 +382,25 @@ While map travel is armed the strip says a double-click on the map goes there. B
 when the mode goes off, when noclip is switched off by anything else, on death, and when this
 resource stops.
 
+- The root screen shows the **Noclip** switch, *ON* or *OFF* as this client applied it and
+  redrawn when the server switches it, then the five areas: **Players**, **Myself**,
+  **Vehicles**, **World**, **Server**.
+- A player's screen keeps the rows used on a report first — go to, bring, heal, revive, which
+  says *down* when the roster does — and puts the rest one level down, each titled with the
+  player's name: **Move**, **Health**, **Character** (while `opx77_core` runs and a link is
+  set), **Vehicles and weapons**, **Inventory** (while `opx77_inventory` runs); kick and ban
+  come last, under **MODERATION**.
+- **Myself** holds the operator's own rows: **MOVE** (noclip, map travel, a destination,
+  coordinates, copy the position), **HEALTH**, **WEAPONS**, and **INVENTORY** while
+  `opx77_inventory` runs. **Vehicles** has spawning, the **NEAREST VEHICLE** and the **CLEANUP**;
+  **World** the announcement, the **SKY** and the saved **DESTINATIONS**; **Server** the status,
+  the audit, the lists written **IN THE CHAT BOX**, the **CHARACTERS** and *Who holds an item*.
+- The menu still works while `opx77_medic` says the player is down. Its screen then holds the
+  keyboard, so no key mapping fires: medic reports the keys pressed on `opx77:medic:key`, and
+  the one this player has for the menu does what the menu key does. While the menu or one of
+  its forms is up, that screen is set aside through medic's `suspend` export, and comes back
+  when they close. `opx77_menu` and `opx77_input` list `opx77_admin` in their `WHILE_DOWN`, and
+  medic lists it in its `SUSPENDERS`.
 - A row whose command the ACL refuses is drawn greyed, with *no access* beside it. The access map
   is re-read when you leave the root screen, so an `acl.reload` shows without reopening.
 - A command's answer is written under the list, and also raised as a toast, or a chat line for
@@ -392,14 +411,15 @@ resource stops.
   does.
 - Forms — a reason, an amount, a point, a count — are `opx77_input`'s. The menu steps aside
   while one is up and comes back where it was.
-- A player's **INVENTORY** rows, drawn while `opx77_inventory` runs: *Show the bag in chat*;
+- A player's **Inventory** rows, drawn while `opx77_inventory` runs: *Show the bag in chat*;
   *Open the bag beside mine*, which closes the menu for the inventory's screen; *Give an item*,
   a category and an item of the inventory's catalogue, then a count; *Take an item*, a stack
-  of that bag, read again each time the screen opens, then a count; *Empty the bag*. The
-  **Server** screen adds *Who holds an item*. The weapon lists come from the same catalogue,
+  of that bag, read again each time the screen opens, then a count; *Empty the bag*. **Myself**
+  has the same rows for the operator's own bag, without the open row. The **Server** screen adds
+  *Who holds an item*. The weapon lists come from the same catalogue,
   grouped by the classes of `data/weapons.lua`, and a weapon row gives it empty.
-- *Give ammunition*, on a player's **ITEMS** rows and on the **Weapons** screen: an ammo item of
-  the catalogue, then a count that starts at one full load. *Refill ammunition* gives one full
+- *Give ammunition*, on a player's **Vehicles and weapons** screen and in **Myself**: an ammo
+  item of the catalogue, then a count that starts at one full load. *Refill ammunition* gives one full
   load of each ammunition the bag's weapons take.
 - The roster shows the platform's verified display name, the state (*in world*, *down*,
   *joining*, *loading*), the routing bucket and the distance. It does not show the character's

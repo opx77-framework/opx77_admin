@@ -27,6 +27,23 @@
 --- @field NOCLIP.STEP {number} Fraction of the speed one press changes, 0.01..1.
 --- @field NOCLIP.SEND_AFTER_MS {integer} Quiet time before sending; never below RATE.ACTION_MS plus 100.
 --- @field NOCLIP.PROMPTS {boolean} Travel controls in opx77_prompts' strip; false for none.
+--- @field TAGS {table} Name tags staff see above nearby players.
+--- @field TAGS.DISTANCE {number} Metres a tag shows within, 1..100.
+--- @field TAGS.FADE_START {number} Fraction of DISTANCE where a tag starts fading, 0..1.
+--- @field TAGS.HEAD_LIFT {number} Metres above the head slot a tag sits, 0..2.
+--- @field TAGS.HEAD_OFFSET_Z {number} Metres above the body when the head is unreadable, 0.5..3.
+--- @field TAGS.UPDATE_MS {integer} Milliseconds between two tag updates on the client, 50..2000.
+--- @field TAGS.REFRESH_MS {integer} Milliseconds between two name lists from the server, at least 500.
+--- @field TAGS.MAX {integer} Most tags drawn at once, nearest first, 1..32.
+--- @field TAGS.OWN {boolean} Also tag yourself, in third person only.
+--- @field TAGS.HIDE_IN_FIRST_PERSON {boolean} Hide every tag while the view is first person.
+--- @field TAGS.TECHNICAL {boolean} Show the player id in the tag's key box.
+--- @field TAGS.BADGE {boolean} Mark staff who may open the menu with a badge.
+--- @field TAGS.COLORS {table} Tag colours, #RRGGBB; the fade adds the alpha.
+--- @field TAGS.COLORS.TEXT {string} The name.
+--- @field TAGS.COLORS.ACCENT {string} Border and id box of a player's tag.
+--- @field TAGS.COLORS.STAFF {string} Border and id box of a staff member's tag.
+--- @field TAGS.COLORS.BACKGROUND {string} The tag's fill.
 --- @field ANNOUNCE {table} How an announcement reaches every player.
 --- @field ANNOUNCE.DURATION_MS {integer} Announcement toast lifetime on every client.
 --- @field ANNOUNCE.CHAT {boolean} Also write the announcement into the chat box.
@@ -100,6 +117,26 @@ OPX_ADMIN_CONFIG = {
 		STEP = 0.15,
 		SEND_AFTER_MS = 500,
 		PROMPTS = true,
+	},
+
+	TAGS = {
+		DISTANCE = 25.0,
+		FADE_START = 0.55,
+		HEAD_LIFT = 0.35,
+		HEAD_OFFSET_Z = 2.05,
+		UPDATE_MS = 250,
+		REFRESH_MS = 2000,
+		MAX = 32,
+		OWN = false,
+		HIDE_IN_FIRST_PERSON = false,
+		TECHNICAL = true,
+		BADGE = true,
+		COLORS = {
+			TEXT = '#F2F6F8',
+			ACCENT = '#FCEE0A',
+			STAFF = '#22D8E2',
+			BACKGROUND = '#0A1220',
+		},
 	},
 
 	ANNOUNCE = {
