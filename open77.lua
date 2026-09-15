@@ -29,6 +29,7 @@ server_script "server/inventory.lua"
 server_script "server/weapons.lua"
 server_script "server/world.lua"
 server_script "server/tags.lua"
+server_script "server/combat.lua"
 server_script "server/menu.lua"
 
 client_script "client/main.lua"
@@ -36,6 +37,7 @@ client_script "client/keys.lua"
 client_script "client/controls.lua"
 client_script "client/forms.lua"
 client_script "client/tags.lua"
+client_script "client/combat.lua"
 client_script "client/menu.lua"
 client_script "client/exports.lua"
 
@@ -57,4 +59,5 @@ permissions {
   "clipboard.write",
   "input.actions",
   "world.transform",
+  "combat.config",
 }

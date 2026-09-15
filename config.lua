@@ -44,6 +44,8 @@
 --- @field TAGS.COLORS.ACCENT {string} Border and id box of a player's tag.
 --- @field TAGS.COLORS.STAFF {string} Border and id box of a staff member's tag.
 --- @field TAGS.COLORS.BACKGROUND {string} The tag's fill.
+--- @field COMBAT {table} Combat rules this resource applies on the host.
+--- @field COMBAT.PVP {boolean} Damage between players when the server starts; staff switch it with world.pvp.
 --- @field ANNOUNCE {table} How an announcement reaches every player.
 --- @field ANNOUNCE.DURATION_MS {integer} Announcement toast lifetime on every client.
 --- @field ANNOUNCE.CHAT {boolean} Also write the announcement into the chat box.
@@ -117,6 +119,10 @@ OPX_ADMIN_CONFIG = {
 		STEP = 0.15,
 		SEND_AFTER_MS = 500,
 		PROMPTS = true,
+	},
+
+	COMBAT = {
+		PVP = true,
 	},
 
 	TAGS = {

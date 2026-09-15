@@ -11,6 +11,7 @@ local Forms = OpxAdmin.Forms
 local Keys = OpxAdmin.Keys
 local Text = OpxAdmin.Text
 local Tags = OpxAdmin.Tags
+local Combat = OpxAdmin.Combat
 
 --- @author DemiAutomatic
 --- @type {table}
@@ -896,11 +897,13 @@ end
 
 --- @author DemiAutomatic
 --- @method SCREENS.world
---- @description Announcements, the sky screens, and the saved destinations.
+--- @description Announcements, the PvP switch, the sky screens, and the saved destinations.
 --- @returns {string, table[]}
 SCREENS.world = function()
 	local items = {
 		form('announce', 'admin.menu.announce', 'announce', nil, 'opx77.admin.world.announce'),
+		section('admin.menu.section.combat'),
+		switch('pvp', 'admin.menu.pvp', { 'opx77.admin.world.pvp' }, Combat.IsPvp()),
 	}
 	if Client.Running('opx77_weather') then
 		items[#items + 1] = section('admin.menu.section.sky')
