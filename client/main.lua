@@ -179,8 +179,7 @@ local function underList(raw, accepted, message)
 	local name = (raw:match('^/?(%S+)') or ''):lower()
 	local sentAt = awaiting[name]
 	if sentAt == nil or Client.NowMs() - sentAt > 15000 then return false end
-	local Menu = OpxAdmin.Menu
-	if Menu then Menu.Status(message, accepted == true) end
+	OpxAdmin.Menu.Status(message, accepted == true)
 	return true
 end
 
@@ -199,7 +198,7 @@ RegisterNetEvent('open77:command:result', function(raw, accepted, message)
 		end
 		return
 	end
-	if OpxAdmin.Controls then OpxAdmin.Controls.Answered(raw, false) end
+	OpxAdmin.Controls.Answered(raw, false)
 	local name = raw:match('^/?(%S+)') or raw
 	if message == 'unknown_command' then
 		message = locale('admin.client.unknownCommand', { command = name })
@@ -220,7 +219,7 @@ RegisterNetEvent('opx77_admin:answer', function(raw, accepted, message, kind)
 	if type(raw) ~= 'string' or type(message) ~= 'string' or message == '' then return end
 	underList(raw, accepted == true, message)
 	if kind == 'report' then return chatLine('info', message) end
-	if OpxAdmin.Controls and OpxAdmin.Controls.Answered(raw, accepted == true) then return end
+	if OpxAdmin.Controls.Answered(raw, accepted == true) then return end
 	if kind ~= 'info' and kind ~= 'success' and kind ~= 'warning' and kind ~= 'error' then
 		kind = accepted == true and 'success' or 'error'
 	end
@@ -228,11 +227,11 @@ RegisterNetEvent('opx77_admin:answer', function(raw, accepted, message, kind)
 end)
 
 --- @author DemiAutomatic
---- @method travelNative
+--- @method OpxAdmin.Client.TravelNative
 --- @description One Open77.travel function, or nil when this build lacks it.
 --- @param name {string}
 --- @returns {function|nil}
-local function travelNative(name)
+function OpxAdmin.Client.TravelNative(name)
 	local travel = Open77.travel
 	if type(travel) ~= 'table' or type(travel[name]) ~= 'function' then return nil end
 	return travel[name]
@@ -255,7 +254,7 @@ local noclipOn = false
 --- @param value {any}
 --- @returns {boolean}
 local function applyTravel(name, value)
-	local native = travelNative(name)
+	local native = Client.TravelNative(name)
 	if native == nil then
 		Open77.log.warn(('Open77.travel.%s is not in this client build'):format(name))
 		Client.Toast('admin.client.travelMissing', nil, 'error')
@@ -272,20 +271,18 @@ end
 --- @param action {string} noclip, speed, mapPick or copy.
 --- @param value {any}
 RegisterNetEvent('opx77_admin:travel', function(action, value)
-	local Controls = OpxAdmin.Controls
 	if action == 'noclip' then
 		if applyTravel('setNoclip', value == true) then noclipOn = value == true end
-		if Controls then Controls.Noclip(noclipOn) end
+		OpxAdmin.Controls.Noclip(noclipOn)
 	elseif action == 'speed' then
 		local speed = Text.Finite(value)
-		if speed and speed >= 0.1 and speed <= 500 and applyTravel('setNoclipSpeed', speed)
-			and Controls then
-			Controls.Speed(speed)
+		if speed and speed >= 0.1 and speed <= 500 and applyTravel('setNoclipSpeed', speed) then
+			OpxAdmin.Controls.Speed(speed)
 		end
 	elseif action == 'mapPick' then
 		mapArmed = value == true and applyTravel('setMapPick', true)
 		if value ~= true then applyTravel('setMapPick', false) end
-		if Controls then Controls.MapPick(mapArmed) end
+		OpxAdmin.Controls.MapPick(mapArmed)
 	elseif action == 'copy' then
 		if type(value) ~= 'string' or #value > 160 or not value:match('^{ NAME = ') then return end
 		local clipboard = Open77.clipboard
@@ -315,8 +312,8 @@ end)
 --- @param name {string}
 AddEventHandler('onClientResourceStop', function(name)
 	if name ~= RESOURCE then return end
-	if noclipOn and travelNative('setNoclip') then pcall(Open77.travel.setNoclip, false) end
+	if noclipOn and Client.TravelNative('setNoclip') then pcall(Open77.travel.setNoclip, false) end
 	noclipOn = false
-	if mapArmed and travelNative('setMapPick') then pcall(Open77.travel.setMapPick, false) end
+	if mapArmed and Client.TravelNative('setMapPick') then pcall(Open77.travel.setMapPick, false) end
 	mapArmed = false
 end)

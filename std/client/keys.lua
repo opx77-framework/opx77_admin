@@ -10,6 +10,11 @@ OpxAdmin.Keys = {}
 ---@return string|false
 function OpxAdmin.Keys.Setting(path, value, default) end
 
+--- Whether another surface holds the keyboard: the chat composer, an opx77_input form, the pause
+--- menu. A key pressed behind one of them does nothing.
+---@return boolean
+function OpxAdmin.Keys.Captured() end
+
 --- Declares one mapping. A press while another surface holds the keyboard does nothing; a
 --- release is never swallowed. A refusal is one log line.
 ---@param id string stable mapping id a rebind is stored under

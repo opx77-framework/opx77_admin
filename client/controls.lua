@@ -253,22 +253,11 @@ local function stepped(speed, direction)
 end
 
 --- @author DemiAutomatic
---- @method travelNative
---- @description One Open77.travel function, or nil when this build lacks it.
---- @param name {string}
---- @returns {function|nil}
-local function travelNative(name)
-	local travel = Open77.travel
-	if type(travel) ~= 'table' or type(travel[name]) ~= 'function' then return nil end
-	return travel[name]
-end
-
---- @author DemiAutomatic
 --- @method nativeNoclip
 --- @description Whether the native still reports noclip on, true without the read.
 --- @returns {boolean}
 local function nativeNoclip()
-	local read = travelNative('isNoclip')
+	local read = Client.TravelNative('isNoclip')
 	if read == nil then return true end
 	local ok, on = pcall(read)
 	return not ok or on == true
@@ -284,17 +273,6 @@ local function alive()
 	local ok, state = pcall(character.state)
 	if not ok or type(state) ~= 'table' then return true end
 	return state.alive ~= false
-end
-
---- @author DemiAutomatic
---- @method captured
---- @description Whether another surface holds the keyboard right now.
---- @returns {boolean}
-local function captured()
-	local input = Open77.input
-	if type(input) ~= 'table' or type(input.isCaptured) ~= 'function' then return false end
-	local ok, answer = pcall(input.isCaptured)
-	return ok and answer == true
 end
 
 --- @author DemiAutomatic
@@ -437,7 +415,7 @@ local function tick()
 	else
 		offReads = 0
 	end
-	if captured() then held = 0 end
+	if Keys.Captured() then held = 0 end
 	if held ~= 0 and atMs >= nextRepeatMs then
 		nextRepeatMs = atMs + REPEAT_MS
 		step(held)

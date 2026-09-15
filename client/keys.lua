@@ -38,11 +38,11 @@ function OpxAdmin.Keys.Setting(path, value, default)
 end
 
 --- @author DemiAutomatic
---- @method captured
+--- @method OpxAdmin.Keys.Captured
 --- @description Whether another surface holds the keyboard right now.
 --- @returns {boolean}
-local function captured()
-	local input = type(Open77) == 'table' and Open77.input or nil
+function OpxAdmin.Keys.Captured()
+	local input = Open77.input
 	if type(input) ~= 'table' or type(input.isCaptured) ~= 'function' then return false end
 	local read, answer = pcall(input.isCaptured)
 	return read and answer == true
@@ -65,7 +65,7 @@ function OpxAdmin.Keys.Register(id, nameKey, key, onPressed, onReleased)
 		return false
 	end
 	local function pressed()
-		if captured() then return end
+		if Keys.Captured() then return end
 		local ran, failure = pcall(onPressed)
 		if not ran then Open77.log.error(('key %s: %s'):format(id, tostring(failure))) end
 	end

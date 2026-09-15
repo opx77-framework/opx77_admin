@@ -16,6 +16,11 @@ function OpxAdmin.Client.NowMs() end
 ---@return boolean
 function OpxAdmin.Client.Running(resource) end
 
+--- One `Open77.travel` function, or nil when this client build lacks it.
+---@param name string
+---@return function|nil
+function OpxAdmin.Client.TravelNative(name) end
+
 --- One call to another resource's client export. Coroutine only. The third return says whether
 --- the target answered at all: a refusal is authoritative, a call that never landed says nothing.
 ---@param resource string
