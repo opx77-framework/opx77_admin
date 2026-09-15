@@ -282,6 +282,32 @@ Server.Command('opx77.admin.weapon.giveammo', {
 })
 
 --- @author DemiAutomatic
+--- @method weaponsInBag
+--- @description Reads the catalogue, the named weapon and the bag, answering a failure.
+--- @param source {integer}
+--- @param raw {string}
+--- @param event {string}
+--- @param target {integer|string}
+--- @param who {string}
+--- @param playerId {integer|nil}
+--- @param token {any} A weapon name, or nil for every weapon.
+--- @returns {InventoryCatalog|nil, InventoryItem|nil, InventoryBag|nil}
+local function weaponsInBag(source, raw, event, target, who, playerId, token)
+	local catalog, code, reason = Inventory.Catalog()
+	if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
+	local only
+	if token ~= nil then
+		only = Inventory.Weapon(catalog, token)
+		if only == nil then
+			return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon', Text.Clean(token, 48))
+		end
+	end
+	local bag, bagCode, bagReason = Inventory.Bag(target)
+	if not bag then return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason) end
+	return catalog, only, bag
+end
+
+--- @author DemiAutomatic
 --- @command /opx77.admin.weapon.ammo
 --- @description Adds ammunition for each ammunition type the bag's weapons take.
 Server.Command('opx77.admin.weapon.ammo', {
@@ -299,20 +325,9 @@ Server.Command('opx77.admin.weapon.ammo', {
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.ammo'
-			local catalog, code, reason = Inventory.Catalog()
-			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
-			local only
-			if not all then
-				only = Inventory.Weapon(catalog, args[2])
-				if only == nil then
-					return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon',
-						Text.Clean(args[2], 48))
-				end
-			end
-			local bag, bagCode, bagReason = Inventory.Bag(target)
-			if not bag then
-				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
-			end
+			local catalog, only, bag = weaponsInBag(source, raw, event, target, who, playerId,
+				not all and args[2] or nil)
+			if not bag then return end
 
 			local types, seen = {}, {}
 			for _, row in ipairs(bag.items) do
@@ -367,20 +382,9 @@ Server.Command('opx77.admin.weapon.remove', {
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.remove'
-			local catalog, code, reason = Inventory.Catalog()
-			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
-			local only
-			if not all then
-				only = Inventory.Weapon(catalog, args[2])
-				if only == nil then
-					return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon',
-						Text.Clean(args[2], 48))
-				end
-			end
-			local bag, bagCode, bagReason = Inventory.Bag(target)
-			if not bag then
-				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
-			end
+			local catalog, only, bag = weaponsInBag(source, raw, event, target, who, playerId,
+				not all and args[2] or nil)
+			if not bag then return end
 
 			local counts, order = {}, {}
 			for _, row in ipairs(bag.items) do
@@ -446,13 +450,8 @@ Server.Command('opx77.admin.weapon.read', {
 		local target, who, playerId = Inventory.Resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
-			local event = 'admin.weapon.read'
-			local catalog, code, reason = Inventory.Catalog()
-			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
-			local bag, bagCode, bagReason = Inventory.Bag(target)
-			if not bag then
-				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
-			end
+			local catalog, _, bag = weaponsInBag(source, raw, 'admin.weapon.read', target, who, playerId)
+			if not bag then return end
 			local drawn
 			if playerId ~= nil then
 				local held = Inventory.Call('GetHeldWeapon', playerId)
