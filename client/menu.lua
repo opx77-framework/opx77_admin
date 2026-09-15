@@ -1054,7 +1054,6 @@ RegisterNetEvent('opx77_admin:open', function(payload)
 		return
 	end
 	session = {
-		you = tonumber(payload.you),
 		access = type(payload.access) == 'table' and payload.access or {},
 		aclKnown = payload.aclKnown == true,
 		weapons = payload.weapons == true,

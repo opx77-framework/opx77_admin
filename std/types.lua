@@ -143,7 +143,6 @@
 
 --- `opx77_admin:open`, server to client.
 ---@class AdminSession
----@field you integer
 ---@field access table<string, true>  command names the ACL grants; absent means refused
 ---@field aclKnown boolean            false when the host has no ACL reader: nothing is greyed
 ---@field weapons boolean             Open77.weapons, the holster's relay, exists on this host

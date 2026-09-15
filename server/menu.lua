@@ -137,7 +137,6 @@ Server.Command(OPENER, {
 	handler = function(source)
 		local access, known = accessOf(source)
 		TriggerClientEvent('opx77_admin:open', source, {
-			you = source,
 			access = access,
 			aclKnown = known,
 			weapons = Server.WeaponsAvailable(),
