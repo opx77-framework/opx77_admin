@@ -137,6 +137,37 @@ local function row(id, label, data, extra)
 end
 
 --- @author DemiAutomatic
+--- @method unavailable
+--- @description Greys a row with a word beside it.
+--- @param item {table}
+--- @param key {string|nil}
+--- @returns {table}
+local function unavailable(item, key)
+	item.disabled, item.value = true, locale(key or 'admin.menu.unavailable')
+	return item
+end
+
+--- @author DemiAutomatic
+--- @method denied
+--- @description Greys a row when the ACL refuses the command it ends in.
+--- @param item {table}
+--- @param name {string|nil}
+--- @returns {table}
+local function denied(item, name)
+	if not permitted(name) then unavailable(item, 'admin.menu.denied') end
+	return item
+end
+
+--- @author DemiAutomatic
+--- @method empty
+--- @description The one disabled row a list shows when it has none.
+--- @param key {string}
+--- @returns {table}
+local function empty(key)
+	return row('empty', locale(key), nil, { disabled = true })
+end
+
+--- @author DemiAutomatic
 --- @method command
 --- @description A row running a command line, greyed when the ACL refuses it.
 --- @param id {string}
@@ -146,12 +177,7 @@ end
 --- @param extra {table|nil}
 --- @returns {table}
 local function command(id, label, tokens, refresh, extra)
-	local item = row(id, text(label), { run = tokens, refresh = refresh }, extra)
-	if not permitted(tokens[1]) then
-		item.disabled = true
-		item.value = locale('admin.menu.denied')
-	end
-	return item
+	return denied(row(id, text(label), { run = tokens, refresh = refresh }, extra), tokens[1])
 end
 
 --- @author DemiAutomatic
@@ -178,12 +204,7 @@ end
 --- @param name {string|nil} The command the form ends in.
 --- @returns {table}
 local function form(id, labelKey, kind, arg, name)
-	local item = row(id, locale(labelKey), { form = kind, arg = arg })
-	if not permitted(name) then
-		item.disabled = true
-		item.value = locale('admin.menu.denied')
-	end
-	return item
+	return denied(row(id, locale(labelKey), { form = kind, arg = arg }), name)
 end
 
 --- @author DemiAutomatic
@@ -245,17 +266,6 @@ local function inventoryUp()
 end
 
 --- @author DemiAutomatic
---- @method unavailable
---- @description Greys a row with a word beside it.
---- @param item {table}
---- @param key {string|nil}
---- @returns {table}
-local function unavailable(item, key)
-	item.disabled, item.value = true, locale(key or 'admin.menu.unavailable')
-	return item
-end
-
---- @author DemiAutomatic
 --- @method goFor
 --- @description A row to a picker, greyed when its final command is refused.
 --- @param id {string}
@@ -265,9 +275,7 @@ end
 --- @param name {string|nil}
 --- @returns {table}
 local function goFor(id, labelKey, screen, arg, name)
-	local item = go(id, labelKey, screen, arg)
-	if not permitted(name) then unavailable(item, 'admin.menu.denied') end
-	return item
+	return denied(go(id, labelKey, screen, arg), name)
 end
 
 --- @author DemiAutomatic
@@ -279,7 +287,17 @@ end
 local function placeholder(list, emptyKey)
 	local key = not list.loaded and 'admin.menu.loading' or list.error and 'admin.menu.inventoryError'
 		or emptyKey
-	return row('empty', locale(key), nil, { disabled = true })
+	return empty(key)
+end
+
+--- @author DemiAutomatic
+--- @method offline
+--- @description Greys a row still enabled while opx77_inventory is down.
+--- @param item {table}
+--- @returns {table}
+local function offline(item)
+	if not item.disabled and not inventoryUp() then unavailable(item) end
+	return item
 end
 
 --- @author DemiAutomatic
@@ -299,9 +317,9 @@ local function weaponRows(target, giveKey)
 		command('loadout', 'admin.menu.loadout', { 'opx77.admin.weapon.read', target }),
 	}
 	for _, item in ipairs(items) do
-		local relay = item.id == 'holster'
-		if not item.disabled and ((relay and not (session and session.weapons)) or
-			(not relay and not inventoryUp())) then
+		if item.id ~= 'holster' then
+			offline(item)
+		elseif not item.disabled and not (session and session.weapons) then
 			unavailable(item)
 		end
 	end
@@ -353,7 +371,7 @@ SCREENS.players = function()
 			{ text = ('[%d] %s'):format(entry.id, entry.name) }, 'player', entry.id, { value = value })
 	end
 	if #items == 0 then
-		items[1] = row('empty', locale('admin.menu.nobody'), nil, { disabled = true })
+		items[1] = empty('admin.menu.nobody')
 	end
 	return locale('admin.menu.players'), items
 end
@@ -496,8 +514,7 @@ SCREENS.vehicleClasses = function(target)
 				{ t = target, c = class.key }, { value = tostring(#class.members) })
 		end
 	end
-	if #items == 0 then items[1] = row('empty', locale('admin.menu.catalogEmpty'), nil,
-		{ disabled = true }) end
+	if #items == 0 then items[1] = empty('admin.menu.catalogEmpty') end
 	return titleFor('admin.menu.vehicles', target), items
 end
 
@@ -518,8 +535,7 @@ SCREENS.vehicleList = function(arg)
 				or { 'opx77.admin.vehicle.give', tostring(target), entry.name }
 			return command('entry_' .. entry.name, { text = entry.label }, tokens)
 		end)
-	if #items == 0 then items[1] = row('empty', locale('admin.menu.catalogEmpty'), nil,
-		{ disabled = true }) end
+	if #items == 0 then items[1] = empty('admin.menu.catalogEmpty') end
 	return title, items
 end
 
@@ -574,10 +590,8 @@ SCREENS.weaponList = function(arg)
 	local group = type(arg) == 'table' and byKey[arg.c] or nil
 	local title, items = paged(group and group.members or {}, 'weaponList',
 		type(arg) == 'table' and arg or {}, group and group.label or '?', function(entry)
-			local item = command('entry_' .. entry.name, { text = entry.label },
-				{ 'opx77.admin.weapon.give', target, entry.name })
-			if not item.disabled and not inventoryUp() then unavailable(item) end
-			return item
+			return offline(command('entry_' .. entry.name, { text = entry.label },
+				{ 'opx77.admin.weapon.give', target, entry.name }))
 		end)
 	if #items == 0 then items[1] = placeholder(catalog, 'admin.menu.catalogEmpty') end
 	return title, items
@@ -597,8 +611,7 @@ SCREENS.ammoList = function(target)
 				'opx77.admin.weapon.giveammo')
 			item.label = entry.label
 			item.description = entry.name
-			if not item.disabled and not inventoryUp() then unavailable(item) end
-			items[#items + 1] = item
+			items[#items + 1] = offline(item)
 		end
 	end
 	if #items == 0 then items[1] = placeholder(catalog, 'admin.menu.catalogEmpty') end
@@ -702,8 +715,7 @@ SCREENS.locations = function(target)
 		if not item.disabled and entry.runtime then item.value = locale('admin.menu.runtime') end
 		items[#items + 1] = item
 	end
-	if #items == 0 then items[1] = row('empty', locale('admin.menu.noLocations'), nil,
-		{ disabled = true }) end
+	if #items == 0 then items[1] = empty('admin.menu.noLocations') end
 	local title = target == 'me' and locale('admin.menu.teleport')
 		or ('%s: %s'):format(locale('admin.menu.send'), nameOf(target))
 	return title, items
@@ -722,8 +734,7 @@ SCREENS.saved = function()
 				{ 'opx77.admin.world.loc.remove', entry.name }, 'locations')
 		end
 	end
-	if #items == 0 then items[1] = row('empty', locale('admin.menu.noSaved'), nil,
-		{ disabled = true }) end
+	if #items == 0 then items[1] = empty('admin.menu.noSaved') end
 	return locale('admin.menu.saved'), items
 end
 
@@ -857,15 +868,15 @@ local function draw(inPlace)
 	local builder = SCREENS[current.screen]
 	if builder == nil then return end
 	local title, items = builder(current.arg)
-	if current.screen == 'confirm' then
-	elseif #stack > 1 then
+	if current.screen ~= 'confirm' then
 		items[#items + 1] = section()
-		items[#items + 1] = row('back', locale('admin.menu.back'), { back = true })
-	else
-		items[#items + 1] = section()
-		local key = Keys.Effective(KEY_MENU)
-		items[#items + 1] = { id = 'close', label = locale('admin.menu.close'), close = true,
-			description = key and locale('admin.menu.closeKey', { key = key }) or nil }
+		if #stack > 1 then
+			items[#items + 1] = row('back', locale('admin.menu.back'), { back = true })
+		else
+			local key = Keys.Effective(KEY_MENU)
+			items[#items + 1] = { id = 'close', label = locale('admin.menu.close'), close = true,
+				description = key and locale('admin.menu.closeKey', { key = key }) or nil }
+		end
 	end
 
 	drawn = drawn + 1
@@ -984,14 +995,21 @@ function OpxAdmin.Menu.Confirm(tokens, key)
 end
 
 --- @author DemiAutomatic
---- @method OpxAdmin.Menu.Suspend
---- @description Takes the menu down for a form, keeping the stack.
-function OpxAdmin.Menu.Suspend()
-	suspended = true
+--- @method takeDown
+--- @description Closes the open opx77_menu handle, if any, without waiting.
+local function takeDown()
 	if handle == nil then return end
 	local closing = handle
 	handle = nil
 	CreateThread(function() Client.Call(MENU, 'close', closing) end)
+end
+
+--- @author DemiAutomatic
+--- @method OpxAdmin.Menu.Suspend
+--- @description Takes the menu down for a form, keeping the stack.
+function OpxAdmin.Menu.Suspend()
+	suspended = true
+	takeDown()
 end
 
 --- @author DemiAutomatic
@@ -1012,10 +1030,7 @@ function OpxAdmin.Menu.Close()
 	stack = {}
 	suspended = false
 	Forms.Close()
-	if handle == nil then return end
-	local closing = handle
-	handle = nil
-	CreateThread(function() Client.Call(MENU, 'close', closing) end)
+	takeDown()
 end
 
 --- @author DemiAutomatic
