@@ -6,8 +6,8 @@ OpxAdmin = OpxAdmin or {}
 
 local Text = OpxAdmin.Text
 
-local Client = {}
-OpxAdmin.Client = Client
+OpxAdmin.Client = {}
+local Client = OpxAdmin.Client
 
 local RESOURCE = GetCurrentResourceName()
 Client.RESOURCE = RESOURCE
@@ -22,7 +22,7 @@ local QUEUE_ACK = 'queued by '
 --- dropped rather than propagated: a NaN would expire nothing, an infinity everything.
 local lastMs = 0
 ---@return integer
-function Client.nowMs()
+function OpxAdmin.Client.NowMs()
 	local read, seconds = pcall(Open77.time.monotonic)
 	if read and type(seconds) == 'number' and seconds == seconds and
 		seconds >= 0 and seconds < math.huge then
@@ -33,7 +33,7 @@ end
 
 ---@param resource string
 ---@return boolean
-function Client.running(resource)
+function OpxAdmin.Client.Running(resource)
 	local read, state = pcall(GetResourceState, resource)
 	return read and state == 'running'
 end
@@ -44,8 +44,8 @@ end
 ---@param resource string
 ---@param name string
 ---@return table|nil result, string|nil reason, boolean answered
-function Client.call(resource, name, ...)
-	if not Client.running(resource) then return nil, 'not_running', false end
+function OpxAdmin.Client.Call(resource, name, ...)
+	if not Client.Running(resource) then return nil, 'not_running', false end
 	if Open77.exports == nil then return nil, 'not_dispatched', false end
 	-- the wrapping stops here: `await` below yields, and a yield is not safe under a pcall
 	local dispatched, promise, reason = pcall(Open77.exports.call, resource, name, ...)
@@ -65,8 +65,8 @@ local reported = {}
 --- Whether a soft dependency is up; says so once when it is not.
 ---@param resource string
 ---@return boolean
-function Client.need(resource)
-	if Client.running(resource) then return true end
+function OpxAdmin.Client.Need(resource)
+	if Client.Running(resource) then return true end
 	if not reported[resource] then
 		reported[resource] = true
 		Open77.log.warn(('%s is not running; the staff menu cannot use it'):format(resource))
@@ -94,9 +94,9 @@ end
 --- a chat line when it does not or refuses the toast. Best-effort, never a dependency.
 ---@param kind string  info | success | warning | error
 ---@param message string
-function Client.notice(kind, message)
+function OpxAdmin.Client.Notice(kind, message)
 	CreateThread(function()
-		local _, failure = Client.call('opx77_notify', 'show', {
+		local _, failure = Client.Call('opx77_notify', 'show', {
 			-- one slot, replaced: staff clicking through a screen see the last answer, not a stack
 			id = 'opx77_admin', replace = true, type = kind,
 			title = locale('admin.toast.title'), message = message, durationMs = 5000,
@@ -111,12 +111,12 @@ function Client.notice(kind, message)
 	end)
 end
 
---- `Client.notice` from a catalogue key.
+--- `Client.Notice` from a catalogue key.
 ---@param key string
 ---@param params? table
 ---@param kind? string
-function Client.toast(key, params, kind)
-	Client.notice(kind or 'info', locale(key, params))
+function OpxAdmin.Client.Toast(key, params, kind)
+	Client.Notice(kind or 'info', locale(key, params))
 end
 
 -- ---------------------------------------------------------------------------
@@ -131,13 +131,13 @@ local awaiting = {}
 --- anything: it is the same door, used by a menu instead of a keyboard.
 ---@param tokens string[]
 ---@return boolean sent
-function Client.execute(tokens)
+function OpxAdmin.Client.Execute(tokens)
 	local clean = {}
 	for _, token in ipairs(type(tokens) == 'table' and tokens or {}) do
 		-- the transport refuses control characters and a token past 256 bytes outright
-		local word = Text.clean(token, 256)
+		local word = Text.Clean(token, 256)
 		if word then
-			for piece in word:gmatch('%S+') do clean[#clean + 1] = Text.bytes(piece, 256) end
+			for piece in word:gmatch('%S+') do clean[#clean + 1] = Text.Bytes(piece, 256) end
 		end
 	end
 	if #clean == 0 or #clean > 32 then return false end
@@ -146,7 +146,7 @@ function Client.execute(tokens)
 		Open77.log.warn(('command %s not sent: %s'):format(clean[1], tostring(reason)))
 		return false
 	end
-	awaiting[clean[1]:lower()] = Client.nowMs()
+	awaiting[clean[1]:lower()] = Client.NowMs()
 	return true
 end
 
@@ -159,9 +159,9 @@ end
 local function underList(raw, accepted, message)
 	local name = (raw:match('^/?(%S+)') or ''):lower()
 	local sentAt = awaiting[name]
-	if sentAt == nil or Client.nowMs() - sentAt > 15000 then return false end
+	if sentAt == nil or Client.NowMs() - sentAt > 15000 then return false end
 	local Menu = OpxAdmin.Menu
-	if Menu then Menu.status(message, accepted == true) end
+	if Menu then Menu.Status(message, accepted == true) end
 	return true
 end
 
@@ -181,7 +181,7 @@ RegisterNetEvent('open77:command:result', function(raw, accepted, message)
 		return
 	end
 	-- a speed the speed keys sent and the host refused: the strip's read-out goes back
-	if OpxAdmin.Controls then OpxAdmin.Controls.answered(raw, false) end
+	if OpxAdmin.Controls then OpxAdmin.Controls.Answered(raw, false) end
 	local name = raw:match('^/?(%S+)') or raw
 	if message == 'unknown_command' then
 		message = locale('admin.client.unknownCommand', { command = name })
@@ -199,11 +199,11 @@ RegisterNetEvent('opx77_admin:answer', function(raw, accepted, message, kind)
 	underList(raw, accepted == true, message)
 	if kind == 'report' then return chatLine('info', message) end
 	-- a speed the speed keys chose: the strip already shows it, and a toast per press is noise
-	if OpxAdmin.Controls and OpxAdmin.Controls.answered(raw, accepted == true) then return end
+	if OpxAdmin.Controls and OpxAdmin.Controls.Answered(raw, accepted == true) then return end
 	if kind ~= 'info' and kind ~= 'success' and kind ~= 'warning' and kind ~= 'error' then
 		kind = accepted == true and 'success' or 'error'
 	end
-	Client.notice(kind, message)
+	Client.Notice(kind, message)
 end)
 
 -- ---------------------------------------------------------------------------
@@ -230,7 +230,7 @@ local function applyTravel(name, value)
 	local native = travelNative(name)
 	if native == nil then
 		Open77.log.warn(('Open77.travel.%s is not in this client build'):format(name))
-		Client.toast('admin.client.travelMissing', nil, 'error')
+		Client.Toast('admin.client.travelMissing', nil, 'error')
 		return false
 	end
 	local ok, reason = native(value)
@@ -245,17 +245,17 @@ RegisterNetEvent('opx77_admin:travel', function(action, value)
 	local Controls = OpxAdmin.Controls
 	if action == 'noclip' then
 		if applyTravel('setNoclip', value == true) then noclipOn = value == true end
-		if Controls then Controls.noclip(noclipOn) end
+		if Controls then Controls.Noclip(noclipOn) end
 	elseif action == 'speed' then
-		local speed = Text.finite(value)
+		local speed = Text.Finite(value)
 		if speed and speed >= 0.1 and speed <= 500 and applyTravel('setNoclipSpeed', speed)
 			and Controls then
-			Controls.speed(speed)
+			Controls.Speed(speed)
 		end
 	elseif action == 'mapPick' then
 		mapArmed = value == true and applyTravel('setMapPick', true)
 		if value ~= true then applyTravel('setMapPick', false) end
-		if Controls then Controls.mapPick(mapArmed) end
+		if Controls then Controls.MapPick(mapArmed) end
 	elseif action == 'copy' then
 		if type(value) ~= 'string' or #value > 160 or not value:match('^{ NAME = ') then return end
 		local clipboard = Open77.clipboard
@@ -269,9 +269,9 @@ end)
 --- goes back as a command line, so the ACL is resolved again on every jump.
 AddEventHandler('open77:map:picked', function(x, y, z)
 	if not mapArmed then return end
-	x, y, z = Text.finite(x), Text.finite(y), Text.finite(z)
+	x, y, z = Text.Finite(x), Text.Finite(y), Text.Finite(z)
 	if x == nil or y == nil or z == nil then return end
-	Client.execute({ 'opx77.admin.self.maptravel', ('%.3f'):format(x), ('%.3f'):format(y),
+	Client.Execute({ 'opx77.admin.self.maptravel', ('%.3f'):format(x), ('%.3f'):format(y),
 		('%.3f'):format(z) })
 end)
 

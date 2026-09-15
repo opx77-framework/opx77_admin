@@ -4,8 +4,8 @@
 
 OpxAdmin = OpxAdmin or {}
 
-local Keys = {}
-OpxAdmin.Keys = Keys
+OpxAdmin.Keys = {}
+local Keys = OpxAdmin.Keys
 
 --- id -> the key the host answered at registration. Absent: switched off, or refused.
 ---@type table<string, string>
@@ -19,7 +19,7 @@ local listeners = {}
 ---@param value any
 ---@param default string
 ---@return string|false
-function Keys.setting(path, value, default)
+function OpxAdmin.Keys.Setting(path, value, default)
 	if value == false then return false end
 	if value == nil then return default end
 	if type(value) == 'string' and #value > 0 and #value <= 32 and not value:find('[%s%c]') then
@@ -46,7 +46,7 @@ end
 ---@param onPressed fun()
 ---@param onReleased? fun()  makes it a hold mapping: the host calls this on key-up
 ---@return boolean registered
-function Keys.register(id, nameKey, key, onPressed, onReleased)
+function OpxAdmin.Keys.Register(id, nameKey, key, onPressed, onReleased)
 	if key == false then return false end
 	if type(RegisterKeyMapping) ~= 'function' then
 		Open77.log.warn(('key mapping %s not registered: this client build has no ' ..
@@ -87,7 +87,7 @@ end
 --- refused, so a hint that has no key to name says nothing.
 ---@param id string
 ---@return string|nil
-function Keys.effective(id)
+function OpxAdmin.Keys.Effective(id)
 	local known = registered[id]
 	if known == nil then return nil end
 	local input = Open77.input
@@ -100,7 +100,7 @@ end
 
 --- Run `listener` whenever a player rebinds or resets a mapping, so a hint on screen follows.
 ---@param listener fun()
-function Keys.onChanged(listener)
+function OpxAdmin.Keys.OnChanged(listener)
 	listeners[#listeners + 1] = listener
 end
 

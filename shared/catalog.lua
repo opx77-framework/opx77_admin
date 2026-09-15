@@ -7,10 +7,10 @@ OpxAdmin = OpxAdmin or {}
 
 local Text = OpxAdmin.Text
 
-local Catalog = {
+OpxAdmin.Catalog = {
 	problems = {},
 }
-OpxAdmin.Catalog = Catalog
+local Catalog = OpxAdmin.Catalog
 
 ---@param line string
 local function problem(line)
@@ -31,11 +31,11 @@ do
 		problem('data/vehicles.lua: CLASSES must be a table')
 	else
 		for position, row in ipairs(source.CLASSES) do
-			local key = type(row) == 'table' and Text.slug(row.KEY) or nil
+			local key = type(row) == 'table' and Text.Slug(row.KEY) or nil
 			if key == nil or vehicleClassIndex[key] ~= nil then
 				problem(('data/vehicles.lua: class #%d needs a unique KEY'):format(position))
 			else
-				local class = { key = key, label = Text.clean(row.LABEL, 48) or key, members = {} }
+				local class = { key = key, label = Text.Clean(row.LABEL, 48) or key, members = {} }
 				vehicleClasses[#vehicleClasses + 1] = class
 				vehicleClassIndex[key] = class
 			end
@@ -59,11 +59,11 @@ local nextRow = 1
 
 --- Index the next `count` rows into their classes and the lookups by name and by record.
 ---@param count integer
-function Catalog.indexVehicles(count)
+function OpxAdmin.Catalog.IndexVehicles(count)
 	local last = math.min(#vehicleRows, nextRow + count - 1)
 	for position = nextRow, last do
 		local row = vehicleRows[position]
-		local name = type(row) == 'table' and Text.slug(row.NAME) or nil
+		local name = type(row) == 'table' and Text.Slug(row.NAME) or nil
 		local record = type(row) == 'table' and type(row.RECORD) == 'string'
 			and row.RECORD:match('^[%w_%.]+$') and row.RECORD or nil
 		local class = type(row) == 'table' and vehicleClassIndex[tostring(row.CLASS or '')] or nil
@@ -79,7 +79,7 @@ function Catalog.indexVehicles(count)
 		else
 			local entry = {
 				name = name,
-				label = Text.clean(row.LABEL, 48) or name,
+				label = Text.Clean(row.LABEL, 48) or name,
 				record = record,
 				class = class.key,
 			}
@@ -92,13 +92,13 @@ function Catalog.indexVehicles(count)
 end
 
 --- The last part: whatever is left, so a missing part costs load time, never a vehicle.
-function Catalog.finishVehicles()
+function OpxAdmin.Catalog.FinishVehicles()
 	local left = #vehicleRows - nextRow + 1
 	if left > PART then
 		problem(('data/vehicles.lua: %d rows were left to the last catalogue part; add a ' ..
 			'shared/catalog-<n>.lua part to open77.lua for every %d rows past it'):format(left, PART))
 	end
-	Catalog.indexVehicles(left)
+	Catalog.IndexVehicles(left)
 end
 
 Catalog.PART = PART
@@ -114,11 +114,11 @@ do
 		problem('data/weapons.lua: CLASSES must be a table')
 	else
 		for position, row in ipairs(source.CLASSES) do
-			local key = type(row) == 'table' and Text.slug(row.KEY) or nil
+			local key = type(row) == 'table' and Text.Slug(row.KEY) or nil
 			if key == nil or weaponClassIndex[key] ~= nil then
 				problem(('data/weapons.lua: class #%d needs a unique KEY'):format(position))
 			else
-				local class = { key = key, label = Text.clean(row.LABEL, 48) or key }
+				local class = { key = key, label = Text.Clean(row.LABEL, 48) or key }
 				weaponClasses[#weaponClasses + 1] = class
 				weaponClassIndex[key] = class
 			end
@@ -132,7 +132,7 @@ Catalog.weaponClasses = weaponClasses
 --- A vehicle row by the name staff type or by its exact record, without case.
 ---@param token any
 ---@return CatalogEntry|nil
-function Catalog.vehicle(token)
+function OpxAdmin.Catalog.Vehicle(token)
 	if type(token) ~= 'string' then return nil end
 	local lowered = token:lower()
 	return vehiclesByName[lowered] or vehiclesByRecord[lowered]

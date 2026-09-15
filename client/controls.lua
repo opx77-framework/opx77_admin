@@ -13,8 +13,8 @@ local Client = OpxAdmin.Client
 local Keys = OpxAdmin.Keys
 local Text = OpxAdmin.Text
 
-local Controls = {}
-OpxAdmin.Controls = Controls
+OpxAdmin.Controls = {}
+local Controls = OpxAdmin.Controls
 
 local PROMPTS = 'opx77_prompts'
 local SPEED_COMMAND = 'opx77.admin.self.speed'
@@ -58,7 +58,7 @@ local rate = type(Config.RATE) == 'table' and Config.RATE or {}
 ---@return number
 local function bounded(path, value, low, high, default)
 	if value == nil then return default end
-	local number = Text.finite(value)
+	local number = Text.Finite(value)
 	if number ~= nil and number >= low and number <= high then return number end
 	Open77.log.warn(('config: %s must be a number in %s..%s; using %s'):format(path, low, high,
 		default))
@@ -181,7 +181,7 @@ local promptsReported = false
 ---@return boolean
 local function promptsUp()
 	if not SHOW_PROMPTS then return false end
-	if Client.running(PROMPTS) then return true end
+	if Client.Running(PROMPTS) then return true end
 	if not promptsReported then
 		promptsReported = true
 		Open77.log.info(PROMPTS .. ' is not running; the travel controls are not drawn')
@@ -196,15 +196,15 @@ local function noclipSpec()
 		{ keys = { 'SPACE', 'CTRL' }, label = locale('admin.prompt.upDown') },
 	}
 	local speedKeys = {}
-	if Keys.effective(KEY_FASTER) then speedKeys[#speedKeys + 1] = { mapping = KEY_FASTER } end
-	if Keys.effective(KEY_SLOWER) then speedKeys[#speedKeys + 1] = { mapping = KEY_SLOWER } end
+	if Keys.Effective(KEY_FASTER) then speedKeys[#speedKeys + 1] = { mapping = KEY_FASTER } end
+	if Keys.Effective(KEY_SLOWER) then speedKeys[#speedKeys + 1] = { mapping = KEY_SLOWER } end
 	if #speedKeys > 0 then
 		rows[#rows + 1] = { id = 'speed', keys = speedKeys, label = locale('admin.prompt.speed'),
 			value = locale('admin.prompt.speedValue', { speed = format(current()) }) }
 	end
 	rows[#rows + 1] = { keys = 'SHIFT', hold = true, label = locale('admin.prompt.fast') }
 	rows[#rows + 1] = { keys = 'ALT', hold = true, label = locale('admin.prompt.slow') }
-	if Keys.effective(KEY_MENU) then
+	if Keys.Effective(KEY_MENU) then
 		rows[#rows + 1] = { keys = { mapping = KEY_MENU }, label = locale('admin.prompt.off') }
 	end
 	return { title = locale('admin.prompt.noclip'), priority = NOCLIP_PRIORITY, rows = rows }
@@ -225,8 +225,8 @@ local function sync()
 	local wantMap = mapOn and body
 	-- which rows exist hangs on which keys are registered; the keys' names are opx77_prompts'
 	local signature = wantNoclip and table.concat({ format(current()),
-		tostring(Keys.effective(KEY_FASTER) ~= nil), tostring(Keys.effective(KEY_SLOWER) ~= nil),
-		tostring(Keys.effective(KEY_MENU) ~= nil) }, '|') or nil
+		tostring(Keys.Effective(KEY_FASTER) ~= nil), tostring(Keys.Effective(KEY_SLOWER) ~= nil),
+		tostring(Keys.Effective(KEY_MENU) ~= nil) }, '|') or nil
 	if signature == shownNoclip and wantMap == shownMap then return end
 	if not promptsUp() then
 		shownNoclip, shownMap = nil, false
@@ -243,9 +243,9 @@ local function sync()
 		if noclipChanged then
 			local _, failure
 			if spec == nil then
-				_, failure = Client.call(PROMPTS, 'hide', GROUP_NOCLIP)
+				_, failure = Client.Call(PROMPTS, 'hide', GROUP_NOCLIP)
 			else
-				_, failure = Client.call(PROMPTS, 'show', GROUP_NOCLIP, spec)
+				_, failure = Client.Call(PROMPTS, 'show', GROUP_NOCLIP, spec)
 			end
 			if failure and not promptsReported then
 				promptsReported = true
@@ -254,9 +254,9 @@ local function sync()
 		end
 		if mapChanged then
 			if wantMap then
-				Client.call(PROMPTS, 'show', GROUP_MAP, mapSpec())
+				Client.Call(PROMPTS, 'show', GROUP_MAP, mapSpec())
 			else
-				Client.call(PROMPTS, 'hide', GROUP_MAP)
+				Client.Call(PROMPTS, 'hide', GROUP_MAP)
 			end
 		end
 	end)
@@ -269,7 +269,7 @@ end
 ---@param direction integer
 local function step(direction)
 	local nextSpeed = stepped(current(), direction)
-	lastStepMs = Client.nowMs()
+	lastStepMs = Client.NowMs()
 	if nextSpeed == current() then return end
 	wanted = nextSpeed
 	sync()
@@ -285,7 +285,7 @@ local function flush(atMs)
 	if sent ~= nil and math.abs(wanted - sent) < 0.001 and atMs - sentAtMs < ANSWER_WINDOW_MS then
 		return -- on its way already
 	end
-	if Client.execute({ SPEED_COMMAND, format(wanted) }) then
+	if Client.Execute({ SPEED_COMMAND, format(wanted) }) then
 		sent, sentAtMs = wanted, atMs
 	else
 		wanted = nil
@@ -294,7 +294,7 @@ local function flush(atMs)
 end
 
 local function tick()
-	local atMs = Client.nowMs()
+	local atMs = Client.NowMs()
 	if noclipOn and not nativeNoclip() then
 		-- Switched off under us, by another resource, a death or the native itself. Several reads
 		-- and a settle time first: the native may not report a switch the same frame it took it.
@@ -332,7 +332,7 @@ end
 local function pressed(direction)
 	if not noclipOn then return end
 	held = direction
-	nextRepeatMs = Client.nowMs() + REPEAT_DELAY_MS
+	nextRepeatMs = Client.NowMs() + REPEAT_DELAY_MS
 	step(direction)
 	startTicking()
 end
@@ -348,9 +348,9 @@ end
 
 --- Noclip was switched on or off by a server command, and the native took it.
 ---@param on boolean
-function Controls.noclip(on)
+function OpxAdmin.Controls.Noclip(on)
 	noclipOn = on == true
-	noclipSinceMs, offReads = Client.nowMs(), 0
+	noclipSinceMs, offReads = Client.NowMs(), 0
 	if not noclipOn then held, wanted = 0, nil end
 	sync()
 	if noclipOn then startTicking() end
@@ -358,7 +358,7 @@ end
 
 --- Map travel was armed or disarmed.
 ---@param on boolean
-function Controls.mapPick(on)
+function OpxAdmin.Controls.MapPick(on)
 	mapOn = on == true
 	sync()
 	if mapOn then startTicking() end
@@ -366,7 +366,7 @@ end
 
 --- The server applied a speed.
 ---@param speed number
-function Controls.speed(speed)
+function OpxAdmin.Controls.Speed(speed)
 	applied = speed
 	-- `sent` stays: the command's answer is sent after this push, and is matched against it
 	if wanted ~= nil and math.abs(wanted - speed) < 0.001 then wanted = nil end
@@ -379,10 +379,10 @@ end
 ---@param raw string
 ---@param accepted boolean
 ---@return boolean quiet
-function Controls.answered(raw, accepted)
+function OpxAdmin.Controls.Answered(raw, accepted)
 	local name = (raw:match('^/?(%S+)') or ''):lower()
 	if name ~= SPEED_COMMAND or sent == nil then return false end
-	if Client.nowMs() - sentAtMs > ANSWER_WINDOW_MS then return false end
+	if Client.NowMs() - sentAtMs > ANSWER_WINDOW_MS then return false end
 	if accepted then return true end
 	sent, wanted = nil, nil
 	sync()
@@ -402,11 +402,11 @@ AddEventHandler('onClientResourceStart', function(name)
 	end
 	if name ~= Client.RESOURCE then return end
 	local keys = type(Config.KEYS) == 'table' and Config.KEYS or {}
-	Keys.register(KEY_FASTER, 'admin.key.speedUp',
-		Keys.setting('KEYS.SPEED_UP', keys.SPEED_UP, 'PAGEUP'),
+	Keys.Register(KEY_FASTER, 'admin.key.speedUp',
+		Keys.Setting('KEYS.SPEED_UP', keys.SPEED_UP, 'PAGEUP'),
 		function() pressed(1) end, function() released(1) end)
-	Keys.register(KEY_SLOWER, 'admin.key.speedDown',
-		Keys.setting('KEYS.SPEED_DOWN', keys.SPEED_DOWN, 'PAGEDOWN'),
+	Keys.Register(KEY_SLOWER, 'admin.key.speedDown',
+		Keys.Setting('KEYS.SPEED_DOWN', keys.SPEED_DOWN, 'PAGEDOWN'),
 		function() pressed(-1) end, function() released(-1) end)
 end)
 
@@ -419,4 +419,4 @@ end)
 
 -- a rebind changes the keys the strip names; opx77_prompts follows it, but a speed key switched
 -- on or off is a different set of rows
-Keys.onChanged(sync)
+Keys.OnChanged(sync)

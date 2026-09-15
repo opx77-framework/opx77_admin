@@ -24,7 +24,7 @@ local lastRefresh = {}
 ---@return string[]
 local function menuCommands()
 	local names = {}
-	for _, command in ipairs(Server.commands()) do names[#names + 1] = command.name end
+	for _, command in ipairs(Server.Commands()) do names[#names + 1] = command.name end
 	for _, name in pairs(type(Config.LINKS) == 'table' and Config.LINKS or {}) do
 		if type(name) == 'string' and name ~= '' then names[#names + 1] = name end
 	end
@@ -38,7 +38,7 @@ end
 local function accessOf(playerId)
 	local access, known = {}, true
 	for _, name in ipairs(menuCommands()) do
-		local allowed = Server.permitted(playerId, name)
+		local allowed = Server.Permitted(playerId, name)
 		if allowed == nil then known = false end
 		-- only the grants travel: a false costs two value nodes and says nothing a nil does not
 		if allowed == true then access[name] = true end
@@ -68,10 +68,10 @@ end
 
 ---@param playerId integer
 local function pushRoster(playerId)
-	local origin = Server.positionOf(playerId)
+	local origin = Server.PositionOf(playerId)
 	local rows = {}
-	for _, id in ipairs(Server.playerIds()) do
-		local row = Server.rosterRow(id, origin)
+	for _, id in ipairs(Server.PlayerIds()) do
+		local row = Server.RosterRow(id, origin)
 		if row then rows[#rows + 1] = row end
 	end
 	pushChunks(playerId, 'opx77_admin:roster', rows)
@@ -80,7 +80,7 @@ end
 ---@param playerId integer
 local function pushLocations(playerId)
 	local rows = {}
-	for _, row in ipairs(Server.locations()) do
+	for _, row in ipairs(Server.Locations()) do
 		rows[#rows + 1] = { name = row.name, label = row.label, runtime = row.runtime }
 	end
 	TriggerClientEvent('opx77_admin:locations', playerId, { rows = rows })
@@ -90,7 +90,7 @@ end
 --- item's full load, the count its form starts at. Coroutine only.
 ---@param playerId integer
 local function pushItems(playerId)
-	local catalog, code = Inventory.catalog()
+	local catalog, code = Inventory.Catalog()
 	local rows = {}
 	for _, entry in ipairs(catalog and catalog.items or {}) do
 		rows[#rows + 1] = { name = entry.name, label = entry.label, category = entry.category,
@@ -103,19 +103,19 @@ end
 ---@param playerId integer
 ---@param token string
 local function pushBag(playerId, token)
-	local target, _, _, targetCode = Inventory.target(playerId, token)
+	local target, _, _, targetCode = Inventory.Target(playerId, token)
 	local bag, code
-	if target ~= nil then bag, code = Inventory.bag(target) end
-	local catalog = bag and Inventory.catalog() or nil
+	if target ~= nil then bag, code = Inventory.Bag(target) end
+	local catalog = bag and Inventory.Catalog() or nil
 	local rows = {}
 	for _, row in ipairs(bag and bag.items or {}) do
 		rows[#rows + 1] = { slot = row.slot, name = row.name, count = row.count,
-			label = Inventory.labelOf(catalog, row.name) }
+			label = Inventory.LabelOf(catalog, row.name) }
 	end
 	pushChunks(playerId, 'opx77_admin:bag', rows, { target = token, error = targetCode or code })
 end
 
-Server.command(OPENER, {
+Server.Command(OPENER, {
 	help = 'admin.help.menu', inGame = true, read = true,
 	handler = function(source)
 		local access, known = accessOf(source)
@@ -123,12 +123,12 @@ Server.command(OPENER, {
 			you = source,
 			access = access,
 			aclKnown = known,
-			weapons = Server.weaponsAvailable(),
-			inventory = Inventory.running(),
+			weapons = Server.WeaponsAvailable(),
+			inventory = Inventory.Running(),
 		})
 		pushRoster(source)
 		pushLocations(source)
-		if Inventory.running() then CreateThread(function() pushItems(source) end) end
+		if Inventory.Running() then CreateThread(function() pushItems(source) end) end
 		-- no command result: the menu opening is the answer, and a chat line per open is noise
 	end,
 })
@@ -145,15 +145,15 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 	end
 	if topic == 'bag' and (type(arg) ~= 'string' or #arg > 32) then return end
 
-	local atMs = Server.nowMs()
+	local atMs = Server.NowMs()
 	local slot = player .. ':' .. topic
-	local floor = Server.setting((Config.RATE or {}).REFRESH_MS, 750)
+	local floor = Server.Setting((Config.RATE or {}).REFRESH_MS, 750)
 	if lastRefresh[slot] ~= nil and atMs - lastRefresh[slot] < floor then return end
 	lastRefresh[slot] = atMs
 
 	-- fails closed: without an ACL reader there is no way to tell staff from anybody else here,
 	-- and the opener command itself still works to refresh everything
-	if Server.permitted(player, OPENER) ~= true then return end
+	if Server.Permitted(player, OPENER) ~= true then return end
 
 	if topic == 'roster' then
 		pushRoster(player)
@@ -162,15 +162,15 @@ RegisterNetEvent('opx77_admin:refresh', function(topic, arg)
 	elseif topic == 'items' then
 		CreateThread(function() pushItems(player) end)
 	elseif topic == 'bag' then
-		if Server.permitted(player, 'opx77.admin.inventory.view') ~= true and
-			Server.permitted(player, 'opx77.admin.inventory.remove') ~= true then
+		if Server.Permitted(player, 'opx77.admin.inventory.view') ~= true and
+			Server.Permitted(player, 'opx77.admin.inventory.remove') ~= true then
 			return
 		end
 		CreateThread(function() pushBag(player, arg) end)
 	else
 		local access, known = accessOf(player)
 		TriggerClientEvent('opx77_admin:access', player, { access = access, aclKnown = known,
-			inventory = Inventory.running() })
+			inventory = Inventory.Running() })
 	end
 end)
 
@@ -182,6 +182,6 @@ AddEventHandler('onPlayerDisconnected', function(playerId)
 end)
 
 local names = {}
-for _, command in ipairs(Server.commands()) do names[#names + 1] = command.name end
+for _, command in ipairs(Server.Commands()) do names[#names + 1] = command.name end
 Open77.log.info(('ready -- %d restricted commands; grant command.%s to open the menu')
 	:format(#names, OPENER))

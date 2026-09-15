@@ -16,7 +16,7 @@ local Server = OpxAdmin.Server
 local Inventory = OpxAdmin.Inventory
 local Text = OpxAdmin.Text
 
-local answer, refuse, audit, tell = Server.answer, Server.refuse, Server.audit, Server.tell
+local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
 
 --- tostring(requestId) -> the holster a completion answers.
 local pending = {}
@@ -38,7 +38,7 @@ end
 ---@return integer|false|nil
 local function typedCount(token, least)
 	if token == nil then return nil end
-	local count = Text.integer(token)
+	local count = Text.Integer(token)
 	if count == nil or count < least or count > Inventory.MAX_COUNT then return false end
 	return count
 end
@@ -59,9 +59,9 @@ end
 ---@param token any
 ---@return table|nil ammo, string|nil code, table|nil weapon
 local function ammoFor(catalog, token)
-	local item = Inventory.item(catalog, token)
+	local item = Inventory.Item(catalog, token)
 	if item and item.ammoMax then return item, nil, nil end
-	local weapon = Inventory.weapon(catalog, token)
+	local weapon = Inventory.Weapon(catalog, token)
 	if weapon == nil then return nil, 'unknown_ammo', nil end
 	local ammo = ammoOf(catalog, weapon)
 	if ammo == nil then return nil, 'melee_no_ammo', weapon end
@@ -105,7 +105,7 @@ end)
 CreateThread(function()
 	while true do
 		Wait(10000)
-		local atMs = Server.nowMs()
+		local atMs = Server.NowMs()
 		for key, step in pairs(pending) do
 			if atMs - (step.atMs or atMs) > PENDING_MS then pending[key] = nil end
 		end
@@ -121,12 +121,12 @@ local TARGET = { name = 'playerId|me|citizenId', help = 'admin.help.holder' }
 --- The refusals that need no call, answered before a thread is started.
 ---@return integer|string|nil target, string|nil who, integer|nil playerId
 local function resolve(source, raw, token)
-	local target, who, playerId, code = Inventory.target(source, token)
+	local target, who, playerId, code = Inventory.Target(source, token)
 	if target == nil then
 		refuse(source, raw, code)
 		return nil
 	end
-	if not Inventory.running() then
+	if not Inventory.Running() then
 		refuse(source, raw, 'inventory_unavailable')
 		return nil
 	end
@@ -140,9 +140,9 @@ end
 local function giveWithAmmo(source, raw, event, target, who, playerId, entry, ammo, count)
 	local both = locale('admin.inventory.pair', { label = entry.label, count = count,
 		ammo = ammo.label })
-	local bag, bagCode, bagReason = Inventory.bag(target)
+	local bag, bagCode, bagReason = Inventory.Bag(target)
 	if not bag then
-		Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
+		Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 		return false
 	end
 	local weight = bag.weight + (entry.weight or 0) + (ammo.weight or 0) * count
@@ -159,31 +159,31 @@ local function giveWithAmmo(source, raw, event, target, who, playerId, entry, am
 		code, reason = 'bag_no_room', 'no_room'
 	else
 		local carried
-		carried, code, reason = Inventory.carry(target, entry.name, 1, { ammo = 0 })
-		if carried then carried, code, reason = Inventory.carry(target, ammo.name, count) end
+		carried, code, reason = Inventory.Carry(target, entry.name, 1, { ammo = 0 })
+		if carried then carried, code, reason = Inventory.Carry(target, ammo.name, count) end
 		if carried then code = nil end
 	end
 	if code then
-		Inventory.fail(source, raw, event, playerId, who, code, reason, { item = both })
+		Inventory.Fail(source, raw, event, playerId, who, code, reason, { item = both })
 		return false
 	end
 
 	local before = serialsOf(bag, entry.name)
-	local added, addCode, addReason = Inventory.call('AddItem', target, entry.name, 1, { ammo = 0 })
+	local added, addCode, addReason = Inventory.Call('AddItem', target, entry.name, 1, { ammo = 0 })
 	if not added then
-		Inventory.fail(source, raw, event, playerId, who, addCode, addReason, { item = entry.label })
+		Inventory.Fail(source, raw, event, playerId, who, addCode, addReason, { item = entry.label })
 		return false
 	end
-	added, addCode, addReason = Inventory.call('AddItem', target, ammo.name, count)
+	added, addCode, addReason = Inventory.Call('AddItem', target, ammo.name, count)
 	if added then return true end
 
 	-- the inventory decides last: the weapon goes back out, so nothing is given
-	local after = Inventory.bag(target)
+	local after = Inventory.Bag(target)
 	local taken
 	for _, row in ipairs(after and after.items or {}) do
 		local serial = row.name == entry.name and type(row.metadata) == 'table' and row.metadata.serial
 		if taken == nil and type(serial) == 'string' and not before[serial] then
-			taken = Inventory.call('RemoveItem', target, entry.name, 1, row.metadata) and serial or false
+			taken = Inventory.Call('RemoveItem', target, entry.name, 1, row.metadata) and serial or false
 		end
 	end
 	if not taken then
@@ -195,17 +195,17 @@ local function giveWithAmmo(source, raw, event, target, who, playerId, entry, am
 	end
 	audit(source, event, false, playerId, ('%s taken back from %s: its ammunition was refused')
 		:format(taken, who))
-	Inventory.fail(source, raw, event, playerId, who, addCode, addReason, { item = both })
+	Inventory.Fail(source, raw, event, playerId, who, addCode, addReason, { item = both })
 	return false
 end
 
-Server.command('opx77.admin.weapon.give', {
+Server.Command('opx77.admin.weapon.give', {
 	help = 'admin.help.giveWeapon',
 	params = { TARGET,
 		{ name = 'weapon', help = 'admin.help.weaponName' },
 		{ name = 'ammo', help = 'admin.help.giveAmmoCount', optional = true } },
 	handler = function(source, args, raw)
-		if Text.clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
+		if Text.Clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
 		local count = typedCount(args[3], 0)
 		if count == false then
 			return refuse(source, raw, 'bad_count', { max = Inventory.MAX_COUNT })
@@ -215,22 +215,22 @@ Server.command('opx77.admin.weapon.give', {
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.give'
-			local catalog, code, reason = Inventory.catalog()
-			if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
-			local entry = Inventory.weapon(catalog, args[2])
+			local catalog, code, reason = Inventory.Catalog()
+			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
+			local entry = Inventory.Weapon(catalog, args[2])
 			if entry == nil then
-				return Inventory.fail(source, raw, event, playerId, who, 'unknown_weapon',
-					Text.clean(args[2], 48))
+				return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon',
+					Text.Clean(args[2], 48))
 			end
 			local ammo = ammoOf(catalog, entry)
 			if count > 0 and ammo == nil then
-				return Inventory.fail(source, raw, event, playerId, who, 'melee_no_ammo', entry.name,
+				return Inventory.Fail(source, raw, event, playerId, who, 'melee_no_ammo', entry.name,
 					{ label = entry.label })
 			end
 
 			-- empty: rounds come from ammunition items the player spends on it, never with the weapon
 			if count == 0 then
-				if not Inventory.give(source, raw, event, target, who, playerId, entry.name, 1,
+				if not Inventory.Give(source, raw, event, target, who, playerId, entry.name, 1,
 					ammo and { ammo = 0 } or nil, entry.label) then
 					return
 				end
@@ -254,13 +254,13 @@ Server.command('opx77.admin.weapon.give', {
 	end,
 })
 
-Server.command('opx77.admin.weapon.giveammo', {
+Server.Command('opx77.admin.weapon.giveammo', {
 	help = 'admin.help.giveAmmo',
 	params = { TARGET,
 		{ name = 'weapon|ammo', help = 'admin.help.ammoName' },
 		{ name = 'count', help = 'admin.help.ammoCount', optional = true } },
 	handler = function(source, args, raw)
-		if Text.clean(args[2], 48) == nil then
+		if Text.Clean(args[2], 48) == nil then
 			return refuse(source, raw, 'unknown_ammo', { item = '?' })
 		end
 		local typed = typedCount(args[3], 1)
@@ -271,16 +271,16 @@ Server.command('opx77.admin.weapon.giveammo', {
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.giveammo'
-			local catalog, code, reason = Inventory.catalog()
-			if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
+			local catalog, code, reason = Inventory.Catalog()
+			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
 			local ammo, ammoCode, weapon = ammoFor(catalog, args[2])
 			if ammo == nil then
-				return Inventory.fail(source, raw, event, playerId, who, ammoCode, Text.clean(args[2], 48),
-					{ item = Text.clean(args[2], 48), label = weapon and weapon.label })
+				return Inventory.Fail(source, raw, event, playerId, who, ammoCode, Text.Clean(args[2], 48),
+					{ item = Text.Clean(args[2], 48), label = weapon and weapon.label })
 			end
 			-- one full load of that ammunition when no count is typed
 			local count = typed or ammo.ammoMax
-			if not Inventory.give(source, raw, event, target, who, playerId, ammo.name, count, nil,
+			if not Inventory.Give(source, raw, event, target, who, playerId, ammo.name, count, nil,
 				ammo.label) then
 				return
 			end
@@ -294,7 +294,7 @@ Server.command('opx77.admin.weapon.giveammo', {
 	end,
 })
 
-Server.command('opx77.admin.weapon.ammo', {
+Server.Command('opx77.admin.weapon.ammo', {
 	help = 'admin.help.ammo',
 	params = { TARGET,
 		{ name = 'weapon|all', help = 'admin.help.weaponOrAllOptional', optional = true },
@@ -309,19 +309,19 @@ Server.command('opx77.admin.weapon.ammo', {
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.ammo'
-			local catalog, code, reason = Inventory.catalog()
-			if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
+			local catalog, code, reason = Inventory.Catalog()
+			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
 			local only
 			if not all then
-				only = Inventory.weapon(catalog, args[2])
+				only = Inventory.Weapon(catalog, args[2])
 				if only == nil then
-					return Inventory.fail(source, raw, event, playerId, who, 'unknown_weapon',
-						Text.clean(args[2], 48))
+					return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon',
+						Text.Clean(args[2], 48))
 				end
 			end
-			local bag, bagCode, bagReason = Inventory.bag(target)
+			local bag, bagCode, bagReason = Inventory.Bag(target)
 			if not bag then
-				return Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
+				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 			end
 
 			-- one ammunition type once, however many weapons of the bag it loads
@@ -342,7 +342,7 @@ Server.command('opx77.admin.weapon.ammo', {
 			local given, failure = {}, nil
 			for _, ammo in ipairs(types) do
 				local count = typed or ammo.ammoMax
-				local added, addCode, addReason = Inventory.add(target, ammo.name, count)
+				local added, addCode, addReason = Inventory.Add(target, ammo.name, count)
 				if added then
 					given[#given + 1] = ('%dx %s'):format(count, ammo.label)
 					audit(source, event, true, playerId, ('%dx %s to %s'):format(count, ammo.name, who))
@@ -358,37 +358,37 @@ Server.command('opx77.admin.weapon.ammo', {
 					who = who })
 			end
 			if failure then
-				Inventory.fail(source, raw, event, playerId, who, failure.code, failure.reason,
+				Inventory.Fail(source, raw, event, playerId, who, failure.code, failure.reason,
 					{ item = failure.label })
 			end
 		end)
 	end,
 })
 
-Server.command('opx77.admin.weapon.remove', {
+Server.Command('opx77.admin.weapon.remove', {
 	help = 'admin.help.removeWeapon',
 	params = { TARGET, { name = 'weapon|all', help = 'admin.help.weaponOrAll' } },
 	handler = function(source, args, raw)
 		-- no default: taking every weapon is never what a forgotten argument meant
-		if Text.clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
+		if Text.Clean(args[2], 48) == nil then return refuse(source, raw, 'unknown_weapon') end
 		local all = tostring(args[2]):lower() == 'all'
 		local target, who, playerId = resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.remove'
-			local catalog, code, reason = Inventory.catalog()
-			if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
+			local catalog, code, reason = Inventory.Catalog()
+			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
 			local only
 			if not all then
-				only = Inventory.weapon(catalog, args[2])
+				only = Inventory.Weapon(catalog, args[2])
 				if only == nil then
-					return Inventory.fail(source, raw, event, playerId, who, 'unknown_weapon',
-						Text.clean(args[2], 48))
+					return Inventory.Fail(source, raw, event, playerId, who, 'unknown_weapon',
+						Text.Clean(args[2], 48))
 				end
 			end
-			local bag, bagCode, bagReason = Inventory.bag(target)
+			local bag, bagCode, bagReason = Inventory.Bag(target)
 			if not bag then
-				return Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
+				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 			end
 
 			-- by name and count, not by slot: a slot read a moment ago may hold something else now
@@ -405,7 +405,7 @@ Server.command('opx77.admin.weapon.remove', {
 			end
 			local removed, failure = 0, nil
 			for _, name in ipairs(order) do
-				local taken, takeCode, takeReason = Inventory.call('RemoveItem', target, name, counts[name])
+				local taken, takeCode, takeReason = Inventory.Call('RemoveItem', target, name, counts[name])
 				if taken then
 					removed = removed + counts[name]
 				else
@@ -413,7 +413,7 @@ Server.command('opx77.admin.weapon.remove', {
 				end
 			end
 			if removed == 0 then
-				return Inventory.fail(source, raw, event, playerId, who, failure.code, failure.reason)
+				return Inventory.Fail(source, raw, event, playerId, who, failure.code, failure.reason)
 			end
 			-- the inventory puts a drawn weapon away itself once its item has left the bag
 			audit(source, event, true, playerId, ('%d weapon(s) from %s%s'):format(removed, who,
@@ -426,15 +426,15 @@ Server.command('opx77.admin.weapon.remove', {
 	end,
 })
 
-Server.command('opx77.admin.weapon.holster', {
+Server.Command('opx77.admin.weapon.holster', {
 	help = 'admin.help.holster',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
 		if not available() then return refuse(source, raw, 'weapons_unavailable') end
-		local playerId, code = Server.target(source, args[1])
+		local playerId, code = Server.Target(source, args[1])
 		if playerId == nil then return refuse(source, raw, code) end
 		-- asking an unincarnated client for its loadout is asking the menu puppet
-		local admitted, gateCode = Server.admit(playerId)
+		local admitted, gateCode = Server.Admit(playerId)
 		if not admitted then
 			audit(source, 'admin.weapon.holster', false, playerId, gateCode)
 			return refuse(source, raw, gateCode, { id = playerId })
@@ -444,26 +444,26 @@ Server.command('opx77.admin.weapon.holster', {
 			return refuse(source, raw, 'refused', { reason = tostring(reason) })
 		end
 		pending[tostring(requestId)] = { source = source, raw = raw, playerId = playerId,
-			atMs = Server.nowMs() }
+			atMs = Server.NowMs() }
 	end,
 })
 
-Server.command('opx77.admin.weapon.read', {
+Server.Command('opx77.admin.weapon.read', {
 	help = 'admin.help.loadout', params = { TARGET }, read = true,
 	handler = function(source, args, raw)
 		local target, who, playerId = resolve(source, raw, args[1])
 		if target == nil then return end
 		CreateThread(function()
 			local event = 'admin.weapon.read'
-			local catalog, code, reason = Inventory.catalog()
-			if not catalog then return Inventory.fail(source, raw, event, playerId, who, code, reason) end
-			local bag, bagCode, bagReason = Inventory.bag(target)
+			local catalog, code, reason = Inventory.Catalog()
+			if not catalog then return Inventory.Fail(source, raw, event, playerId, who, code, reason) end
+			local bag, bagCode, bagReason = Inventory.Bag(target)
 			if not bag then
-				return Inventory.fail(source, raw, event, playerId, who, bagCode, bagReason)
+				return Inventory.Fail(source, raw, event, playerId, who, bagCode, bagReason)
 			end
 			local drawn
 			if playerId ~= nil then
-				local held = Inventory.call('GetHeldWeapon', playerId)
+				local held = Inventory.Call('GetHeldWeapon', playerId)
 				local weapon = held and type(held.weapon) == 'table' and held.weapon or nil
 				if weapon and weapon.drawn == true and type(weapon.serial) == 'string' then
 					drawn = weapon
@@ -474,9 +474,9 @@ Server.command('opx77.admin.weapon.read', {
 				local entry = catalog.byName[row.name]
 				if entry and entry.weapon then
 					local metadata = type(row.metadata) == 'table' and row.metadata or {}
-					local serial = Text.clean(metadata.serial, 24) or '-'
+					local serial = Text.Clean(metadata.serial, 24) or '-'
 					local rounds = entry.weapon.ammo and ('  ' .. locale('admin.inventory.rounds',
-						{ rounds = Text.integer(metadata.ammo) or 0 })) or ''
+						{ rounds = Text.Integer(metadata.ammo) or 0 })) or ''
 					local mark = drawn and metadata.serial == drawn.serial and
 						('  ' .. locale('admin.loadout.drawn')) or ''
 					lines[#lines + 1] = locale('admin.loadout.row', { slot = row.slot, label = entry.label,
@@ -491,7 +491,7 @@ Server.command('opx77.admin.weapon.read', {
 
 --- Whether the relay the holster uses exists on this host.
 ---@return boolean
-function Server.weaponsAvailable()
+function OpxAdmin.Server.WeaponsAvailable()
 	return available()
 end
 

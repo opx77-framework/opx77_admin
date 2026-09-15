@@ -21,9 +21,9 @@ end
 ---@return AdminResponse
 exports('open', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
-	if not Client.running('opx77_menu') then return { ok = false, error = 'menu_not_running' } end
-	if Menu.isOpen() then return { ok = true, open = true } end
-	if not Client.execute({ 'opx77.admin' }) then return { ok = false, error = 'not_sent' } end
+	if not Client.Running('opx77_menu') then return { ok = false, error = 'menu_not_running' } end
+	if Menu.IsOpen() then return { ok = true, open = true } end
+	if not Client.Execute({ 'opx77.admin' }) then return { ok = false, error = 'not_sent' } end
 	return { ok = true, queued = true }
 end)
 
@@ -31,7 +31,7 @@ end)
 ---@return AdminResponse
 exports('close', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
-	Menu.close()
+	Menu.Close()
 	return { ok = true }
 end)
 
@@ -39,5 +39,5 @@ end)
 ---@return AdminState
 exports('state', function()
 	if caller() == nil then return { ok = false, error = 'export_call_required' } end
-	return { ok = true, open = Menu.isOpen(), screen = Menu.screen() }
+	return { ok = true, open = Menu.IsOpen(), screen = Menu.Screen() }
 end)

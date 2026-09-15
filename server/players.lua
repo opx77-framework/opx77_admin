@@ -5,15 +5,15 @@ local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
 local Text = OpxAdmin.Text
 
-local answer, refuse, audit, tell = Server.answer, Server.refuse, Server.audit, Server.tell
-local count = Server.count
+local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
+local count = Server.Count
 
 local RESOURCE = GetCurrentResourceName()
 
 --- Resolve the typed target, or answer why not.
 ---@return integer|nil
 local function targetOf(source, raw, token)
-	local playerId, code = Server.target(source, token)
+	local playerId, code = Server.Target(source, token)
 	if playerId == nil then refuse(source, raw, code) end
 	return playerId
 end
@@ -21,7 +21,7 @@ end
 --- The gate, answered and audited when it is closed.
 ---@return boolean
 local function admitted(source, raw, playerId, event)
-	local ok, code = Server.admit(playerId)
+	local ok, code = Server.Admit(playerId)
 	if ok then return true end
 	refuse(source, raw, code, { id = playerId })
 	audit(source, event, false, playerId, code)
@@ -39,7 +39,7 @@ end
 --- The three words that make a point, or nil.
 ---@return { x: number, y: number, z: number }|nil
 local function pointOf(x, y, z)
-	x, y, z = Text.finite(x), Text.finite(y), Text.finite(z)
+	x, y, z = Text.Finite(x), Text.Finite(y), Text.Finite(z)
 	if x == nil or y == nil or z == nil then return nil end
 	-- the world is a few kilometres across; past a million is a typo, not a destination
 	if math.abs(x) > 1e6 or math.abs(y) > 1e6 or math.abs(z) > 1e6 then return nil end
@@ -50,7 +50,7 @@ end
 local function healthOf(playerId)
 	local read, health = pcall(Open77.players.getHealth, playerId)
 	if not read or type(health) ~= 'table' then return 100.0, nil end
-	local maximum = Text.finite(health.maxHealth)
+	local maximum = Text.Finite(health.maxHealth)
 	-- getHealth answers ABSOLUTE points; revive and respawn take a FRACTION. Never mix the two.
 	if maximum == nil or maximum <= 0 then maximum = 100.0 end
 	return maximum, health
@@ -81,16 +81,16 @@ local function setNoclip(playerId, on, grant)
 	noclip[playerId] = on and grant or nil
 	travel(playerId, 'noclip', on == true)
 	if on and speedChosen[playerId] == nil then
-		travel(playerId, 'speed', Server.setting((Config.NOCLIP or {}).SPEED, 40.0))
+		travel(playerId, 'speed', Server.Setting((Config.NOCLIP or {}).SPEED, 40.0))
 	end
 end
 
-Server.command('opx77.admin.self.noclip', {
+Server.Command('opx77.admin.self.noclip', {
 	help = 'admin.help.noclip',
 	params = { { name = 'on|off', help = 'admin.help.toggle', optional = true } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local wanted, invalid = Text.switch(args[1])
+		local wanted, invalid = Text.Switch(args[1])
 		if invalid then return refuse(source, raw, 'bad_switch') end
 		if wanted == nil then wanted = noclip[source] == nil end
 		setNoclip(source, wanted, 'opx77.admin.self.noclip')
@@ -99,11 +99,11 @@ Server.command('opx77.admin.self.noclip', {
 	end,
 })
 
-Server.command('opx77.admin.self.speed', {
+Server.Command('opx77.admin.self.speed', {
 	help = 'admin.help.speed', params = { { name = 'm/s', help = 'admin.help.speedValue' } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local speed = Text.finite(args[1])
+		local speed = Text.Finite(args[1])
 		if count(args) ~= 1 or speed == nil or speed < 0.1 or speed > 500 then
 			return answer(source, raw, false, 'admin.usage.speed')
 		end
@@ -114,7 +114,7 @@ Server.command('opx77.admin.self.speed', {
 	end,
 })
 
-Server.command('opx77.admin.self.maptravel', {
+Server.Command('opx77.admin.self.maptravel', {
 	help = 'admin.help.maptravel',
 	params = { { name = 'on|off|x', help = 'admin.help.maptravelValue', optional = true },
 		{ name = 'y', help = 'admin.help.maptravelPoint', optional = true },
@@ -126,7 +126,7 @@ Server.command('opx77.admin.self.maptravel', {
 			-- ACL is resolved again on every jump rather than once when the gesture was armed
 			local point = pointOf(args[1], args[2], args[3])
 			if point == nil then return refuse(source, raw, 'bad_coordinates') end
-			local placed, code, reason = Server.place(source, point, 0.0, nil, 'maptravel')
+			local placed, code, reason = Server.Place(source, point, 0.0, nil, 'maptravel')
 			audit(source, 'admin.self.maptravel', placed, source,
 				('%.0f %.0f %.0f %s'):format(point.x, point.y, point.z, code or ''))
 			if not placed then return refuse(source, raw, code, { reason = reason }) end
@@ -134,7 +134,7 @@ Server.command('opx77.admin.self.maptravel', {
 				{ x = ('%.1f'):format(point.x), y = ('%.1f'):format(point.y),
 					z = ('%.1f'):format(point.z) })
 		end
-		local wanted, invalid = Text.switch(args[1])
+		local wanted, invalid = Text.Switch(args[1])
 		if invalid or count(args) > 1 then
 			return answer(source, raw, false, 'admin.usage.maptravel')
 		end
@@ -153,14 +153,14 @@ CreateThread(function()
 		Wait(2000)
 		local swept, failure = pcall(function()
 			for playerId, grant in pairs(noclip) do
-				if Server.permitted(playerId, grant) == false then
+				if Server.Permitted(playerId, grant) == false then
 					setNoclip(playerId, false)
 					Open77.log.info(('noclip off for player %d: %s is no longer granted')
 						:format(playerId, grant))
 				end
 			end
 			for playerId, grant in pairs(mapPick) do
-				if Server.permitted(playerId, grant) == false then
+				if Server.Permitted(playerId, grant) == false then
 					mapPick[playerId] = nil
 					travel(playerId, 'mapPick', false)
 				end
@@ -184,7 +184,7 @@ AddEventHandler('onResourceStop', function(name)
 	for playerId in pairs(mapPick) do travel(playerId, 'mapPick', false) end
 end)
 
-Server.noclip = setNoclip
+Server.Noclip = setNoclip
 
 -- ---------------------------------------------------------------------------
 -- The operator's own body
@@ -202,7 +202,7 @@ local function heal(source, raw, playerId, event)
 	audit(source, event, true, playerId, ('%.0f'):format(maximum))
 	if playerId ~= source then tell(playerId, 'admin.toast.healed', nil, 'success') end
 	answer(source, raw, true, 'admin.done.healed',
-		{ id = playerId, name = Server.nameOf(playerId) or '?' })
+		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
 ---@param source integer
@@ -213,14 +213,14 @@ local function revive(source, raw, playerId, event)
 	if not admitted(source, raw, playerId, event) then return end
 	local placement = Config.PLACEMENT or {}
 	local ok, reason = Open77.players.revive(playerId, {
-		health = math.min(1.0, math.max(0.01, Server.setting(placement.HEALTH, 1.0))),
-		graceMs = math.max(0, math.floor(Server.setting(placement.GRACE_MS, 5000))),
+		health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0))),
+		graceMs = math.max(0, math.floor(Server.Setting(placement.GRACE_MS, 5000))),
 	})
 	if not ok then return nativeRefused(source, raw, event, playerId, reason) end
 	audit(source, event, true, playerId)
 	if playerId ~= source then tell(playerId, 'admin.toast.revived', nil, 'success') end
 	answer(source, raw, true, 'admin.done.revived',
-		{ id = playerId, name = Server.nameOf(playerId) or '?' })
+		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
 ---@param source integer
@@ -229,7 +229,7 @@ end
 ---@param word any
 ---@param event string
 local function god(source, raw, playerId, word, event)
-	local wanted, invalid = Text.switch(word)
+	local wanted, invalid = Text.Switch(word)
 	if invalid then return refuse(source, raw, 'bad_switch') end
 	if not admitted(source, raw, playerId, event) then return end
 	if wanted == nil then
@@ -243,30 +243,30 @@ local function god(source, raw, playerId, word, event)
 		tell(playerId, wanted and 'admin.toast.godOn' or 'admin.toast.godOff')
 	end
 	answer(source, raw, true, wanted and 'admin.done.godOn' or 'admin.done.godOff',
-		{ id = playerId, name = Server.nameOf(playerId) or '?' })
+		{ id = playerId, name = Server.NameOf(playerId) or '?' })
 end
 
-Server.command('opx77.admin.self.heal', {
+Server.Command('opx77.admin.self.heal', {
 	help = 'admin.help.selfHeal', inGame = true,
 	handler = function(source, _, raw) heal(source, raw, source, 'admin.self.heal') end,
 })
 
-Server.command('opx77.admin.self.revive', {
+Server.Command('opx77.admin.self.revive', {
 	help = 'admin.help.selfRevive', inGame = true,
 	handler = function(source, _, raw) revive(source, raw, source, 'admin.self.revive') end,
 })
 
-Server.command('opx77.admin.self.god', {
+Server.Command('opx77.admin.self.god', {
 	help = 'admin.help.selfGod',
 	params = { { name = 'on|off', help = 'admin.help.toggle', optional = true } },
 	inGame = true,
 	handler = function(source, args, raw) god(source, raw, source, args[1], 'admin.self.god') end,
 })
 
-Server.command('opx77.admin.self.pos', {
+Server.Command('opx77.admin.self.pos', {
 	help = 'admin.help.pos', inGame = true, read = true,
 	handler = function(source, _, raw)
-		local position = Server.positionOf(source)
+		local position = Server.PositionOf(source)
 		if position == nil then return refuse(source, raw, 'no_position') end
 		local row = ('{ NAME = "here", LABEL = "Here", X = %.2f, Y = %.2f, Z = %.2f, HEADING = 0.0 },')
 			:format(position.x, position.y, position.z)
@@ -283,17 +283,17 @@ Server.command('opx77.admin.self.pos', {
 ---@param playerId integer
 ---@return { x: number, y: number, z: number }|nil, integer|nil
 local function beside(playerId)
-	local position = Server.positionOf(playerId)
+	local position = Server.PositionOf(playerId)
 	if position == nil then return nil, nil end
 	local offset = (Config.PLACEMENT or {}).BESIDE or {}
 	return {
-		x = position.x + Server.setting(offset.X, 1.5),
-		y = position.y + Server.setting(offset.Y, 0.0),
-		z = position.z + Server.setting(offset.Z, 0.0),
+		x = position.x + Server.Setting(offset.X, 1.5),
+		y = position.y + Server.Setting(offset.Y, 0.0),
+		z = position.z + Server.Setting(offset.Z, 0.0),
 	}, position.bucket
 end
 
-Server.command('opx77.admin.player.goto', {
+Server.Command('opx77.admin.player.goto', {
 	help = 'admin.help.goto', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
@@ -304,15 +304,15 @@ Server.command('opx77.admin.player.goto', {
 		if not admitted(source, raw, playerId, 'admin.player.goto') then return end
 		local point, bucket = beside(playerId)
 		if point == nil then return refuse(source, raw, 'no_position') end
-		local placed, code, reason = Server.place(source, point, 0.0, bucket, 'goto')
+		local placed, code, reason = Server.Place(source, point, 0.0, bucket, 'goto')
 		audit(source, 'admin.player.goto', placed, playerId, code)
 		if not placed then return refuse(source, raw, code, { reason = reason }) end
 		answer(source, raw, true, 'admin.done.goto',
-			{ id = playerId, name = Server.nameOf(playerId) or '?', bucket = bucket })
+			{ id = playerId, name = Server.NameOf(playerId) or '?', bucket = bucket })
 	end,
 })
 
-Server.command('opx77.admin.player.bring', {
+Server.Command('opx77.admin.player.bring', {
 	help = 'admin.help.bring', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
@@ -321,16 +321,16 @@ Server.command('opx77.admin.player.bring', {
 		if playerId == source then return refuse(source, raw, 'self_target') end
 		local point, bucket = beside(source)
 		if point == nil then return refuse(source, raw, 'no_position') end
-		local placed, code, reason = Server.place(playerId, point, 0.0, bucket, 'bring')
+		local placed, code, reason = Server.Place(playerId, point, 0.0, bucket, 'bring')
 		audit(source, 'admin.player.bring', placed, playerId, code)
 		if not placed then return refuse(source, raw, code, { reason = reason, id = playerId }) end
 		tell(playerId, 'admin.toast.brought')
 		answer(source, raw, true, 'admin.done.bring',
-			{ id = playerId, name = Server.nameOf(playerId) or '?' })
+			{ id = playerId, name = Server.NameOf(playerId) or '?' })
 	end,
 })
 
-Server.command('opx77.admin.player.tp', {
+Server.Command('opx77.admin.player.tp', {
 	help = 'admin.help.tp',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'x', help = 'admin.help.coordinate' },
@@ -343,9 +343,9 @@ Server.command('opx77.admin.player.tp', {
 		local playerId = targetOf(source, raw, args[1])
 		if playerId == nil then return end
 		local point = pointOf(args[2], args[3], args[4])
-		local heading = given == 5 and Text.finite(args[5]) or 0.0
+		local heading = given == 5 and Text.Finite(args[5]) or 0.0
 		if point == nil or heading == nil then return refuse(source, raw, 'bad_coordinates') end
-		local placed, code, reason = Server.place(playerId, point, heading, nil, 'tp')
+		local placed, code, reason = Server.Place(playerId, point, heading, nil, 'tp')
 		audit(source, 'admin.player.tp', placed, playerId,
 			('%.0f %.0f %.0f %s'):format(point.x, point.y, point.z, code or ''))
 		if not placed then return refuse(source, raw, code, { reason = reason, id = playerId }) end
@@ -356,7 +356,7 @@ Server.command('opx77.admin.player.tp', {
 	end,
 })
 
-Server.command('opx77.admin.player.observe', {
+Server.Command('opx77.admin.player.observe', {
 	help = 'admin.help.observe', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	inGame = true,
 	handler = function(source, args, raw)
@@ -364,10 +364,10 @@ Server.command('opx77.admin.player.observe', {
 		if playerId == nil then return end
 		if playerId == source then return refuse(source, raw, 'self_target') end
 		if not admitted(source, raw, playerId, 'admin.player.observe') then return end
-		local position = Server.positionOf(playerId)
+		local position = Server.PositionOf(playerId)
 		if position == nil then return refuse(source, raw, 'no_position') end
-		local height = Server.setting((Config.PLACEMENT or {}).OBSERVE_HEIGHT, 2.0)
-		local placed, code, reason = Server.place(source,
+		local height = Server.Setting((Config.PLACEMENT or {}).OBSERVE_HEIGHT, 2.0)
+		local placed, code, reason = Server.Place(source,
 			{ x = position.x, y = position.y, z = position.z + height }, 0.0, position.bucket,
 			'observe')
 		audit(source, 'admin.player.observe', placed, playerId, code)
@@ -376,11 +376,11 @@ Server.command('opx77.admin.player.observe', {
 		-- target can see the observer. The answer says so.
 		setNoclip(source, true, 'opx77.admin.player.observe')
 		answer(source, raw, true, 'admin.done.observe',
-			{ id = playerId, name = Server.nameOf(playerId) or '?' })
+			{ id = playerId, name = Server.NameOf(playerId) or '?' })
 	end,
 })
 
-Server.command('opx77.admin.player.heal', {
+Server.Command('opx77.admin.player.heal', {
 	help = 'admin.help.heal', params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
 		local playerId = targetOf(source, raw, args[1])
@@ -388,7 +388,7 @@ Server.command('opx77.admin.player.heal', {
 	end,
 })
 
-Server.command('opx77.admin.player.revive', {
+Server.Command('opx77.admin.player.revive', {
 	help = 'admin.help.revive',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' } },
 	handler = function(source, args, raw)
@@ -397,7 +397,7 @@ Server.command('opx77.admin.player.revive', {
 	end,
 })
 
-Server.command('opx77.admin.player.god', {
+Server.Command('opx77.admin.player.god', {
 	help = 'admin.help.god',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'on|off', help = 'admin.help.toggle', optional = true } },
@@ -407,7 +407,7 @@ Server.command('opx77.admin.player.god', {
 	end,
 })
 
-Server.command('opx77.admin.player.kill', {
+Server.Command('opx77.admin.player.kill', {
 	help = 'admin.help.kill', params = { { name = 'playerId', help = 'admin.help.playerId' } },
 	handler = function(source, args, raw)
 		local playerId = targetOf(source, raw, args[1])
@@ -422,16 +422,16 @@ Server.command('opx77.admin.player.kill', {
 		audit(source, 'admin.player.kill', true, playerId)
 		tell(playerId, 'admin.toast.killed', nil, 'warning')
 		answer(source, raw, true, 'admin.done.killed',
-			{ id = playerId, name = Server.nameOf(playerId) or '?' })
+			{ id = playerId, name = Server.NameOf(playerId) or '?' })
 	end,
 })
 
-Server.command('opx77.admin.player.health', {
+Server.Command('opx77.admin.player.health', {
 	help = 'admin.help.health',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'points', help = 'admin.help.healthPoints' } },
 	handler = function(source, args, raw)
-		local value = Text.finite(args[2])
+		local value = Text.Finite(args[2])
 		if count(args) ~= 2 or value == nil or value < 0 then
 			return answer(source, raw, false, 'admin.usage.health')
 		end
@@ -448,12 +448,12 @@ Server.command('opx77.admin.player.health', {
 	end,
 })
 
-Server.command('opx77.admin.player.armor', {
+Server.Command('opx77.admin.player.armor', {
 	help = 'admin.help.armor',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'points', help = 'admin.help.armorPoints' } },
 	handler = function(source, args, raw)
-		local value = Text.finite(args[2])
+		local value = Text.Finite(args[2])
 		if count(args) ~= 2 or value == nil or value < 0 or value > 10000 then
 			return answer(source, raw, false, 'admin.usage.armor')
 		end
@@ -494,16 +494,16 @@ local function duration(token)
 	return seconds
 end
 
-Server.command('opx77.admin.moderate.kick', {
+Server.Command('opx77.admin.moderate.kick', {
 	help = 'admin.help.kick',
 	params = { { name = 'playerId', help = 'admin.help.playerId' },
 		{ name = 'reason', help = 'admin.help.reason', optional = true } },
 	handler = function(source, args, raw)
 		local playerId = targetOf(source, raw, args[1])
 		if playerId == nil then return end
-		local reason = Text.clean(Text.rest(args, 2), 200) or locale('admin.kick.defaultReason')
-		reason = Text.bytes(reason, KICK_REASON_BYTES)
-		local name = Server.nameOf(playerId) or '?'
+		local reason = Text.Clean(Text.Rest(args, 2), 200) or locale('admin.kick.defaultReason')
+		reason = Text.Bytes(reason, KICK_REASON_BYTES)
+		local name = Server.NameOf(playerId) or '?'
 		local ok, failure = Open77.players.kick(playerId, reason)
 		if not ok then return nativeRefused(source, raw, 'admin.moderate.kick', playerId, failure) end
 		audit(source, 'admin.moderate.kick', true, playerId, ('%s: %s'):format(name, reason))
@@ -511,7 +511,7 @@ Server.command('opx77.admin.moderate.kick', {
 	end,
 })
 
-Server.command('opx77.admin.moderate.ban', {
+Server.Command('opx77.admin.moderate.ban', {
 	help = 'admin.help.ban',
 	params = { { name = 'playerId', help = 'admin.help.playerId' },
 		{ name = 'duration', help = 'admin.help.banDuration', optional = true },
@@ -535,11 +535,11 @@ Server.command('opx77.admin.moderate.ban', {
 		if type(access) ~= 'table' or type(access.ban) ~= 'function' then
 			return refuse(source, raw, 'refused', { reason = 'access_unavailable' })
 		end
-		local identifier = Server.userOf(playerId)
+		local identifier = Server.UserOf(playerId)
 		if identifier == nil then return refuse(source, raw, 'refused', { reason = 'no_identity' }) end
 
-		local reason = Text.clean(Text.rest(args, reasonFrom), 200) or locale('admin.ban.defaultReason')
-		local name = Server.nameOf(playerId) or '?'
+		local reason = Text.Clean(Text.Rest(args, reasonFrom), 200) or locale('admin.ban.defaultReason')
+		local name = Server.NameOf(playerId) or '?'
 		-- the host writes the ban before it disconnects anybody, and answers false if it could not
 		local ok, failure = access.ban(identifier, reason, seconds, name)
 		if not ok then return nativeRefused(source, raw, 'admin.moderate.ban', playerId, failure) end

@@ -6,8 +6,8 @@ local Config = OPX_ADMIN_CONFIG
 local Server = OpxAdmin.Server
 local Text = OpxAdmin.Text
 
-local answer, refuse, audit, tell = Server.answer, Server.refuse, Server.audit, Server.tell
-local count = Server.count
+local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
+local count = Server.Count
 
 -- ---------------------------------------------------------------------------
 -- Destinations
@@ -26,17 +26,17 @@ local runtime = {}
 local function seed()
 	locations = {}
 	for position, row in ipairs(type(Config.LOCATIONS) == 'table' and Config.LOCATIONS or {}) do
-		local name = type(row) == 'table' and Text.slug(row.NAME) or nil
+		local name = type(row) == 'table' and Text.Slug(row.NAME) or nil
 		local valid = type(row) == 'table'
-		local x = valid and Text.finite(row.X) or nil
-		local y = valid and Text.finite(row.Y) or nil
-		local z = valid and Text.finite(row.Z) or nil
+		local x = valid and Text.Finite(row.X) or nil
+		local y = valid and Text.Finite(row.Y) or nil
+		local z = valid and Text.Finite(row.Z) or nil
 		if name == nil or x == nil or y == nil or z == nil then
 			Open77.log.warn(('LOCATIONS #%d ignored: NAME must be a slug and X, Y, Z numbers')
 				:format(position))
 		else
-			locations[name] = { name = name, label = Text.clean(row.LABEL, 48) or name, x = x, y = y,
-				z = z, heading = Text.finite(row.HEADING) or 0.0, runtime = false }
+			locations[name] = { name = name, label = Text.Clean(row.LABEL, 48) or name, x = x, y = y,
+				z = z, heading = Text.Finite(row.HEADING) or 0.0, runtime = false }
 		end
 	end
 	-- an in-game addition under a configured name replaces it for this run
@@ -63,14 +63,14 @@ local function restore()
 	local read, carried = pcall(Open77.state.load)
 	if not read or type(carried) ~= 'table' or carried.protocol ~= STATE_PROTOCOL then return end
 	for _, row in ipairs(type(carried.locations) == 'table' and carried.locations or {}) do
-		local name = type(row) == 'table' and Text.slug(row.name) or nil
+		local name = type(row) == 'table' and Text.Slug(row.name) or nil
 		local valid = type(row) == 'table'
-		local x = valid and Text.finite(row.x) or nil
-		local y = valid and Text.finite(row.y) or nil
-		local z = valid and Text.finite(row.z) or nil
+		local x = valid and Text.Finite(row.x) or nil
+		local y = valid and Text.Finite(row.y) or nil
+		local z = valid and Text.Finite(row.z) or nil
 		if name and x and y and z then
-			runtime[name] = { name = name, label = Text.clean(row.label, 48) or name, x = x, y = y, z = z,
-				heading = Text.finite(row.heading) or 0.0, runtime = true }
+			runtime[name] = { name = name, label = Text.Clean(row.label, 48) or name, x = x, y = y, z = z,
+				heading = Text.Finite(row.heading) or 0.0, runtime = true }
 		end
 	end
 end
@@ -80,45 +80,45 @@ seed()
 
 --- Every destination, sorted by name, as the menu draws it.
 ---@return AdminLocation[]
-function Server.locations()
+function OpxAdmin.Server.Locations()
 	local list = {}
 	for _, row in pairs(locations) do list[#list + 1] = row end
 	table.sort(list, function(left, right) return left.name < right.name end)
 	return list
 end
 
-Server.command('opx77.admin.player.send', {
+Server.Command('opx77.admin.player.send', {
 	help = 'admin.help.send',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'location', help = 'admin.help.locationName' } },
 	handler = function(source, args, raw)
 		if count(args) ~= 2 then return answer(source, raw, false, 'admin.usage.send') end
-		local playerId, code = Server.target(source, args[1])
+		local playerId, code = Server.Target(source, args[1])
 		if playerId == nil then return refuse(source, raw, code) end
 		local location = locations[tostring(args[2]):lower()]
 		if location == nil then return refuse(source, raw, 'unknown_location') end
-		local placed, placeCode, reason = Server.place(playerId,
+		local placed, placeCode, reason = Server.Place(playerId,
 			{ x = location.x, y = location.y, z = location.z }, location.heading, nil, 'send')
 		audit(source, 'admin.player.send', placed, playerId, ('%s %s'):format(location.name,
 			placeCode or ''))
 		if not placed then return refuse(source, raw, placeCode, { reason = reason, id = playerId }) end
 		if playerId ~= source then tell(playerId, 'admin.toast.sent', { label = location.label }) end
 		answer(source, raw, true, 'admin.done.sent',
-			{ id = playerId, name = Server.nameOf(playerId) or '?', label = location.label })
+			{ id = playerId, name = Server.NameOf(playerId) or '?', label = location.label })
 	end,
 })
 
-Server.command('opx77.admin.world.loc.add', {
+Server.Command('opx77.admin.world.loc.add', {
 	help = 'admin.help.locAdd',
 	params = { { name = 'name', help = 'admin.help.locationName' },
 		{ name = 'label', help = 'admin.help.locationLabel', optional = true } },
 	inGame = true,
 	handler = function(source, args, raw)
-		local name = Text.slug(args[1])
+		local name = Text.Slug(args[1])
 		if name == nil then return refuse(source, raw, 'bad_location_name') end
-		local position = Server.positionOf(source)
+		local position = Server.PositionOf(source)
 		if position == nil then return refuse(source, raw, 'no_position') end
-		local label = Text.clean(Text.rest(args, 2), 48) or name
+		local label = Text.Clean(Text.Rest(args, 2), 48) or name
 		runtime[name] = { name = name, label = label, x = position.x, y = position.y, z = position.z,
 			heading = 0.0, runtime = true }
 		save()
@@ -129,10 +129,10 @@ Server.command('opx77.admin.world.loc.add', {
 	end,
 })
 
-Server.command('opx77.admin.world.loc.remove', {
+Server.Command('opx77.admin.world.loc.remove', {
 	help = 'admin.help.locRemove', params = { { name = 'name', help = 'admin.help.locationName' } },
 	handler = function(source, args, raw)
-		local name = Text.slug(args[1])
+		local name = Text.Slug(args[1])
 		if name == nil or locations[name] == nil then return refuse(source, raw, 'unknown_location') end
 		if runtime[name] == nil then return refuse(source, raw, 'seeded_location') end
 		runtime[name] = nil
@@ -143,11 +143,11 @@ Server.command('opx77.admin.world.loc.remove', {
 	end,
 })
 
-Server.command('opx77.admin.read.locations', {
+Server.Command('opx77.admin.read.locations', {
 	help = 'admin.help.readLocations', read = true,
 	handler = function(source, _, raw)
-		local lines = { locale('admin.locations.header', { count = #Server.locations() }) }
-		for _, row in ipairs(Server.locations()) do
+		local lines = { locale('admin.locations.header', { count = #Server.Locations() }) }
+		for _, row in ipairs(Server.Locations()) do
 			lines[#lines + 1] = locale(row.runtime and 'admin.locations.runtime' or 'admin.locations.row',
 				{ name = row.name, label = row.label, x = ('%.1f'):format(row.x),
 					y = ('%.1f'):format(row.y), z = ('%.1f'):format(row.z) })
@@ -160,12 +160,12 @@ Server.command('opx77.admin.read.locations', {
 -- Announcements
 -- ---------------------------------------------------------------------------
 
-Server.command('opx77.admin.world.announce', {
+Server.Command('opx77.admin.world.announce', {
 	help = 'admin.help.announce', params = { { name = 'text', help = 'admin.help.announceText' } },
 	handler = function(source, args, raw)
 		local settings = Config.ANNOUNCE or {}
-		local text = Text.clean(Text.rest(args, 1),
-			math.max(1, math.floor(Server.setting(settings.MAX_CHARACTERS, 240))))
+		local text = Text.Clean(Text.Rest(args, 1),
+			math.max(1, math.floor(Server.Setting(settings.MAX_CHARACTERS, 240))))
 		if text == nil then return refuse(source, raw, 'empty_text') end
 
 		local notifications = Open77.notifications
@@ -177,7 +177,7 @@ Server.command('opx77.admin.world.announce', {
 					type = 'warning',
 					title = locale('admin.announce.title'),
 					message = text,
-					durationMs = math.floor(Server.setting(settings.DURATION_MS, 12000)),
+					durationMs = math.floor(Server.Setting(settings.DURATION_MS, 12000)),
 				})
 				if sent then delivered = delivered + 1 end
 			end
@@ -199,21 +199,21 @@ Server.command('opx77.admin.world.announce', {
 -- Reads
 -- ---------------------------------------------------------------------------
 
-local startedAtMs = Server.nowMs()
+local startedAtMs = Server.NowMs()
 
 --- One roster row as the server sees it. No character: the citizen id and name live in
 --- opx77_core's VM, which nothing here can ask. The menu's record row runs opx77.where.
 ---@param playerId integer
 ---@param origin table|nil  the operator's position, for the distance
 ---@return AdminRosterRow|nil
-function Server.rosterRow(playerId, origin)
-	local name = Server.nameOf(playerId)
+function OpxAdmin.Server.RosterRow(playerId, origin)
+	local name = Server.NameOf(playerId)
 	if name == nil then return nil end
-	local position = Server.positionOf(playerId)
-	local life = Server.lifeOf(playerId)
+	local position = Server.PositionOf(playerId)
+	local life = Server.LifeOf(playerId)
 	local state = 'loading'
 	if life ~= nil then
-		local admitted = Server.admit(playerId)
+		local admitted = Server.Admit(playerId)
 		local deadRead, dead = pcall(Open77.players.isDead, playerId)
 		state = not admitted and 'gate' or (deadRead and dead == true) and 'down' or 'up'
 	end
@@ -228,7 +228,7 @@ end
 
 --- Every connected player id, sorted.
 ---@return integer[]
-function Server.playerIds()
+function OpxAdmin.Server.PlayerIds()
 	local read, players = pcall(Open77.players.all)
 	local ids = {}
 	for _, value in ipairs(read and type(players) == 'table' and players or {}) do
@@ -239,14 +239,14 @@ function Server.playerIds()
 	return ids
 end
 
-Server.command('opx77.admin.read.players', {
+Server.Command('opx77.admin.read.players', {
 	help = 'admin.help.readPlayers', read = true,
 	handler = function(source, _, raw)
-		local origin = source > 0 and Server.positionOf(source) or nil
-		local ids = Server.playerIds()
+		local origin = source > 0 and Server.PositionOf(source) or nil
+		local ids = Server.PlayerIds()
 		local lines = { locale('admin.players.header', { count = #ids }) }
 		for _, playerId in ipairs(ids) do
-			local row = Server.rosterRow(playerId, origin)
+			local row = Server.RosterRow(playerId, origin)
 			if row then
 				lines[#lines + 1] = locale('admin.players.row', {
 					id = row.id, name = row.name, state = locale('admin.state.' .. row.state),
@@ -264,13 +264,13 @@ local WATCHED = { 'opx77_core', 'opx77_menu', 'opx77_input', 'opx77_notify', 'op
 	'opx77_appearance', 'opx77_weather', OpxAdmin.Inventory.RESOURCE,
 	'open77_weapons', 'open77_admin' }
 
-Server.command('opx77.admin.read.status', {
+Server.Command('opx77.admin.read.status', {
 	help = 'admin.help.readStatus', read = true,
 	handler = function(source, _, raw)
-		local ids = Server.playerIds()
+		local ids = Server.PlayerIds()
 		local up = 0
 		for _, playerId in ipairs(ids) do
-			if Server.admit(playerId) then up = up + 1 end
+			if Server.Admit(playerId) then up = up + 1 end
 		end
 		local states = {}
 		for _, name in ipairs(WATCHED) do
@@ -279,8 +279,8 @@ Server.command('opx77.admin.read.status', {
 		end
 		local lines = {
 			locale('admin.status.summary', {
-				players = #ids, up = up, vehicles = Server.spawnedCount(),
-				minutes = math.floor((Server.nowMs() - startedAtMs) / 60000),
+				players = #ids, up = up, vehicles = Server.SpawnedCount(),
+				minutes = math.floor((Server.NowMs() - startedAtMs) / 60000),
 			}),
 			table.concat(states, '  '),
 		}
@@ -288,14 +288,14 @@ Server.command('opx77.admin.read.status', {
 	end,
 })
 
-Server.command('opx77.admin.read.audit', {
+Server.Command('opx77.admin.read.audit', {
 	help = 'admin.help.readAudit',
 	params = { { name = 'count', help = 'admin.help.auditCount', optional = true } }, read = true,
 	handler = function(source, args, raw)
-		local wanted = math.min(40, math.max(1, Text.integer(args[1]) or 15))
-		local entries = Server.recent(wanted)
+		local wanted = math.min(40, math.max(1, Text.Integer(args[1]) or 15))
+		local entries = Server.Recent(wanted)
 		local lines = { locale('admin.audit.header', { count = #entries }) }
-		local atMs = Server.nowMs()
+		local atMs = Server.NowMs()
 		for _, entry in ipairs(entries) do
 			lines[#lines + 1] = locale(entry.ok and 'admin.audit.row' or 'admin.audit.rowFailed', {
 				seq = entry.seq,

@@ -1,5 +1,5 @@
 --- The staff menu, drawn by opx77_menu. Every row that does something is a command line sent
---- through Client.execute, so the host resolves the ACL for it exactly as for a typed command.
+--- through Client.Execute, so the host resolves the ACL for it exactly as for a typed command.
 --- The access map the server sends only greys out what would be refused; it decides nothing.
 ---
 --- Each screen is its own opx77_menu `open`, not a submenu of one big tree: opx77_menu refuses a
@@ -14,8 +14,8 @@ local Catalog = OpxAdmin.Catalog
 local Forms = OpxAdmin.Forms
 local Keys = OpxAdmin.Keys
 
-local Menu = {}
-OpxAdmin.Menu = Menu
+OpxAdmin.Menu = {}
+local Menu = OpxAdmin.Menu
 
 local MENU = 'opx77_menu'
 local EVENT = 'opx77_admin:row'
@@ -286,7 +286,7 @@ SCREENS.player = function(id)
 		guarded('kill', 'admin.menu.kill', { 'opx77.admin.player.kill', target }, 'admin.confirm.kill'),
 	}
 
-	if Client.running('opx77_core') then
+	if Client.Running('opx77_core') then
 		items[#items + 1] = section('admin.menu.section.character')
 		if LINKS.WHERE then
 			items[#items + 1] = command('record', 'admin.menu.record', { LINKS.WHERE, target })
@@ -581,7 +581,7 @@ SCREENS.world = function()
 		form('save', 'admin.menu.saveHere', 'location', nil, 'opx77.admin.world.loc.add'),
 		go('saved', 'admin.menu.saved', 'saved'),
 	}
-	if Client.running('opx77_weather') then
+	if Client.Running('opx77_weather') then
 		items[#items + 1] = section('admin.menu.section.sky')
 		items[#items + 1] = go('weather', 'admin.menu.weather', 'weather')
 		items[#items + 1] = go('time', 'admin.menu.time', 'time')
@@ -638,7 +638,7 @@ SCREENS.server = function()
 		command('audit', 'admin.menu.audit', { 'opx77.admin.read.audit' }),
 		command('locations', 'admin.menu.locationList', { 'opx77.admin.read.locations' }),
 	}
-	if Client.running('opx77_core') then
+	if Client.Running('opx77_core') then
 		items[#items + 1] = section('admin.menu.section.characters')
 		if LINKS.CHARACTERS then
 			items[#items + 1] = command('characters', 'admin.menu.characters', { LINKS.CHARACTERS })
@@ -688,7 +688,7 @@ local function draw(inPlace)
 		items[#items + 1] = row('back', locale('admin.menu.back'), { back = true })
 	else
 		items[#items + 1] = section()
-		local key = Keys.effective(KEY_MENU)
+		local key = Keys.Effective(KEY_MENU)
 		items[#items + 1] = { id = 'close', label = locale('admin.menu.close'), close = true,
 			description = key and locale('admin.menu.closeKey', { key = key }) or nil }
 	end
@@ -699,10 +699,10 @@ local function draw(inPlace)
 	queuedStatus = nil
 	CreateThread(function()
 		if inPlace and handle ~= nil then
-			local _, reason = Client.call(MENU, 'update', handle, { title = title, items = items })
+			local _, reason = Client.Call(MENU, 'update', handle, { title = title, items = items })
 			if reason == nil then return end
 		end
-		local opened, reason = Client.call(MENU, 'open', {
+		local opened, reason = Client.Call(MENU, 'open', {
 			id = 'opx77_admin.' .. current.screen,
 			title = title,
 			event = EVENT,
@@ -714,12 +714,12 @@ local function draw(inPlace)
 		if opened == nil then
 			handle = nil
 			Open77.log.warn(('menu %s did not open: %s'):format(current.screen, tostring(reason)))
-			if reason == 'menu_busy' then Client.toast('admin.client.menuBusy', nil, 'warning') end
+			if reason == 'menu_busy' then Client.Toast('admin.client.menuBusy', nil, 'warning') end
 			return
 		end
 		handle = opened.handle
 		if status and status.ok == false then
-			Client.call(MENU, 'setStatus', status.text, false)
+			Client.Call(MENU, 'setStatus', status.text, false)
 		end
 	end)
 end
@@ -746,7 +746,7 @@ local function push(screen, arg)
 end
 
 local function pop()
-	if #stack <= 1 then return Menu.close() end
+	if #stack <= 1 then return Menu.Close() end
 	stack[#stack] = nil
 	draw()
 end
@@ -754,7 +754,7 @@ end
 --- Write the line under the list, or keep it for the next screen when none is up.
 ---@param text string
 ---@param ok boolean
-function Menu.status(text, ok)
+function OpxAdmin.Menu.Status(text, ok)
 	if type(text) ~= 'string' then return end
 	-- the line is capped at 120 characters and a listing is many lines: the chat box has it all
 	local line = text:match('^[^\n]*') or text
@@ -763,18 +763,18 @@ function Menu.status(text, ok)
 		queuedStatus = { text = line, ok = ok }
 		return
 	end
-	CreateThread(function() Client.call(MENU, 'setStatus', line, ok) end)
+	CreateThread(function() Client.Call(MENU, 'setStatus', line, ok) end)
 end
 
 --- Run a command line from a row or a form, and ask for a list again once it has had time to
 --- land. The answer is written under the list when it comes back.
 ---@param tokens table
 ---@param refresh string|nil
-function Menu.run(tokens, refresh)
+function OpxAdmin.Menu.Run(tokens, refresh)
 	suspended = false
 	if #stack > 0 and handle == nil then draw() end
-	if not Client.execute(tokens) then
-		Menu.status(locale('admin.client.notSent'), false)
+	if not Client.Execute(tokens) then
+		Menu.Status(locale('admin.client.notSent'), false)
 		return
 	end
 	if refresh then
@@ -793,7 +793,7 @@ end
 --- Ask before running.
 ---@param tokens table
 ---@param key string
-function Menu.confirm(tokens, key)
+function OpxAdmin.Menu.Confirm(tokens, key)
 	suspended = false
 	if #stack == 0 then return end
 	top().cursor = nil
@@ -802,45 +802,45 @@ function Menu.confirm(tokens, key)
 end
 
 --- Take the menu down for a form, keeping the stack.
-function Menu.suspend()
+function OpxAdmin.Menu.Suspend()
 	suspended = true
 	if handle == nil then return end
 	local closing = handle
 	handle = nil
-	CreateThread(function() Client.call(MENU, 'close', closing) end)
+	CreateThread(function() Client.Call(MENU, 'close', closing) end)
 end
 
 --- Bring the menu back after a form, with a line under it if there is one.
 ---@param text string|nil
 ---@param ok boolean|nil
-function Menu.resume(text, ok)
+function OpxAdmin.Menu.Resume(text, ok)
 	suspended = false
 	if text then queuedStatus = { text = text, ok = ok } end
 	draw()
 end
 
-function Menu.close()
+function OpxAdmin.Menu.Close()
 	stack = {}
 	suspended = false
-	Forms.close()
+	Forms.Close()
 	if handle == nil then return end
 	local closing = handle
 	handle = nil
-	CreateThread(function() Client.call(MENU, 'close', closing) end)
+	CreateThread(function() Client.Call(MENU, 'close', closing) end)
 end
 
 --- Redraw the open screen in place, for text that changed under it.
-function Menu.refresh()
+function OpxAdmin.Menu.Refresh()
 	if handle ~= nil and not suspended then draw(true) end
 end
 
 ---@return boolean
-function Menu.isOpen()
-	return handle ~= nil or Forms.isOpen()
+function OpxAdmin.Menu.IsOpen()
+	return handle ~= nil or Forms.IsOpen()
 end
 
 ---@return string|nil
-function Menu.screen()
+function OpxAdmin.Menu.Screen()
 	local current = top()
 	return current and current.screen or nil
 end
@@ -853,9 +853,9 @@ end
 --- a menu whose every row is a command the host refuses it.
 RegisterNetEvent('opx77_admin:open', function(payload)
 	if type(payload) ~= 'table' then return end
-	if #stack > 0 and not suspended then return Menu.close() end -- the command toggles
-	if not Client.need(MENU) then
-		Client.toast('admin.client.menuMissing', nil, 'error')
+	if #stack > 0 and not suspended then return Menu.Close() end -- the command toggles
+	if not Client.Need(MENU) then
+		Client.Toast('admin.client.menuMissing', nil, 'error')
 		return
 	end
 	session = {
@@ -910,7 +910,7 @@ RegisterNetEvent('opx77_admin:items', function(payload)
 			class = type(entry.class) == 'string' and entry.class or nil,
 			max = max and math.floor(max) or nil }
 	end)
-	local screen = Menu.screen()
+	local screen = Menu.Screen()
 	if done and (screen == 'itemCategories' or screen == 'itemList' or screen == 'weaponClasses' or
 		screen == 'weaponList' or screen == 'ammoList') then
 		draw(true)
@@ -926,7 +926,7 @@ RegisterNetEvent('opx77_admin:bag', function(payload)
 		return { slot = math.floor(slot), count = math.floor(count), name = entry.name,
 			label = tostring(entry.label or entry.name) }
 	end)
-	if done and Menu.screen() == 'bag' then draw(true) end
+	if done and Menu.Screen() == 'bag' then draw(true) end
 end)
 
 RegisterNetEvent('opx77_admin:roster', function(payload)
@@ -947,7 +947,7 @@ RegisterNetEvent('opx77_admin:roster', function(payload)
 	roster, rosterById = incoming, {}
 	incoming = {}
 	for _, entry in ipairs(roster) do rosterById[entry.id] = entry end
-	local screen = Menu.screen()
+	local screen = Menu.Screen()
 	if screen == 'players' or screen == 'player' or screen == 'root' then draw(true) end
 end)
 
@@ -962,7 +962,7 @@ RegisterNetEvent('opx77_admin:locations', function(payload)
 		end
 	end
 	locations = rows
-	local screen = Menu.screen()
+	local screen = Menu.Screen()
 	if screen == 'locations' or screen == 'saved' then draw(true) end
 end)
 
@@ -995,18 +995,18 @@ AddEventHandler(EVENT, function(payload)
 		local tokens = current.arg.tokens
 		stack[#stack] = nil
 		draw()
-		return Menu.run(tokens)
+		return Menu.Run(tokens)
 	end
 	if type(data.go) == 'string' and SCREENS[data.go] then return push(data.go, data.arg) end
 	if type(data.run) == 'table' then
-		Menu.run(data.run, data.refresh)
-		if data.closeAfter then Menu.close() end
+		Menu.Run(data.run, data.refresh)
+		if data.closeAfter then Menu.Close() end
 		return
 	end
 	if type(data.confirm) == 'table' and type(data.key) == 'string' then
-		return Menu.confirm(data.confirm, data.key)
+		return Menu.Confirm(data.confirm, data.key)
 	end
-	if type(data.form) == 'string' then return Forms.open(data.form, data.arg) end
+	if type(data.form) == 'string' then return Forms.Open(data.form, data.arg) end
 end)
 
 -- ---------------------------------------------------------------------------
@@ -1017,8 +1017,8 @@ end)
 --- /opx77.admin sends, so the host resolves command.opx77.admin before the server answers with
 --- a menu, and a player without the grant gets the host's refusal and nothing else.
 local function pressed()
-	if Menu.isOpen() then return Menu.close() end
-	Client.execute({ OPENER })
+	if Menu.IsOpen() then return Menu.Close() end
+	Client.Execute({ OPENER })
 end
 
 AddEventHandler('onClientResourceStart', function(name)
@@ -1029,14 +1029,14 @@ AddEventHandler('onClientResourceStart', function(name)
 		keys = nil
 	end
 	keys = keys or {}
-	Keys.register(KEY_MENU, 'admin.key.menu', Keys.setting('KEYS.MENU', keys.MENU, 'F9'), pressed)
+	Keys.Register(KEY_MENU, 'admin.key.menu', Keys.Setting('KEYS.MENU', keys.MENU, 'F9'), pressed)
 end)
 
 -- the close row names the key, so a rebind in the pause menu shows without reopening
-Keys.onChanged(Menu.refresh)
+Keys.OnChanged(Menu.Refresh)
 
 AddEventHandler('onClientResourceStop', function(name)
 	if name ~= Client.RESOURCE then return end
 	-- opx77_menu and opx77_input sweep a stopped owner, but not instantly
-	Menu.close()
+	Menu.Close()
 end)

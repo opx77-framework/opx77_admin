@@ -7,8 +7,8 @@ local Server = OpxAdmin.Server
 local Catalog = OpxAdmin.Catalog
 local Text = OpxAdmin.Text
 
-local answer, refuse, audit, tell = Server.answer, Server.refuse, Server.audit, Server.tell
-local count = Server.count
+local answer, refuse, audit, tell = Server.Answer, Server.Refuse, Server.Audit, Server.Tell
+local count = Server.Count
 
 local Settings = Config.VEHICLES or {}
 
@@ -68,20 +68,20 @@ end
 ---@return integer|nil vehicleId, string|nil code
 local function nearest(source)
 	if source <= 0 then return nil, 'console_has_no_player' end
-	local origin = Server.positionOf(source)
+	local origin = Server.PositionOf(source)
 	if origin == nil then return nil, 'no_position' end
 	local read, all = pcall(Open77.vehicles.all)
 	if not read or type(all) ~= 'table' then return nil, 'no_vehicle' end
-	local radius = Server.setting(Settings.NEAR_RADIUS, 30.0)
+	local radius = Server.Setting(Settings.NEAR_RADIUS, 30.0)
 	local best, bestDistance
 	for _, snapshot in ipairs(all) do
-		local id = Text.integer(snapshot.id)
+		local id = Text.Integer(snapshot.id)
 		if id then
 			for _, occupant in ipairs(occupantsOf(snapshot)) do
 				if occupant == source then return id, nil end
 			end
-			local x, y, z = Text.finite(snapshot.x), Text.finite(snapshot.y), Text.finite(snapshot.z)
-			if x and y and z and (Text.integer(snapshot.bucket) or 0) == origin.bucket then
+			local x, y, z = Text.Finite(snapshot.x), Text.Finite(snapshot.y), Text.Finite(snapshot.z)
+			if x and y and z and (Text.Integer(snapshot.bucket) or 0) == origin.bucket then
 				local dx, dy, dz = x - origin.x, y - origin.y, z - origin.z
 				local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
 				if distance <= radius and (bestDistance == nil or distance < bestDistance) then
@@ -102,7 +102,7 @@ local function vehicleOf(source, raw, token)
 		if vehicleId == nil then refuse(source, raw, code) end
 		return vehicleId
 	end
-	local vehicleId = Text.integer(token)
+	local vehicleId = Text.Integer(token)
 	if vehicleId == nil or vehicleId <= 0 or snapshotOf(vehicleId) == nil then
 		refuse(source, raw, 'no_vehicle')
 		return nil
@@ -118,26 +118,26 @@ end
 ---@param event string
 local function spawnFor(source, raw, owner, entry, event)
 	-- a vehicle dropped beside a player still in the menu world lands beside nobody
-	local admitted, code = Server.admit(owner)
+	local admitted, code = Server.Admit(owner)
 	if not admitted then
 		audit(source, event, false, owner, code)
 		return refuse(source, raw, code, { id = owner })
 	end
 	prune()
-	local cap = math.max(1, math.floor(Server.setting(Settings.PER_OWNER, 8)))
+	local cap = math.max(1, math.floor(Server.Setting(Settings.PER_OWNER, 8)))
 	if ownedBy(owner) >= cap then
 		return refuse(source, raw, 'vehicle_cap', { cap = cap, id = owner })
 	end
-	local position = Server.positionOf(owner)
+	local position = Server.PositionOf(owner)
 	if position == nil then return refuse(source, raw, 'no_position') end
 
 	local offset = Settings.SPAWN_OFFSET or {}
 	local vehicleId, reason = Open77.vehicles.create({
 		record = entry.record,
 		position = {
-			x = position.x + Server.setting(offset.X, 3.0),
-			y = position.y + Server.setting(offset.Y, 0.0),
-			z = position.z + Server.setting(offset.Z, 0.25),
+			x = position.x + Server.Setting(offset.X, 3.0),
+			y = position.y + Server.Setting(offset.Y, 0.0),
+			z = position.z + Server.Setting(offset.Z, 0.25),
 		},
 		yaw = 0.0,
 		bucket = position.bucket,
@@ -147,33 +147,33 @@ local function spawnFor(source, raw, owner, entry, event)
 		return refuse(source, raw, 'refused', { reason = tostring(reason) })
 	end
 	spawned[vehicleId] = { owner = owner, record = entry.record, label = entry.label,
-		atMs = Server.nowMs() }
+		atMs = Server.NowMs() }
 	audit(source, event, true, owner, ('%d %s'):format(vehicleId, entry.record))
 	if owner ~= source then tell(owner, 'admin.toast.vehicle', { label = entry.label }) end
 	answer(source, raw, true, 'admin.done.spawned',
 		{ vehicle = vehicleId, label = entry.label, id = owner })
 end
 
-Server.command('opx77.admin.vehicle.spawn', {
+Server.Command('opx77.admin.vehicle.spawn', {
 	help = 'admin.help.spawn', params = { { name = 'vehicle', help = 'admin.help.vehicleName' } },
 	inGame = true,
 	handler = function(source, args, raw)
 		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
-		local entry = Catalog.vehicle(args[1])
+		local entry = Catalog.Vehicle(args[1])
 		if entry == nil then return refuse(source, raw, 'unknown_vehicle') end
 		spawnFor(source, raw, source, entry, 'admin.vehicle.spawn')
 	end,
 })
 
-Server.command('opx77.admin.vehicle.give', {
+Server.Command('opx77.admin.vehicle.give', {
 	help = 'admin.help.giveVehicle',
 	params = { { name = 'playerId|me', help = 'admin.help.playerOrMe' },
 		{ name = 'vehicle', help = 'admin.help.vehicleName' } },
 	handler = function(source, args, raw)
 		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
-		local playerId, code = Server.target(source, args[1])
+		local playerId, code = Server.Target(source, args[1])
 		if playerId == nil then return refuse(source, raw, code) end
-		local entry = Catalog.vehicle(args[2])
+		local entry = Catalog.Vehicle(args[2])
 		if entry == nil then return refuse(source, raw, 'unknown_vehicle') end
 		spawnFor(source, raw, playerId, entry, 'admin.vehicle.give')
 	end,
@@ -196,7 +196,7 @@ local function removeOne(vehicleId)
 	return true
 end
 
-Server.command('opx77.admin.vehicle.remove', {
+Server.Command('opx77.admin.vehicle.remove', {
 	help = 'admin.help.removeVehicle',
 	params = { { name = 'vehicleId|near|mine', help = 'admin.help.removeTarget', optional = true } },
 	handler = function(source, args, raw)
@@ -225,7 +225,7 @@ Server.command('opx77.admin.vehicle.remove', {
 	end,
 })
 
-Server.command('opx77.admin.vehicle.cleanup', {
+Server.Command('opx77.admin.vehicle.cleanup', {
 	help = 'admin.help.cleanup',
 	handler = function(source, _, raw)
 		if not available() then return refuse(source, raw, 'vehicles_unavailable') end
@@ -238,7 +238,7 @@ Server.command('opx77.admin.vehicle.cleanup', {
 	end,
 })
 
-Server.command('opx77.admin.vehicle.repair', {
+Server.Command('opx77.admin.vehicle.repair', {
 	help = 'admin.help.repair',
 	params = { { name = 'vehicleId|near', help = 'admin.help.repairTarget', optional = true },
 		{ name = 'scope', help = 'admin.help.repairScope', optional = true } },
@@ -270,14 +270,14 @@ local function maskOf(name)
 	local masks = Open77.vehicles.flags
 	for _, flag in ipairs(Settings.FLAGS or {}) do
 		if flag:lower() == name:lower() and type(masks) == 'table' then
-			local mask = Text.integer(masks[flag])
+			local mask = Text.Integer(masks[flag])
 			if mask then return mask, flag end
 		end
 	end
 	return nil
 end
 
-Server.command('opx77.admin.vehicle.flag', {
+Server.Command('opx77.admin.vehicle.flag', {
 	help = 'admin.help.flag',
 	params = { { name = 'vehicleId|near', help = 'admin.help.vehicleTarget' },
 		{ name = 'flag', help = 'admin.help.flagName' },
@@ -290,14 +290,14 @@ Server.command('opx77.admin.vehicle.flag', {
 			return refuse(source, raw, 'unknown_flag',
 				{ flags = table.concat(Settings.FLAGS or {}, ', ') })
 		end
-		local wanted, invalid = Text.switch(args[3])
+		local wanted, invalid = Text.Switch(args[3])
 		if invalid then return refuse(source, raw, 'bad_switch') end
 		local vehicleId = vehicleOf(source, raw, args[1])
 		if vehicleId == nil then return end
 		local snapshot = snapshotOf(vehicleId)
 		if snapshot == nil then return refuse(source, raw, 'no_vehicle') end
 		-- read-modify-write on the live bits: the patch replaces the whole set
-		local bits = Text.integer(snapshot.flags) or 0
+		local bits = Text.Integer(snapshot.flags) or 0
 		if wanted == nil then wanted = (bits & mask) == 0 end
 		local nextBits = wanted and (bits | mask) or (bits & ~mask)
 		local ok, reason = Open77.vehicles.update(vehicleId, { flags = nextBits })
@@ -312,7 +312,7 @@ Server.command('opx77.admin.vehicle.flag', {
 
 --- For the status readout.
 ---@return integer
-function Server.spawnedCount()
+function OpxAdmin.Server.SpawnedCount()
 	prune()
 	local total = 0
 	for _ in pairs(spawned) do total = total + 1 end

@@ -10,8 +10,8 @@ OpxAdmin = OpxAdmin or {}
 local Config = OPX_ADMIN_CONFIG
 local Text = OpxAdmin.Text
 
-local Server = {}
-OpxAdmin.Server = Server
+OpxAdmin.Server = {}
+local Server = OpxAdmin.Server
 
 local RESOURCE = GetCurrentResourceName()
 
@@ -23,7 +23,7 @@ local RESOURCE = GetCurrentResourceName()
 --- holds the last one: a NaN would expire nothing, an infinity everything.
 local lastMs = 0
 ---@return integer
-function Server.nowMs()
+function OpxAdmin.Server.NowMs()
 	local read, seconds = pcall(Open77.time.monotonic)
 	if read and type(seconds) == 'number' and seconds == seconds and
 		seconds >= 0 and seconds < math.huge then
@@ -31,21 +31,21 @@ function Server.nowMs()
 	end
 	return lastMs
 end
-local nowMs = Server.nowMs
+local nowMs = Server.NowMs
 
 --- A configured number, or the fallback for anything arithmetic would raise on.
 ---@param value any
 ---@param fallback number
 ---@return number
-function Server.setting(value, fallback)
-	return Text.finite(value) or fallback
+function OpxAdmin.Server.Setting(value, fallback)
+	return Text.Finite(value) or fallback
 end
 
 --- How many arguments were typed. `n` is authoritative: `#args` reads a hole as the end.
 ---@param args table
 ---@return integer
-function Server.count(args)
-	local given = Text.integer(args.n)
+function OpxAdmin.Server.Count(args)
+	local given = Text.Integer(args.n)
 	if given == nil or given < 0 then return #args end
 	return given
 end
@@ -134,7 +134,7 @@ local REPORT = 'admin.text.lines'
 ---@param params? table
 ---@param kind? "info"|"success"|"warning"|"error"  inferred from `ok` and `key` when omitted
 ---@return boolean ok
-function Server.answer(source, raw, ok, key, params, kind)
+function OpxAdmin.Server.Answer(source, raw, ok, key, params, kind)
 	local player = tonumber(source) or 0
 	if player > 0 then
 		if key == REPORT then
@@ -149,7 +149,7 @@ function Server.answer(source, raw, ok, key, params, kind)
 		TriggerClientEvent('opx77_admin:answer', player, raw or '', ok == true,
 			locale(key, params), kind)
 	else
-		local line = OpxAdmin.Locale.english(key, params)
+		local line = OpxAdmin.Locale.English(key, params)
 		if ok then Open77.log.info(line) else Open77.log.warn(line) end
 	end
 	return ok == true
@@ -161,11 +161,11 @@ end
 ---@param code string
 ---@param params? table
 ---@return boolean false
-function Server.refuse(source, raw, code, params)
+function OpxAdmin.Server.Refuse(source, raw, code, params)
 	params = params or {}
 	params.code = code
-	params.reason = params.reason and Text.clean(params.reason, 64) or code
-	Server.answer(source, raw, false, ERRORS[code] or ERRORS.failed, params,
+	params.reason = params.reason and Text.Clean(params.reason, 64) or code
+	Server.Answer(source, raw, false, ERRORS[code] or ERRORS.failed, params,
 		TYPED[code] and 'warning' or 'error')
 	return false
 end
@@ -177,14 +177,14 @@ end
 ---@param key string
 ---@param params? table
 ---@param kind? string  info | success | warning | error
-function Server.tell(playerId, key, params, kind)
+function OpxAdmin.Server.Tell(playerId, key, params, kind)
 	local notifications = Open77.notifications
 	if type(notifications) ~= 'table' or type(notifications.send) ~= 'function' then return end
 	pcall(notifications.send, playerId, {
 		type = kind or 'info',
 		title = locale('admin.toast.title'),
 		message = locale(key, params),
-		durationMs = math.floor(Server.setting(Config.TOAST_MS, 6000)),
+		durationMs = math.floor(Server.Setting(Config.TOAST_MS, 6000)),
 	})
 end
 
@@ -195,48 +195,48 @@ end
 --- The Master-verified display name, cleaned for a log line or a menu row.
 ---@param playerId integer
 ---@return string|nil
-function Server.nameOf(playerId)
+function OpxAdmin.Server.NameOf(playerId)
 	local read, name = pcall(Open77.players.name, playerId)
 	if not read then return nil end
-	return Text.clean(name, 32)
+	return Text.Clean(name, 32)
 end
 
 --- The durable account id. `playerId` is recycled; this is what an audit line is worth keeping.
 ---@param playerId integer
 ---@return string|nil
-function Server.userOf(playerId)
+function OpxAdmin.Server.UserOf(playerId)
 	if (tonumber(playerId) or 0) <= 0 then return nil end
 	local read, identifier = pcall(Open77.players.identifier, playerId)
 	if not read then return nil end
-	return Text.clean(identifier, 64)
+	return Text.Clean(identifier, 64)
 end
 
 --- Resolve what was typed for a target: a connected player id, or `me`.
 ---@param source integer
 ---@param token any
 ---@return integer|nil playerId, string|nil code
-function Server.target(source, token)
+function OpxAdmin.Server.Target(source, token)
 	if token == nil then return nil, 'no_target' end
 	local word = tostring(token):lower()
 	if word == 'me' or word == 'self' then
 		if source <= 0 then return nil, 'console_has_no_player' end
 		return source, nil
 	end
-	local playerId = Text.integer(token)
+	local playerId = Text.Integer(token)
 	if playerId == nil or playerId <= 0 then return nil, 'bad_target' end
-	if Server.nameOf(playerId) == nil then return nil, 'not_connected' end
+	if Server.NameOf(playerId) == nil then return nil, 'not_connected' end
 	return playerId, nil
 end
 
 --- The replicated position, or nil before the world is up.
 ---@param playerId integer
 ---@return { x: number, y: number, z: number, bucket: integer }|nil
-function Server.positionOf(playerId)
+function OpxAdmin.Server.PositionOf(playerId)
 	local read, position = pcall(Open77.players.position, playerId)
 	if not read or type(position) ~= 'table' then return nil end
-	local x, y, z = Text.finite(position.x), Text.finite(position.y), Text.finite(position.z)
+	local x, y, z = Text.Finite(position.x), Text.Finite(position.y), Text.Finite(position.z)
 	if x == nil or y == nil or z == nil then return nil end
-	return { x = x, y = y, z = z, bucket = Text.integer(position.bucket) or 0 }
+	return { x = x, y = y, z = z, bucket = Text.Integer(position.bucket) or 0 }
 end
 
 -- ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ end
 
 ---@param playerId integer
 ---@return table|nil
-function Server.lifeOf(playerId)
+function OpxAdmin.Server.LifeOf(playerId)
 	local read, life = pcall(Open77.players.getLifeState, playerId)
 	if not read or type(life) ~= 'table' then return nil end
 	return life
@@ -257,8 +257,8 @@ end
 --- be read. Kick and ban do not come through here; they touch the session, not the body.
 ---@param playerId integer
 ---@return boolean admitted, table|string lifeOrCode
-function Server.admit(playerId)
-	local life = Server.lifeOf(playerId)
+function OpxAdmin.Server.Admit(playerId)
+	local life = Server.LifeOf(playerId)
 	if life == nil then return false, 'not_incarnated' end
 	local ready = Open77.ready
 	if type(ready) ~= 'table' or type(ready.isReady) ~= 'function' then
@@ -279,15 +279,15 @@ end
 ---@param bucket integer|nil  nil keeps the one they are in
 ---@param why string          what the kill is attributed to
 ---@return boolean ok, string|nil code, string|nil reason
-function Server.place(playerId, point, heading, bucket, why)
-	local admitted, code = Server.admit(playerId)
+function OpxAdmin.Server.Place(playerId, point, heading, bucket, why)
+	local admitted, code = Server.Admit(playerId)
 	if not admitted then return false, code end
 
 	local placement = Config.PLACEMENT or {}
-	local health = math.min(1.0, math.max(0.01, Server.setting(placement.HEALTH, 1.0)))
-	local graceMs = math.max(0, math.floor(Server.setting(placement.GRACE_MS, 5000)))
+	local health = math.min(1.0, math.max(0.01, Server.Setting(placement.HEALTH, 1.0)))
+	local graceMs = math.max(0, math.floor(Server.Setting(placement.GRACE_MS, 5000)))
 	if bucket == nil then
-		local position = Server.positionOf(playerId)
+		local position = Server.PositionOf(playerId)
 		bucket = position and position.bucket or 0
 	end
 
@@ -325,7 +325,7 @@ end
 
 local ledger = {}
 local sequence = 0
-local AUDIT_ENTRIES = math.max(10, math.floor(Server.setting(Config.AUDIT_ENTRIES, 200)))
+local AUDIT_ENTRIES = math.max(10, math.floor(Server.Setting(Config.AUDIT_ENTRIES, 200)))
 
 --- Record one staff action. Two sinks: a line in the platform log, in the same
 --- `[audit] event=... severity=...` shape opx77_core writes so one grep finds both, and a ring
@@ -335,7 +335,7 @@ local AUDIT_ENTRIES = math.max(10, math.floor(Server.setting(Config.AUDIT_ENTRIE
 ---@param ok boolean
 ---@param target integer|nil the player acted on, if any
 ---@param detail string|nil  English, for the log
-function Server.audit(source, event, ok, target, detail)
+function OpxAdmin.Server.Audit(source, event, ok, target, detail)
 	local actor = tonumber(source) or 0
 	sequence = sequence + 1
 	local entry = {
@@ -344,10 +344,10 @@ function Server.audit(source, event, ok, target, detail)
 		event = event,
 		ok = ok == true,
 		actor = actor,
-		actorName = actor > 0 and (Server.nameOf(actor) or '?') or 'console',
+		actorName = actor > 0 and (Server.NameOf(actor) or '?') or 'console',
 		target = target,
-		targetName = target and Server.nameOf(target) or nil,
-		detail = Text.clean(detail, 120) or '',
+		targetName = target and Server.NameOf(target) or nil,
+		detail = Text.Clean(detail, 120) or '',
 	}
 	ledger[#ledger + 1] = entry
 	if #ledger > AUDIT_ENTRIES then table.remove(ledger, 1) end
@@ -355,20 +355,20 @@ function Server.audit(source, event, ok, target, detail)
 	local data = {
 		actorName = entry.actorName,
 		target = target,
-		targetUser = target and Server.userOf(target) or nil,
+		targetUser = target and Server.UserOf(target) or nil,
 		targetName = entry.targetName,
 	}
 	local encoded, dataText = pcall(json.encode, data)
 	local severity = entry.ok and 'info' or 'warn'
 	Open77.log[severity](('[audit] event=%s severity=%s player=%d user=%s message=%q data=%s')
-		:format(event, severity, actor, Server.userOf(actor) or '-', entry.detail,
+		:format(event, severity, actor, Server.UserOf(actor) or '-', entry.detail,
 			encoded and dataText or '{}'))
 end
 
 --- The most recent entries, newest last.
 ---@param count integer
 ---@return AuditEntry[]
-function Server.recent(count)
+function OpxAdmin.Server.Recent(count)
 	local out = {}
 	for index = math.max(1, #ledger - count + 1), #ledger do out[#out + 1] = ledger[index] end
 	return out
@@ -405,26 +405,26 @@ end
 --- in this resource acts on the world or on somebody, and `true` below is not negotiable.
 ---@param name string
 ---@param spec AdminCommandSpec
-function Server.command(name, spec)
+function OpxAdmin.Server.Command(name, spec)
 	if byName[name] ~= nil then
 		Open77.log.error(('command %s is registered twice; the second is dropped'):format(name))
 		return
 	end
 	local rate = Config.RATE or {}
-	local interval = spec.read and Server.setting(rate.READ_MS, 1000)
-		or Server.setting(rate.ACTION_MS, 400)
+	local interval = spec.read and Server.Setting(rate.READ_MS, 1000)
+		or Server.Setting(rate.ACTION_MS, 400)
 
 	RegisterCommand(name, function(source, args, raw)
 		local player = tonumber(source) or 0
 		raw = type(raw) == 'string' and raw or name
 		args = type(args) == 'table' and args or { n = 0 }
-		if spec.inGame and player <= 0 then return Server.refuse(player, raw, 'in_game_only') end
-		if cooled(player, name, interval) then return Server.refuse(player, raw, 'too_fast') end
+		if spec.inGame and player <= 0 then return Server.Refuse(player, raw, 'in_game_only') end
+		if cooled(player, name, interval) then return Server.Refuse(player, raw, 'too_fast') end
 		-- a raise inside a command handler is otherwise swallowed with no answer at all
 		local ran, failure = pcall(spec.handler, player, args, raw)
 		if not ran then
 			Open77.log.error(('%s raised: %s'):format(name, tostring(failure)))
-			Server.refuse(player, raw, 'failed')
+			Server.Refuse(player, raw, 'failed')
 		end
 	end, true)
 
@@ -434,7 +434,7 @@ function Server.command(name, spec)
 end
 
 ---@return AdminCommand[]
-function Server.commands()
+function OpxAdmin.Server.Commands()
 	return commands
 end
 
@@ -444,7 +444,7 @@ end
 ---@param playerId integer
 ---@param name string
 ---@return boolean|nil
-function Server.permitted(playerId, name)
+function OpxAdmin.Server.Permitted(playerId, name)
 	if playerId <= 0 then return true end
 	local acl = Open77.acl
 	if type(acl) ~= 'table' or type(acl.isAllowed) ~= 'function' then return nil end
@@ -460,7 +460,7 @@ RegisterNetEvent('chat:ready', function()
 	if player <= 0 or cooled(player, 'chat:ready', 2000) then return end
 	local suggestions = {}
 	for _, command in ipairs(commands) do
-		if Server.permitted(player, command.name) == true then
+		if Server.Permitted(player, command.name) == true then
 			local parameters = {}
 			for index, parameter in ipairs(command.params) do
 				parameters[index] = {
@@ -495,7 +495,7 @@ for _, line in ipairs(OpxAdmin.Catalog.problems) do Open77.log.warn(line) end
 
 do
 	-- a key in one catalogue and missing from the other is a defect, not a fallback
-	local english, french = OpxAdmin.Locale.keys('en'), OpxAdmin.Locale.keys('fr')
+	local english, french = OpxAdmin.Locale.Keys('en'), OpxAdmin.Locale.Keys('fr')
 	for key in pairs(english) do
 		if not french[key] then Open77.log.warn('locales/fr.lua is missing ' .. key) end
 	end

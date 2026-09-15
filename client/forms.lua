@@ -8,8 +8,8 @@ local Config = OPX_ADMIN_CONFIG
 local Client = OpxAdmin.Client
 local Text = OpxAdmin.Text
 
-local Forms = {}
-OpxAdmin.Forms = Forms
+OpxAdmin.Forms = {}
+local Forms = OpxAdmin.Forms
 
 local INPUT = 'opx77_input'
 local CORE = 'opx77_core'
@@ -43,7 +43,7 @@ end
 ---@param key string     jobs | gangs
 ---@return table[]|nil
 local function groupOptions(export, key)
-	local result = Client.call(CORE, export)
+	local result = Client.Call(CORE, export)
 	if result == nil or type(result[key]) ~= 'table' then return nil end
 	local options = {}
 	for name, group in pairs(result[key]) do
@@ -67,8 +67,8 @@ FORMS.health = {
 	end,
 	submit = function(values, arg)
 		-- a slider answers a float, and `%d` raises on one with a fraction
-		local points = math.floor(Text.finite(values.points) or 0)
-		menu().run({ 'opx77.admin.player.health', tostring(arg), ('%d'):format(points) })
+		local points = math.floor(Text.Finite(values.points) or 0)
+		menu().Run({ 'opx77.admin.player.health', tostring(arg), ('%d'):format(points) })
 	end,
 }
 
@@ -80,7 +80,7 @@ FORMS.armor = {
 		} }
 	end,
 	submit = function(values, arg)
-		menu().run({ 'opx77.admin.player.armor', tostring(arg), values.points })
+		menu().Run({ 'opx77.admin.player.armor', tostring(arg), values.points })
 	end,
 }
 
@@ -102,7 +102,7 @@ local function groupForm(export, key, titleKey, link)
 		end,
 		submit = function(values, arg)
 			if type(link) ~= 'string' then return end
-			menu().run({ link, tostring(arg), values.group, values.grade })
+			menu().Run({ link, tostring(arg), values.group, values.grade })
 		end,
 	}
 end
@@ -112,7 +112,7 @@ FORMS.gang = groupForm('GetGangs', 'gangs', 'admin.form.gang', LINKS.GANG)
 
 FORMS.money = {
 	build = function()
-		local result = Client.call(CORE, 'GetSharedConfig')
+		local result = Client.Call(CORE, 'GetSharedConfig')
 		local types = result and type(result.config) == 'table' and result.config.moneyTypes or nil
 		if type(types) ~= 'table' then return nil end
 		local options = {}
@@ -128,7 +128,7 @@ FORMS.money = {
 	end,
 	submit = function(values, arg)
 		if type(LINKS.MONEY) ~= 'string' then return end
-		menu().run({ LINKS.MONEY, tostring(arg), values.type, values.amount })
+		menu().Run({ LINKS.MONEY, tostring(arg), values.type, values.amount })
 	end,
 }
 
@@ -141,7 +141,7 @@ local function countForm(titleKey, commandName, refresh)
 	return {
 		build = function(arg)
 			if type(arg) ~= 'table' or type(arg.n) ~= 'string' then return nil end
-			local held = Text.integer(arg.c)
+			local held = Text.Integer(arg.c)
 			local label = tostring(arg.l or arg.n)
 			return { title = locale(titleKey),
 				description = held and locale('admin.form.itemHeld', { label = label, count = held })
@@ -152,7 +152,7 @@ local function countForm(titleKey, commandName, refresh)
 				} }
 		end,
 		submit = function(values, arg)
-			menu().run({ commandName, tostring(arg.t), arg.n, values.count }, refresh)
+			menu().Run({ commandName, tostring(arg.t), arg.n, values.count }, refresh)
 		end,
 	}
 end
@@ -165,7 +165,7 @@ FORMS.itemRemove = countForm('admin.form.itemRemove', 'opx77.admin.inventory.rem
 FORMS.ammoGive = {
 	build = function(arg)
 		if type(arg) ~= 'table' or type(arg.n) ~= 'string' then return nil end
-		local full = Text.integer(arg.x)
+		local full = Text.Integer(arg.x)
 		local label = tostring(arg.l or arg.n)
 		return { title = locale('admin.form.ammoGive'),
 			description = full and locale('admin.form.ammoLoad', { label = label, max = full }) or label,
@@ -175,7 +175,7 @@ FORMS.ammoGive = {
 			} }
 	end,
 	submit = function(values, arg)
-		menu().run({ 'opx77.admin.weapon.giveammo', tostring(arg.t), arg.n, values.count })
+		menu().Run({ 'opx77.admin.weapon.giveammo', tostring(arg.t), arg.n, values.count })
 	end,
 }
 
@@ -187,8 +187,8 @@ FORMS.kick = {
 	end,
 	submit = function(values, arg)
 		local tokens = { 'opx77.admin.moderate.kick', tostring(arg) }
-		if Text.clean(values.reason, 120) then tokens[3] = values.reason end
-		menu().confirm(tokens, 'admin.confirm.kick')
+		if Text.Clean(values.reason, 120) then tokens[3] = values.reason end
+		menu().Confirm(tokens, 'admin.confirm.kick')
 	end,
 }
 
@@ -206,20 +206,20 @@ FORMS.ban = {
 	end,
 	submit = function(values, arg)
 		local tokens = { 'opx77.admin.moderate.ban', tostring(arg), values.duration }
-		if Text.clean(values.reason, 120) then tokens[4] = values.reason end
-		menu().confirm(tokens, 'admin.confirm.ban')
+		if Text.Clean(values.reason, 120) then tokens[4] = values.reason end
+		menu().Confirm(tokens, 'admin.confirm.ban')
 	end,
 }
 
 FORMS.announce = {
 	build = function()
-		local maximum = math.floor(Text.finite((Config.ANNOUNCE or {}).MAX_CHARACTERS) or 240)
+		local maximum = math.floor(Text.Finite((Config.ANNOUNCE or {}).MAX_CHARACTERS) or 240)
 		return { title = locale('admin.form.announce'), fields = {
 			text('message', 'admin.field.message', { maxLength = maximum, required = true }),
 		} }
 	end,
 	submit = function(values)
-		menu().confirm({ 'opx77.admin.world.announce', values.message }, 'admin.confirm.announce')
+		menu().Confirm({ 'opx77.admin.world.announce', values.message }, 'admin.confirm.announce')
 	end,
 }
 
@@ -234,8 +234,8 @@ FORMS.coords = {
 	end,
 	submit = function(values, arg)
 		local tokens = { 'opx77.admin.player.tp', tostring(arg or 'me'), values.x, values.y, values.z }
-		if Text.finite(values.heading) then tokens[6] = values.heading end
-		menu().run(tokens)
+		if Text.Finite(values.heading) then tokens[6] = values.heading end
+		menu().Run(tokens)
 	end,
 }
 
@@ -249,8 +249,8 @@ FORMS.location = {
 	end,
 	submit = function(values)
 		local tokens = { 'opx77.admin.world.loc.add', values.name }
-		if Text.clean(values.label, 48) then tokens[3] = values.label end
-		menu().run(tokens, 'locations')
+		if Text.Clean(values.label, 48) then tokens[3] = values.label end
+		menu().Run(tokens, 'locations')
 	end,
 }
 
@@ -263,7 +263,7 @@ FORMS.time = {
 	end,
 	submit = function(values)
 		if type(LINKS.TIME) ~= 'string' then return end
-		menu().run({ LINKS.TIME, values.time })
+		menu().Run({ LINKS.TIME, values.time })
 	end,
 }
 
@@ -272,27 +272,27 @@ FORMS.time = {
 ---@param kind string
 ---@param arg any
 ---@return boolean asked
-function Forms.open(kind, arg)
+function OpxAdmin.Forms.Open(kind, arg)
 	local form = FORMS[kind]
 	if form == nil then return false end
-	if not Client.need(INPUT) then
-		menu().status(locale('admin.client.inputMissing'), false)
+	if not Client.Need(INPUT) then
+		menu().Status(locale('admin.client.inputMissing'), false)
 		return false
 	end
-	menu().suspend()
+	menu().Suspend()
 	CreateThread(function()
 		local spec = form.build(arg)
 		if spec == nil then
-			menu().resume(locale('admin.client.formUnavailable'), false)
+			menu().Resume(locale('admin.client.formUnavailable'), false)
 			return
 		end
 		spec.id = 'opx77_admin.' .. kind
 		spec.event = EVENT
 		spec.data = { form = kind, arg = arg }
-		local opened, reason = Client.call(INPUT, 'open', spec)
+		local opened, reason = Client.Call(INPUT, 'open', spec)
 		if opened == nil then
 			Open77.log.warn(('form %s did not open: %s'):format(kind, tostring(reason)))
-			menu().resume(locale('admin.client.formUnavailable'), false)
+			menu().Resume(locale('admin.client.formUnavailable'), false)
 			return
 		end
 		handle = opened.handle
@@ -301,15 +301,15 @@ function Forms.open(kind, arg)
 end
 
 ---@return boolean
-function Forms.isOpen()
+function OpxAdmin.Forms.IsOpen()
 	return handle ~= nil
 end
 
-function Forms.close()
+function OpxAdmin.Forms.Close()
 	if handle == nil then return end
 	local closing = handle
 	handle = nil
-	CreateThread(function() Client.call(INPUT, 'close', closing) end)
+	CreateThread(function() Client.Call(INPUT, 'close', closing) end)
 end
 
 --- The answer. Any resource on this machine can raise this name, so the shape and the owner are
@@ -321,7 +321,7 @@ AddEventHandler(EVENT, function(payload)
 	local data = type(payload.data) == 'table' and payload.data or {}
 	local form = FORMS[data.form]
 	if payload.action ~= 'submit' or form == nil or type(payload.values) ~= 'table' then
-		return menu().resume()
+		return menu().Resume()
 	end
 	form.submit(payload.values, data.arg)
 end)
