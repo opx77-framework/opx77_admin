@@ -132,7 +132,9 @@ d'accès, ligne de boot) et refuse un doublon par un log. Chaque exécution pass
 plancher par opérateur et par commande, `RATE.READ_MS` pour une commande de lecture,
 `RATE.ACTION_MS` sinon ; la console n'est jamais refroidie. Le handler tourne sous `pcall` : une
 levée dans un handler de commande serait sinon avalée sans réponse ; elle est journalisée et
-répondue `failed`. Une commande `inGame` est refusée à la console.
+répondue `failed`. Une commande `inGame` est refusée à la console. Le même plancher,
+`OpxAdmin.Server.Cooled`, sert à `chat:ready` et à chaque sujet de rafraîchissement du menu
+(créneau `refresh:<topic>`) : une seule table, `lastRun`, et un seul handler de départ l'oublie.
 
 `OpxAdmin.Server.Count` lit `args.n`, qui fait foi : `#args` s'arrête au premier trou.
 `OpxAdmin.Server.NowMs` (et `OpxAdmin.Client.NowMs`) convertit `Open77.time.monotonic`, qui répond
@@ -141,8 +143,8 @@ un infini tout. `OpxAdmin.Server.Setting` rend le nombre configuré ou le repli 
 quoi l'arithmétique lèverait.
 
 `onPlayerDisconnected` est le seul événement de départ que lève la plateforme ; chaque fichier qui
-tient un état par joueur ajoute son propre handler (planchers de commande, planchers de
-rafraîchissement, modes de déplacement et vitesse choisie) : un id recyclé ne doit pas hériter des
+tient un état par joueur ajoute son propre handler (`server/main.lua` pour tous les planchers,
+`server/players.lua` pour les modes de déplacement et la vitesse choisie) : un id recyclé ne doit pas hériter des
 interrupteurs du dernier occupant.
 
 Au chargement de `server/main.lua`, les problèmes du catalogue (`OpxAdmin.Catalog.problems`) sont
@@ -180,10 +182,12 @@ resource va aussi sous la liste quand le menu l'a envoyée.
 `OpxAdmin.Server.NameOf` lit le nom d'affichage vérifié par le Master, nettoyé pour une ligne de
 journal ou de menu. `OpxAdmin.Server.UserOf` lit l'identifiant de compte durable : un `playerId`
 est recyclé, c'est l'identifiant qui vaut d'être gardé dans une ligne d'audit.
-`OpxAdmin.Server.Target` résout un id de joueur connecté ou `me` / `self`, que la console n'a pas ;
-c'est la cible des commandes qui agissent sur un corps. `OpxAdmin.Inventory.Target` accepte en plus
-un citizen id, qui atteint un personnage absent du monde : l'inventaire le résout et le vérifie
-lui-même.
+`OpxAdmin.Server.Target` résout un id de joueur connecté ou `me` / `self`, que la console n'a pas,
+et répond lui-même le refus quand il n'y en a pas ; c'est la cible des commandes qui agissent sur
+un corps. `OpxAdmin.Inventory.Target` accepte en plus un citizen id, qui atteint un personnage
+absent du monde : l'inventaire le résout et le vérifie lui-même. `OpxAdmin.Inventory.Resolve`
+en est la forme répondue des commandes de sac et d'arme, qui refuse aussi un inventaire arrêté,
+et `OpxAdmin.Inventory.HOLDER` leur paramètre de suggestion commun.
 
 ## La porte de disponibilité
 
@@ -192,7 +196,8 @@ côté serveur sur un client qui n'est pas incarné fait planter ce client, donc
 exigées : un état de vie (`OpxAdmin.Server.LifeOf`, que l'écran « continuer » n'a pas) et une porte
 `Open77.ready.isReady` ouverte. Elle échoue fermée quand la porte ne peut pas être lue ; `isReady`
 est appelé sous `pcall` parce qu'il lève pour un id que l'hôte ne connaît pas au lieu de répondre
-false.
+false. `OpxAdmin.Server.Admitted` en est la forme répondue et auditée, que prend toute commande
+qui agit sur un corps ; le placement et le roster lisent `Admit` nu.
 
 La porte garde chaque téléportation, soin, mise à mort, bascule d'invulnérabilité, holster et
 livraison de véhicule. `goto` exige que la destination soit un vrai corps aussi : un joueur non
@@ -208,7 +213,9 @@ un joueur coincé sur l'écran de chargement doit rester expulsable. Un changeme
 transform : seul le respawn porte le fondu, le préchargement du streaming et la fenêtre de grâce.
 Un joueur déjà mort n'est pas tué une seconde fois. Si le respawn est refusé après un kill, le
 corps est à terre et n'a pas été relevé : il est réanimé là où il est tombé plutôt que laissé ainsi
-(`respawn_refused`). Le kill est attribué à `opx77_admin:<why>`.
+(`respawn_refused`). Le kill est attribué à `opx77_admin:<why>`. La fraction de santé et la
+fenêtre de grâce rendues au joueur, au respawn comme à la réanimation, viennent d'un seul
+endroit, `OpxAdmin.Server.Recovery`.
 
 `Open77.players.getHealth` répond en points absolus ; `revive` et `respawn` prennent une fraction
 (`PLACEMENT.HEALTH`, bornée à 0,01..1). Les deux ne se mélangent jamais : `healthOf` rend le
@@ -226,13 +233,16 @@ du staff sur un client honnête.
 
 `noclip` et `mapPick` (`server/players.lua`) retiennent, par joueur, le nom de la commande qui a
 allumé le mode, pour qu'une permission retirée l'éteigne ; `speedChosen` retient la vitesse
-choisie, pour que rallumer le noclip ne renvoie pas `NOCLIP.SPEED`. Un fil vérifie toutes les 2 s
+choisie, pour que rallumer le noclip ne renvoie pas `NOCLIP.SPEED`. Hors de 0,1..500,
+`NOCLIP.SPEED` vaut 40 m/s (`DEFAULT_SPEED`) : la moitié client n'applique une vitesse que dans
+cette plage, et ses touches retombent sur la même valeur. Un fil vérifie toutes les 2 s
 que cette permission est toujours accordée : `acl.reload` peut la retirer pendant que le mode est
 allumé, et aucun événement ne le dit. Seul un `false` éteint ; un `nil` « impossible à dire »
 laisse le mode. À l'arrêt de la resource côté serveur, chaque mode allumé est éteint : la moitié
 client le fait aussi à son propre arrêt, mais ceci atteint un client qui ne s'arrête pas (un
 rechargement du seul serveur). Côté client, `noclipOn` et `mapArmed` retiennent ce que la resource
-a allumé, pour que son arrêt n'éteigne que cela.
+a allumé, pour que son arrêt n'éteigne que cela. `OpxAdmin.Client.TravelNative` est la seule
+lecture d'une fonction `Open77.travel`, partagée avec `client/controls.lua`.
 
 Le double-clic sur la carte (`open77:map:picked`, levé par l'hôte tant que la sélection est armée)
 repart comme la commande `opx77.admin.self.maptravel <x> <y> <z>` : l'ACL est résolue à nouveau à
@@ -285,8 +295,9 @@ commande. Les identifiants `opx77_admin.menu`, `opx77_admin.noclipFaster`,
 `opx77_admin.noclipSlower` sont stables : la réassignation d'un joueur est stockée sous eux. Un
 refus coûte une ligne de journal ; la commande marche toujours.
 
-- Une pression pendant qu'une autre surface tient le clavier (`Open77.input.isCaptured` : le chat,
-  un formulaire, le menu pause) ne fait rien. Un relâchement n'est jamais avalé : une touche
+- Une pression pendant qu'une autre surface tient le clavier (`OpxAdmin.Keys.Captured`, sur
+  `Open77.input.isCaptured` : le chat, un formulaire, le menu pause) ne fait rien ; les touches de
+  vitesse relâchent aussi leur répétition quand le clavier est pris. Un relâchement n'est jamais avalé : une touche
   relâchée derrière une surface ne doit pas rester tenue ici. Le cinquième argument n'est passé
   que s'il existe : c'est lui qui fait d'un mapping un mapping maintenu.
 - Deux formes de réponse sont documentées : le guide des touches répond `true, key`, la référence
@@ -330,7 +341,8 @@ commande s'exécute sous le `pcall` de `OpxAdmin.Server.Command`.
   est traduite par `CODES` (`caller_denied` -> `inventory_denied`, `no_room` -> `bag_no_room`,
   ...) ; un code inconnu devient `refused`, avec le code de l'inventaire comme raison d'audit.
   Les refus qui ne demandent aucun appel (cible invalide, inventaire arrêté) sont répondus avant
-  de lancer le thread.
+  de lancer le thread (`OpxAdmin.Inventory.Resolve`), et un nombre tapé passe par
+  `OpxAdmin.Inventory.Count`.
 - Client : le troisième retour dit si la cible a répondu ; un refus fait autorité, un appel qui
   n'a jamais abouti ne dit rien. Les dépendances souples manquantes (`opx77_menu`, `opx77_input`)
   sont signalées une fois par resource (`OpxAdmin.Client.Need`), pas une fois par clic.
@@ -388,6 +400,9 @@ serait pas enregistrée.
   l'objet a quitté le sac.
 - **Lecture** (`weapon.read`) : les armes du sac, leurs cartouches, et celle qui est dégainée
   (`GetHeldWeapon`), reconnue par son numéro de série.
+
+Recharge, retrait et lecture commencent par `weaponsInBag` : le catalogue, l'arme nommée s'il y en
+a une, puis le sac, chaque échec répondu et audité sous l'événement de la commande.
 
 **Le holster, dernier usage du relais.** Une seule chose reste sur `Open77.weapons`, le relais de
 la plateforme vers la moitié client d'`open77_weapons` : rengainer, parce que l'inventaire n'a pas
@@ -468,7 +483,7 @@ de chat à chaque ouverture.
   Il échoue fermé : sans lecteur d'ACL rien ne distingue le staff des autres, et la commande
   ouvreuse reste là pour tout rafraîchir. Les piles d'un sac sont les affaires de quelqu'un :
   elles exigent en plus la permission de voir ou d'enlever. `RATE.REFRESH_MS` borne la cadence par
-  joueur et par sujet.
+  joueur et par sujet, par `OpxAdmin.Server.Cooled`, avant la vérification de la permission.
 - **La carte d'accès** (`accessOf`) : un indice de dessin et rien de plus. Seuls les grants
   voyagent : un `false` coûterait deux nœuds de valeur et ne dit rien de plus qu'un `nil`.
 - **Envois par morceaux** (`pushChunks`, `ROSTER_CHUNK` = 20 lignes) : l'hôte abandonne sans un
@@ -486,6 +501,9 @@ paginée à `PAGE_ROWS` (20) avec une ligne « Plus » : `opx77_menu` vérifie c
 dans un seul handler, à quelques centaines d'instructions VM par ligne, et l'hôte arrête un handler
 client au-delà de 10 000 instructions (`paged`). Ne pas retirer cette pagination.
 
+- Les lignes grisées passent par trois aides : `denied` (l'ACL refuse la commande où mène la
+  ligne), `offline` (l'inventaire est arrêté) et `unavailable` ; une liste vide montre la ligne
+  `empty`. `takeDown` ferme le handle ouvert, pour un formulaire comme pour une fermeture.
 - `drawn` est incrémenté à chaque dessin : un `open` lent qui a perdu la course ne réclame pas le
   handle. Un dessin en place tente `update` et retombe sur `open`.
 - Sans lecteur d'ACL sur l'hôte (`aclKnown == false`), toutes les lignes sont actives et l'hôte
@@ -587,14 +605,7 @@ nommées littéralement ailleurs dans le code.
 
 ## Limites connues
 
-- `opx77.admin.player.tp` : `given == 5 and Text.Finite(args[5]) or 0.0` transforme un cap
-  illisible en 0.0, donc le refus `bad_coordinates` sur le cap ne se déclenche jamais.
-- `NOCLIP.SPEED` est lu par le serveur sans contrôle de plage, alors que la moitié client ignore
-  une vitesse hors de 0,1..500 : une valeur hors plage laisse la vitesse native inchangée sans
-  message.
 - `opx77.admin.vehicle.remove mine` répond `ok = removed > 0` : n'avoir rien à retirer est répondu
   comme une erreur, là où `cleanup` répond un succès.
-- Le holster n'audite pas un `holster` refusé à l'envoi, alors que les refus de la complétion sont
-  audités.
 - `OpxAdmin.Catalog.problems` n'est journalisé que par le serveur ; les données étant les mêmes,
   sa ligne couvre le client.

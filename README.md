@@ -244,8 +244,8 @@ item's rounds any more.
 
 **What stays on the relay, and why.** The inventory has no export that holsters, so the holster
 is still the platform's `Open77.weapons.holster`: it changes no item and leaves the weapon in
-its slot. Nothing else does: a refill used to state a drawn weapon's rounds through `setAmmo`,
-and now only adds items, which the player loads themselves.
+its slot. Nothing else uses the relay: a refill only adds ammunition items, which the player
+loads themselves.
 
 **Without `opx77_inventory`** — stopped, or its exports answering `export_not_found` or not at
 all — every weapon command but the holster and every inventory command answers a refusal toast,
@@ -408,7 +408,7 @@ resource stops.
 ## Safety
 
 - **Nothing touches a body behind a closed readiness gate.** Every teleport, kill, heal, god
-  toggle, holster, weapon relay request and vehicle delivery first needs a life state — the
+  toggle, holster and vehicle delivery first needs a life state — the
   continue screen has none — and `Open77.ready.isReady` true. It fails closed when the gate
   cannot be read. Acting server-side on a client that is not incarnated crashes it. On a resource
   set with nothing that sends `open77:session:gameplayReady` the gate never opens, and every such
@@ -499,7 +499,7 @@ weapon that takes it.
 | `PLACEMENT.GRACE_MS` | `5000` | respawn protection after a move |
 | `PLACEMENT.BESIDE` | `1.5, 0, 0` | offset from the other player on goto and bring |
 | `PLACEMENT.OBSERVE_HEIGHT` | `2.0` | metres above the target an observer lands, noclip on |
-| `NOCLIP.SPEED` | `40.0` | m/s the first time noclip goes on; the native accepts 0.1..500 |
+| `NOCLIP.SPEED` | `40.0` | m/s the first time noclip goes on; the native accepts 0.1..500, and a value outside it is 40 |
 | `NOCLIP.MIN_SPEED` | `1.0` | the lowest the speed keys go, 0.1..500 |
 | `NOCLIP.MAX_SPEED` | `500.0` | the highest the speed keys go, `MIN_SPEED`..500 |
 | `NOCLIP.STEP` | `0.15` | one press changes the speed by this fraction of itself, 0.01..1 |
